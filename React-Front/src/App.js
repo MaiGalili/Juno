@@ -4,8 +4,6 @@ import Header from "./components/header/Header.jsx";
 import Footer from "./components/footer/Footer.jsx";
 
 import LandingPage from "./pages/landingPage/LandingPage.jsx";
-import About from "./pages/about/About.jsx";
-import Help from "./pages/help/Help.jsx";
 import Calendar from "./pages/mainPage/MainPage.jsx";
 import Error404 from "./pages/error404/Error404.jsx";
 
@@ -17,8 +15,6 @@ function App() {
 
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/help" element={<Help />} />
           {/* <//Route path="/post/:id" element={<SinglePost />} /> */}
           <Route path="*" element={<Error404 />} />
           {/* after login! */}

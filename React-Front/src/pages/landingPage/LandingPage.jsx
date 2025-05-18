@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import LoginBox from "../../components/loginBox/LoginBox.jsx";
 import SignUp from "../../components/singUpBox/SingUpBox.jsx";
 import ForgotPassword from "../../components/forgotPassword/ForgotPassword.jsx";
+import About from "../../components/about/About.jsx";
 
 function LandingPage() {
   return (
@@ -12,6 +13,7 @@ function LandingPage() {
       <LoginBox />
       <ForgotPassword />
       <SignUp />
+      <About />
     </div>
   );
 }
