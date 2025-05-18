@@ -8,6 +8,7 @@ function Footer() {
       <p className={styles.copy}>
         &copy; {new Date().getFullYear()} Juno Calendar
       </p>
+      <p> בדיקה</p>
       <nav className={styles.footerNav}>
         <Link to="/">Juno</Link>
         <Link to="/about">About</Link>
