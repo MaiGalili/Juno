@@ -1,34 +1,38 @@
 import React from "react";
-import "./singUp.modules.css";
+import styles from "./singUpBox.module.css";
 
 const SignUp = () => {
   return (
-    <div className="signup-container">
-      <h1 className="signup-title">Hello Newcomer!</h1>
+    <div className={styles.signupContainer}>
+      <h1 className={styles.signupTitle}>Hello Newcomer!</h1>
 
-      <div className="text-field">
+      <div className={styles.textField}>
         <input
           type="email"
-          class="text-input"
+          className={styles.textInput}
           name="email"
-          autocomplete="email"
+          autoComplete="email"
           placeholder="Enter your email"
         />
       </div>
 
-      <div className="text-field">
-        <input type="password" placeholder="Password" className="text-input" />
-      </div>
-
-      <div className="text-field">
+      <div className={styles.textField}>
         <input
-          type="Password"
-          placeholder="Retype Password"
-          className="text-input"
+          type="password"
+          placeholder="Password"
+          className={styles.textInput}
         />
       </div>
 
-      <button className="signup-button">Sign Up</button>
+      <div className={styles.textField}>
+        <input
+          type="password"
+          placeholder="Retype Password"
+          className={styles.textInput}
+        />
+      </div>
+
+      <button className={styles.signupButton}>Sign Up</button>
     </div>
   );
 };

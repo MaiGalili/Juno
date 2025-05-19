@@ -1,4 +1,4 @@
-.signup-container {
+.signupContainer {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -14,7 +14,7 @@
   border-radius: 8px;
 }
 
-.signup-title {
+.signupTitle {
   font-family: "Roboto", sans-serif;
   font-style: normal;
   font-weight: 400;
@@ -24,7 +24,7 @@
   margin: 0;
 }
 
-.text-field {
+.textField {
   display: flex;
   flex-direction: column;
   width: 356px;
@@ -35,7 +35,7 @@
   justify-content: center;
 }
 
-.text-input {
+.textInput {
   border: none;
   outline: none;
   width: 100%;
@@ -47,13 +47,13 @@
   background: transparent;
 }
 
-.button-row {
+.buttonRow {
   display: flex;
   gap: 24px;
   width: 356px;
 }
 
-.login-button {
+.loginButton {
   flex: 1;
   height: 40px;
   background-color: #000000;
@@ -65,7 +65,7 @@
   cursor: pointer;
 }
 
-.signup-button {
+.signupButton {
   width: 356px;
   height: 40px;
   background: #65558f;
