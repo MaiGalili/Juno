@@ -11,7 +11,6 @@ function App() {
   return (
     <BrowserRouter>
       <div className="App">
-        <Header />
 
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -20,8 +19,6 @@ function App() {
           {/* after login! */}
           <Route path="/calendar" element={<Calendar />} />
         </Routes>
-
-        <Footer />
       </div>
     </BrowserRouter>
   );
