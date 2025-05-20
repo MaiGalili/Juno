@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
-import styles from "./header.moudle.css";
+import { Link } from "react-scroll";
+import styles from "./header.module.css";
 
 function Header() {
   return (
@@ -7,13 +7,19 @@ function Header() {
       <nav>
         <ul className={styles.navList}>
           <li>
-            <Link to="/">Juno</Link>
+            <Link to="top" smooth={true} duration={100}>
+              Juno
+            </Link>
           </li>
           <li>
-            <Link to="/about">About</Link>
+            <Link to="about" smooth={true} duration={100}>
+              About
+            </Link>
           </li>
           <li>
-            <Link to="/help">Help</Link>
+            <Link to="help" smooth={true} duration={100}>
+              Help
+            </Link>
           </li>
         </ul>
       </nav>

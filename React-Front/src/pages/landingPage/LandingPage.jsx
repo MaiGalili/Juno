@@ -1,21 +1,25 @@
 import styles from "./landingPage.module.css";
-import React from "react";
-import { Link } from "react-router-dom";
+import Hero from "../../components/hero/Hero.jsx";
 import About from "../../components/about/About.jsx";
 import Footer from "../../components/footer/Footer.jsx";
 import Header from "../../components/header/Header.jsx";
 import Help from "../../components/help/Help.jsx";
 import WhyJuno from "../../components/whyJuno/WhyJuno.jsx";
-import Hero from "../../components/hero/Hero.jsx";
 
 function LandingPage() {
   return (
-    <div>
-      <Header />
+    <div className={styles.container}>
+      <div id="top">
+        <Header />
+      </div>
       <Hero />
-      <About />
+      <div id="about">
+        <About />
+      </div>
       <WhyJuno />
-      <Help />
+      <div id="help">
+        <Help />
+      </div>
       <Footer />
     </div>
   );

@@ -14,7 +14,6 @@ function App() {
 
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          {/* <//Route path="/post/:id" element={<SinglePost />} /> */}
           <Route path="*" element={<Error404 />} />
           {/* after login! */}
           <Route path="/calendar" element={<Calendar />} />
