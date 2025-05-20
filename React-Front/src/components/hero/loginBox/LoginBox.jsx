@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import styles from "./loginBox.module.css";
 
-export default function LoginBox() {
+export default function LoginBox({ onSwitch }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -51,31 +51,23 @@ export default function LoginBox() {
         )}
       </div>
 
-      <div className={styles.inputWrapper}>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className={styles.input}
-          placeholder="Password"
-        />
-        {password && (
-          <button
-            className={styles.clearButton}
-            onClick={() => setPassword("")}
-            aria-label="Clear password"
-          >
-            ✕
-          </button>
-        )}
-      </div>
-
       <div className={styles.buttonRow}>
         <button className={styles.loginButton}>Log In</button>
-        <button className={styles.signupButton}>Sign Up</button>
+        <button
+          className={styles.signupButton}
+          onClick={() => onSwitch("signup")}
+        >
+          Sign Up
+        </button>
       </div>
 
-      <div className={styles.forgotPassword}>Forgot Password</div>
+      <div
+        className={styles.forgotPassword}
+        onClick={() => onSwitch("forgot")}
+        style={{ cursor: "pointer" }}
+      >
+        Forgot Password
+      </div>
     </div>
   );
 }
