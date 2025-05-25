@@ -2,28 +2,38 @@ import React, { useState } from "react";
 import styles from "./singUpBox.module.css";
 
 export default function SignUpBox({ onSwitch }) {
-  const [signUpForm, setSingUpForm] = useState({
+  const [signUpForm, setSignUpForm] = useState({
     email: "",
     password: "",
     retypePassword: "",
   });
-  console.log(signUpForm);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      const response = await fetch("http://localhost:8801/manageLogin/sinUp", {
+      const response = await fetch("http://localhost:8801/manageLogin/signUp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(signUpForm),
+        body: JSON.stringify({
+          email: signUpForm.email,
+          password: signUpForm.password,
+          repeatPassword: signUpForm.retypePassword,
+        }),
       });
+
       const data = await response.json();
-      console.log(data);
+
+      alert(data.message);
+
+      if (data.success) {
+        onSwitch("login"); // מעבר למסך התחברות
+      }
     } catch (err) {
       console.error("Error during sign up:", err);
+      alert("אירעה שגיאה בעת ניסיון ההרשמה. נסי שוב מאוחר יותר.");
     }
   };
 
@@ -37,8 +47,9 @@ export default function SignUpBox({ onSwitch }) {
           name="email"
           autoComplete="email"
           placeholder="Email"
+          value={signUpForm.email}
           onChange={(e) =>
-            setSingUpForm({ ...signUpForm, email: e.target.value })
+            setSignUpForm({ ...signUpForm, email: e.target.value })
           }
           className={styles.input}
         />
@@ -50,8 +61,9 @@ export default function SignUpBox({ onSwitch }) {
           name="password"
           autoComplete="new-password"
           placeholder="Password"
+          value={signUpForm.password}
           onChange={(e) =>
-            setSingUpForm({ ...signUpForm, password: e.target.value })
+            setSignUpForm({ ...signUpForm, password: e.target.value })
           }
           className={styles.input}
         />
@@ -63,16 +75,23 @@ export default function SignUpBox({ onSwitch }) {
           name="retype"
           autoComplete="new-password"
           placeholder="Retype Password"
+          value={signUpForm.retypePassword}
           onChange={(e) =>
-            setSingUpForm({ ...signUpForm, retypePassword: e.target.value })
+            setSignUpForm({ ...signUpForm, retypePassword: e.target.value })
           }
           className={styles.input}
         />
       </div>
 
       <div className={styles.buttonRow}>
-        <button className={styles.signUpButton}>Sign Up</button>
-        <button className={styles.backButton} onClick={() => onSwitch("login")}>
+        <button className={styles.signUpButton} type="submit">
+          Sign Up
+        </button>
+        <button
+          type="button"
+          className={styles.backButton}
+          onClick={() => onSwitch("login")}
+        >
           Back to Log in
         </button>
       </div>
