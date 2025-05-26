@@ -5,14 +5,16 @@ import Footer from "../../components/footer/Footer.jsx";
 import Header from "../../components/header/Header.jsx";
 import Help from "../../components/help/Help.jsx";
 import WhyJuno from "../../components/whyJuno/WhyJuno.jsx";
+import { useState } from "react";
+import { Routes, Route } from "react-router-dom";
 
-function LandingPage() {
+function LandingPage({ setIsLoggin }) {
   return (
     <div className={styles.container}>
       <div id="top">
         <Header />
       </div>
-      <Hero />
+      <Hero setIsLoggin={setIsLoggin} />
       <div id="about">
         <About />
       </div>

@@ -4,7 +4,7 @@ import Login from "./loginBox/LoginBox";
 import SignUp from "./singUpBox/SingUpBox";
 import ForgotPassword from "./forgotPassword/ForgotPassword";
 
-export default function Hero() {
+export default function Hero({ setIsLoggin }) {
   const [formType, setFormType] = useState("login");
 
   const renderForm = () => {
@@ -14,7 +14,7 @@ export default function Hero() {
       case "forgot":
         return <ForgotPassword onSwitch={setFormType} />;
       default:
-        return <Login onSwitch={setFormType} />;
+        return <Login onSwitch={setFormType} setIsLoggin={setIsLoggin} />;
     }
   };
 

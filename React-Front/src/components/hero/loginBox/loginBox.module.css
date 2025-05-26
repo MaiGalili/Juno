@@ -64,6 +64,47 @@
   color: #000;
 }
 
+.clearButton.error:hover {
+  color: #dc2626;
+  background: #fee2e2;
+  padding: 12px 48px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.error::before {
+  content: '⚠️';
+  font-size: 20px;
+  margin-right: 8px;
+}
+
+.error::after {
+  content: "✕";
+  font-size: 24px;
+  cursor: pointer;
+  color: #dc2626;
+  margin-left: auto;
+  padding: 8px 12px;
+
+}
+
+.error:hover::after {
+  color: #991b1b;
+
+}
+
+.error:hover {
+  color: #991b1b;
+}
+
 .buttonRow {
   display: flex;
   flex-direction: row;
