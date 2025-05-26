@@ -8,8 +8,60 @@ export default function SignUpBox({ onSwitch }) {
     retypePassword: "",
   });
 
+  const [errors, setErrors] = useState({
+    email: "",
+    password: "",
+    retypePassword: "",
+    server: "",
+  });
+
+  const [success, setSuccess] = useState("");
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setSignUpForm({ ...signUpForm, [name]: value });
+    setErrors({ ...errors, [name]: "", server: "" });
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(signUpForm.email)) {
+      newErrors.email = "Please enter a valid email address.";
+    }
+
+    const password = signUpForm.password;
+
+    // Length check
+    if (password.length < 8 || password.length > 20) {
+      newErrors.password = "Password must be between 8 and 20 characters.";
+    }
+
+    // Letter check (must contain at least one a-z or A-Z)
+    else if (!/[a-zA-Z]/.test(password)) {
+      newErrors.password = "Password must contain at least one letter.";
+    }
+
+    // Digit check (must contain at least one number)
+    else if (!/\d/.test(password)) {
+      newErrors.password = "Password must contain at least one number.";
+    }
+
+    if (signUpForm.password !== signUpForm.retypePassword) {
+      newErrors.retypePassword = "Passwords do not match.";
+    }
+
+    setErrors({ ...errors, ...newErrors });
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrors({ email: "", password: "", retypePassword: "", server: "" });
+    setSuccess("");
+
+    if (!validateForm()) return;
 
     try {
       const response = await fetch("http://localhost:8801/manageLogin/signUp", {
@@ -26,14 +78,25 @@ export default function SignUpBox({ onSwitch }) {
 
       const data = await response.json();
 
-      alert(data.message);
-
       if (data.success) {
-        onSwitch("login"); // מעבר למסך התחברות
+        setSuccess(data.message);
+        setTimeout(() => {
+          onSwitch("login");
+        }, 2000);
+      } else {
+        // If server message is related to existing user, attach to email error
+        if (
+          data.message.toLowerCase().includes("already exists") ||
+          data.message.toLowerCase().includes("כבר קיים")
+        ) {
+          setErrors({ ...errors, email: data.message });
+        } else {
+          setErrors({ ...errors, server: data.message });
+        }
       }
-    } catch (err) {
-      console.error("Error during sign up:", err);
-      alert("אירעה שגיאה בעת ניסיון ההרשמה. נסי שוב מאוחר יותר.");
+    } catch (error) {
+      console.error("Error during sign up:", error);
+      setErrors({ ...errors, server: "Server error. Please try again later." });
     }
   };
 
@@ -41,46 +104,57 @@ export default function SignUpBox({ onSwitch }) {
     <form className={styles.container} onSubmit={handleSubmit}>
       <h1 className={styles.title}>Create Account</h1>
 
-      <div className={styles.inputWrapper}>
+      <div
+        className={`${styles.inputWrapper} ${
+          errors.email ? styles.inputErrorWrapper : ""
+        }`}
+      >
         <input
           type="email"
           name="email"
           autoComplete="email"
           placeholder="Email"
           value={signUpForm.email}
-          onChange={(e) =>
-            setSignUpForm({ ...signUpForm, email: e.target.value })
-          }
+          onChange={handleChange}
           className={styles.input}
         />
+        {errors.email && <p className={styles.error}>{errors.email}</p>}
       </div>
 
-      <div className={styles.inputWrapper}>
+      <div
+        className={`${styles.inputWrapper} ${
+          errors.password ? styles.inputErrorWrapper : ""
+        }`}
+      >
         <input
           type="password"
           name="password"
           autoComplete="new-password"
           placeholder="Password"
           value={signUpForm.password}
-          onChange={(e) =>
-            setSignUpForm({ ...signUpForm, password: e.target.value })
-          }
+          onChange={handleChange}
           className={styles.input}
         />
+        {errors.password && <p className={styles.error}>{errors.password}</p>}
       </div>
 
-      <div className={styles.inputWrapper}>
+      <div
+        className={`${styles.inputWrapper} ${
+          errors.retypePassword ? styles.inputErrorWrapper : ""
+        }`}
+      >
         <input
           type="password"
-          name="retype"
+          name="retypePassword"
           autoComplete="new-password"
           placeholder="Retype Password"
           value={signUpForm.retypePassword}
-          onChange={(e) =>
-            setSignUpForm({ ...signUpForm, retypePassword: e.target.value })
-          }
+          onChange={handleChange}
           className={styles.input}
         />
+        {errors.retypePassword && (
+          <p className={styles.error}>{errors.retypePassword}</p>
+        )}
       </div>
 
       <div className={styles.buttonRow}>
@@ -95,6 +169,9 @@ export default function SignUpBox({ onSwitch }) {
           Back to Log in
         </button>
       </div>
+
+      {errors.server && <p className={styles.error}>{errors.server}</p>}
+      {success && <p className={styles.success}>{success}</p>}
     </form>
   );
 }
