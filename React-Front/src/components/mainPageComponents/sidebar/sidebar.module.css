@@ -1,0 +1,53 @@
+.sidebar {
+  width: 260px;
+  height: 100vh; /* גובה כל המסך */
+  position: sticky;
+  top: 0;
+  background-color: #f9f9f9;
+  padding: 20px;
+  box-sizing: border-box;
+  border-right: 1px solid #ccc;
+  overflow-y: auto; /* גלילה פנימית */
+  scrollbar-width: thin;
+  scrollbar-color: #bbb transparent;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background-color: #bbb;
+  border-radius: 4px;
+}
+
+.datePickerWrapper {
+  margin-bottom: 20px;
+}
+
+.buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.report,
+.newTask {
+  flex: 1;
+  padding: 8px 10px;
+  background-color: white;
+  border: 1px solid #6b607d;
+  color: #6b607d;
+  font-weight: bold;
+  border-radius: 15px;
+  cursor: pointer;
+}
+
+.section {
+  margin-top: 20px;
+}
+
+.sectionTitle {
+  font-weight: bold;
+  margin-bottom: 5px;
+}

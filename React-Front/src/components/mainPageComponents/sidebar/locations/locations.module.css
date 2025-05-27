@@ -1,0 +1,75 @@
+.section {
+  margin-top: 20px;
+}
+
+.sectionTitle {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.itemList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.itemList li {
+  background-color: #eee;
+  border-radius: 15px;
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+}
+
+.icon {
+  margin-right: 8px;
+}
+
+.plus {
+  cursor: pointer;
+}
+.wrapper {
+  margin-top: 10px;
+}
+
+.locationList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.addForm {
+  display: flex;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.addForm input {
+  flex: 1;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+}
+
+.addForm select {
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+}
+
+.addForm button {
+  padding: 6px 10px;
+  background-color: #6b607d;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.addForm button:hover {
+  background-color: #574e67;
+}

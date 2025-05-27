@@ -1,0 +1,42 @@
+.wrapper {
+  margin-top: 10px;
+}
+
+.labelList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.addForm {
+  display: flex;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.addForm input[type="text"] {
+  flex: 1;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+}
+
+.addForm input[type="color"] {
+  width: 40px;
+  height: 34px;
+  border: none;
+  cursor: pointer;
+}
+
+.addForm button {
+  padding: 6px 10px;
+  background-color: #6b607d;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.addForm button:hover {
+  background-color: #574e67;
+}

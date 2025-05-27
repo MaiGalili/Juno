@@ -1,0 +1,53 @@
+.locationItem {
+  position: relative;
+  background-color: #eee;
+  border-radius: 15px;
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.icon {
+  margin-right: 8px;
+}
+
+.name {
+  flex-grow: 1;
+}
+
+.menuButton {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 5px;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: 35px;
+  right: 0;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+}
+
+.dropdownMenu button {
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.dropdownMenu button:hover {
+  background-color: #f0f0f0;
+}
