@@ -3,8 +3,8 @@ import styles from "./sidebar.module.css";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
-import Lables from "../lables/Lables";
-import Locations from "../locations/Locations";
+import Lables from "./lables/Lables";
+import Locations from "./locations/Locations";
 
 export default function Sidebar({ selectedDate, setSelectedDate }) {
   return (

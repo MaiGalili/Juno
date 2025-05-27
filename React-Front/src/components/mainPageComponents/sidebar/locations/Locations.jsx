@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import SingleLocation from "./SingleLocation";
+import SingleLocation from "./singleLocation/SingleLocation";
 import styles from "./locations.module.css";
 
 export default function Locations() {
