@@ -1,9 +1,9 @@
 import styles from "./landingPage.module.css";
-import Hero from "../../components/hero/Hero.jsx";
-import About from "../../components/about/About.jsx";
-import Footer from "../../components/footer/Footer.jsx";
-import Header from "../../components/header/Header.jsx";
-import Help from "../../components/help/Help.jsx";
+import Hero from "../../components/landingPageComponents/hero/Hero.jsx";
+import About from "../../components/landingPageComponents/about/About.jsx";
+import Footer from "../../components/landingPageComponents/footer/Footer.jsx";
+import Header from "../../components/landingPageComponents/header/Header.jsx";
+import Help from "../../components/landingPageComponents/help/Help.jsx";
 import WhyJuno from "../../components/whyJuno/WhyJuno.jsx";
 import { useState } from "react";
 import { Routes, Route } from "react-router-dom";
