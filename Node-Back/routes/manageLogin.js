@@ -75,12 +75,15 @@ router.post("/login", async (req, res) => {
 
     //save email in session
     req.session.userEmail = email;
+    req.session.userEmail = email;
+    console.log("Session created after login:", req.session);
 
     return res.json({ success: true, message: "Login successful" });
   });
 });
 
 router.get("/getSession", (req, res) => {
+  console.log("Checking session:", req.session);
   const userEmail = req.session.userEmail;
   if (userEmail) {
     return res.json({ success: true, userEmail });

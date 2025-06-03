@@ -8,14 +8,14 @@ export default function LogoutButton({ setIsLoggin }) {
     try {
       const res = await fetch("http://localhost:8801/manageLogin/logout", {
         method: "POST",
-        credentials: "include",
+        credentials: "include", // חשוב: כדי שה-session יישלח
       });
 
       const data = await res.json();
 
       if (data.success) {
-        setIsLoggin(false);
-        navigate("/");
+        setIsLoggin(false); // מבטלת התחברות
+        navigate("/"); // חוזרת לדף הבית
       } else {
         alert("Logout failed: " + data.message);
       }
@@ -25,5 +25,19 @@ export default function LogoutButton({ setIsLoggin }) {
     }
   };
 
-  return <button onClick={handleLogout}>Logout</button>;
+  return (
+    <button
+      onClick={handleLogout}
+      style={{
+        padding: "8px 16px",
+        backgroundColor: "#6b607d",
+        color: "white",
+        border: "none",
+        borderRadius: "10px",
+        cursor: "pointer",
+      }}
+    >
+      Logout
+    </button>
+  );
 }
