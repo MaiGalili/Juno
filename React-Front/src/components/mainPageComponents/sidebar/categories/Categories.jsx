@@ -1,56 +1,128 @@
-import React, { useState } from "react";
-import SingleLable from "./singleCategory/SingleCategory";
+import React, { useEffect, useState } from "react";
+import SingleCategory from "./singleCategory/SingleCategory";
 import styles from "./categories.module.css";
 
-export default function Lables() {
-  const [labels, setLabels] = useState([
-    { name: "CLEANING", color: "#e0e0e0" },
-    { name: "WORK", color: "#d5d5ff" },
-    { name: "SHOPPING", color: "#ffe0e0" },
-    { name: "COOKING", color: "#e0ffe0" },
-    { name: "FRIENDS", color: "#fff0cc" },
-  ]);
+export default function Categories({ userEmail }) {
+  const [categories, setCategories] = useState([]);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryColor, setNewCategoryColor] = useState("#dddddd");
 
-  const [newLabelName, setNewLabelName] = useState("");
-  const [newLabelColor, setNewLabelColor] = useState("#dddddd");
+  useEffect(() => {
+    if (!userEmail) return;
+    fetch(`http://localhost:8801/manageCategories/${userEmail}`)
+      .then((res) => res.json())
+      .then((data) => setCategories(data))
+      .catch((err) => console.error("Failed to fetch categories:", err));
+  }, [userEmail]);
 
-  const handleAdd = () => {
-    const trimmed = newLabelName.trim();
-    if (!trimmed) return;
-    if (labels.some((l) => l.name.toLowerCase() === trimmed.toLowerCase()))
+  const handleAdd = async () => {
+    const trimmed = newCategoryName.trim();
+    if (
+      !trimmed ||
+      categories.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())
+    )
       return;
 
-    setLabels([...labels, { name: trimmed, color: newLabelColor }]);
-    setNewLabelName("");
-    setNewLabelColor("#dddddd");
+    const newCategory = {
+      category_name: trimmed,
+      category_color: newCategoryColor,
+      user_email: userEmail,
+    };
+
+    try {
+      const response = await fetch("http://localhost:8801/manageCategories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newCategory),
+      });
+
+      if (response.ok) {
+        setCategories([
+          ...categories,
+          { name: trimmed, color: newCategoryColor },
+        ]);
+        setNewCategoryName("");
+        setNewCategoryColor("#dddddd");
+      }
+    } catch (err) {
+      console.error("Error adding category:", err);
+    }
   };
 
-  const handleDelete = (labelName) => {
-    setLabels(labels.filter((l) => l.name !== labelName));
+  const handleDelete = async (categoryName) => {
+    try {
+      await fetch(
+        `http://localhost:8801/manageCategories/${categoryName}/${userEmail}`,
+        {
+          method: "DELETE",
+        }
+      );
+      setCategories(categories.filter((c) => c.name !== categoryName));
+    } catch (err) {
+      console.error("Error deleting category:", err);
+    }
   };
 
-  const handleEdit = (labelName) => {
-    const newName = prompt("Enter new name:", labelName);
+  const handleEdit = async (categoryName) => {
+    const newName = prompt("Enter new name:", categoryName);
     if (!newName) return;
-    setLabels(
-      labels.map((l) => (l.name === labelName ? { ...l, name: newName } : l))
-    );
+
+    const oldColor =
+      categories.find((c) => c.name === categoryName)?.color || "#dddddd";
+
+    try {
+      await fetch("http://localhost:8801/manageCategories", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          old_name: categoryName,
+          new_name: newName,
+          new_color: oldColor,
+          user_email: userEmail,
+        }),
+      });
+
+      setCategories(
+        categories.map((c) =>
+          c.name === categoryName ? { ...c, name: newName } : c
+        )
+      );
+    } catch (err) {
+      console.error("Error editing category:", err);
+    }
   };
 
-  const handleColorChange = (labelName, newColor) => {
-    setLabels(
-      labels.map((l) => (l.name === labelName ? { ...l, color: newColor } : l))
-    );
+  const handleColorChange = async (categoryName, newColor) => {
+    try {
+      await fetch("http://localhost:8801/manageCategories", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          old_name: categoryName,
+          new_name: categoryName,
+          new_color: newColor,
+          user_email: userEmail,
+        }),
+      });
+
+      setCategories(
+        categories.map((c) =>
+          c.name === categoryName ? { ...c, color: newColor } : c
+        )
+      );
+    } catch (err) {
+      console.error("Error changing category color:", err);
+    }
   };
 
   return (
     <div className={styles.wrapper}>
       <ul className={styles.labelList}>
-        {labels.map((label, index) => (
-          <SingleLable
+        {categories.map((category, index) => (
+          <SingleCategory
             key={index}
-            name={label.name}
-            color={label.color}
+            name={category.name}
+            color={category.color}
             onEdit={handleEdit}
             onDelete={handleDelete}
             onColorChange={handleColorChange}
@@ -61,14 +133,14 @@ export default function Lables() {
       <div className={styles.addForm}>
         <input
           type="text"
-          placeholder="Add new label"
-          value={newLabelName}
-          onChange={(e) => setNewLabelName(e.target.value)}
+          placeholder="Add new category"
+          value={newCategoryName}
+          onChange={(e) => setNewCategoryName(e.target.value)}
         />
         <input
           type="color"
-          value={newLabelColor}
-          onChange={(e) => setNewLabelColor(e.target.value)}
+          value={newCategoryColor}
+          onChange={(e) => setNewCategoryColor(e.target.value)}
         />
         <button onClick={handleAdd}>Add</button>
       </div>

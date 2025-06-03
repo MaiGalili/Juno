@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import styles from "./singleCategory.module.css";
 
-export default function SingleLable({
+export default function SingleCategory({
   name,
   color = "#ccc",
   onEdit,
@@ -13,7 +13,7 @@ export default function SingleLable({
   const toggleMenu = () => setShowMenu((prev) => !prev);
 
   return (
-    <li className={styles.labelItem} style={{ backgroundColor: color }}>
+    <li className={styles.categoryItem} style={{ backgroundColor: color }}>
       <span className={styles.name}>{name}</span>
       <button className={styles.menuButton} onClick={toggleMenu}>
         ⋮
@@ -22,7 +22,7 @@ export default function SingleLable({
       {showMenu && (
         <div className={styles.dropdownMenu}>
           <label className={styles.colorOption}>
-            🎨 LABEL COLOR
+            🎨 CATEGORY COLOR
             <input
               type="color"
               onChange={(e) => {

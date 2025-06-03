@@ -20,6 +20,7 @@ export default function LoginBox({ onSwitch, setIsLoggin }) {
       const response = await fetch("http://localhost:8801/manageLogin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 

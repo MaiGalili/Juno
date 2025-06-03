@@ -26,6 +26,25 @@ router.post("/signUp", async (req, res) => {
     const insertQuery = "INSERT INTO users (email, password) VALUES (?, ?)";
     await db.promise().query(insertQuery, [email, hashedPassword]);
 
+    // Insert default categories
+    const defaultCategories = [
+      { name: "Work", color: "#d5d5ff" },
+      { name: "Home", color: "#e0ffe0" },
+      { name: "Friends", color: "#fff0cc" },
+    ];
+
+    const insertCategoryQuery = `
+    INSERT INTO category (category_name, category_color, user_email)
+    VALUES (?, ?, ?)
+    ON DUPLICATE KEY UPDATE category_color = VALUES(category_color)
+  `;
+
+    for (const cat of defaultCategories) {
+      await db
+        .promise()
+        .query(insertCategoryQuery, [cat.name, cat.color, email]);
+    }
+
     return res.json({ success: true, message: "User created successfully" });
   } catch (error) {
     console.error("Error during sign up:", error);
@@ -53,7 +72,34 @@ router.post("/login", async (req, res) => {
         message: "Incorrect username or password.",
       });
     }
+
+    //save email in session
+    req.session.userEmail = email;
+
     return res.json({ success: true, message: "Login successful" });
+  });
+});
+
+router.get("/getSession", (req, res) => {
+  const userEmail = req.session.userEmail;
+  if (userEmail) {
+    return res.json({ success: true, userEmail });
+  } else {
+    return res.json({ success: false, message: "No session found" });
+  }
+});
+
+// === Logout ===
+router.post("/logout", (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("Error destroying session:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to log out" });
+    }
+    res.clearCookie("connect.sid"); // Clear the session cookie
+    return res.json({ success: true, message: "Logged out successfully" });
   });
 });
 
