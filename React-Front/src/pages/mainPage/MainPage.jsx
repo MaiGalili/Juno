@@ -10,7 +10,6 @@ function MainPage({ isLoggin, setIsLoggin }) {
       Main page
       <button onClick={() => setIsLoggin(false)}>Log out</button>
       <Sidebar />
-      <TaskPanel />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import SingleLable from "./singleLable/SingleLable";
-import styles from "./lables.module.css";
+import SingleLable from "./singleCategory/SingleCategory";
+import styles from "./categories.module.css";
 
 export default function Lables() {
   const [labels, setLabels] = useState([

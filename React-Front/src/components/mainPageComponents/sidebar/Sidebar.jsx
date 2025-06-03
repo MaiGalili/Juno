@@ -3,7 +3,7 @@ import styles from "./sidebar.module.css";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
-import Lables from "./lables/Lables";
+import Categories from "./categories/Categories";
 import Locations from "./locations/Locations";
 
 export default function Sidebar({ selectedDate, setSelectedDate }) {
@@ -23,9 +23,9 @@ export default function Sidebar({ selectedDate, setSelectedDate }) {
       {/* לייבלים */}
       <div className={styles.section}>
         <div className={styles.sectionTitle}>
-          <span>LABELS</span>
+          <span>Categories</span>
         </div>
-        <Lables />
+        <Categories />
       </div>
 
       {/* מיקומים */}

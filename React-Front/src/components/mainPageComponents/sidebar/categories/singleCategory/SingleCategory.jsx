@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import styles from "./singleLable.module.css";
+import styles from "./singleCategory.module.css";
 
 export default function SingleLable({
   name,
@@ -45,7 +45,7 @@ export default function SingleLable({
               onDelete(name);
             }}
           >
-            Remove label
+            Remove Category
           </button>
         </div>
       )}
