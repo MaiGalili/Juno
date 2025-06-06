@@ -10,7 +10,7 @@ function App() {
   const [loading, setLoading] = useState(true); // מוסיפים מצב טעינה
 
   useEffect(() => {
-    fetch("http://localhost:8801/manageLogin/getSession", {
+    fetch("http://localhost:8801/api/auth/getSession", {
       credentials: "include", // חשוב: שולח את ה-session cookie
     })
       .then((res) => res.json())
