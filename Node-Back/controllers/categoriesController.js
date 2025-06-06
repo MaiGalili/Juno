@@ -1,10 +1,8 @@
-const express = require("express");
-const router = express.Router();
 const db = require("../db");
 
-// שליפת קטגוריות לפי מייל משתמש
-router.get("/:email", async (req, res) => {
-  const email = req.params.email;
+async function getCategories(req, res) {
+  const { email } = req.params;
+
   try {
     const [results] = await db
       .promise()
@@ -12,15 +10,17 @@ router.get("/:email", async (req, res) => {
         "SELECT category_name AS name, category_color AS color FROM category WHERE user_email = ?",
         [email]
       );
+
     res.json(results);
   } catch (error) {
     console.error("Error fetching categories:", error);
-    res.status(500).json({ error: "Failed to fetch categories" });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch categories" });
   }
-});
+}
 
-// הוספת קטגוריה חדשה
-router.post("/", async (req, res) => {
+async function addCategory(req, res) {
   const { category_name, category_color, user_email } = req.body;
 
   try {
@@ -29,18 +29,21 @@ router.post("/", async (req, res) => {
       VALUES (?, ?, ?)
       ON DUPLICATE KEY UPDATE category_color = VALUES(category_color)
     `;
+
     await db
       .promise()
       .query(insertQuery, [category_name, category_color, user_email]);
-    res.status(201).json({ message: "Category added or updated" });
+
+    res
+      .status(201)
+      .json({ success: true, message: "Category added or updated" });
   } catch (error) {
     console.error("Error adding category:", error);
-    res.status(500).json({ error: "Failed to add category" });
+    res.status(500).json({ success: false, message: "Failed to add category" });
   }
-});
+}
 
-// מחיקת קטגוריה
-router.delete("/:category_name/:email", async (req, res) => {
+async function deleteCategory(req, res) {
   const { category_name, email } = req.params;
 
   try {
@@ -50,15 +53,17 @@ router.delete("/:category_name/:email", async (req, res) => {
         "DELETE FROM category WHERE category_name = ? AND user_email = ?",
         [category_name, email]
       );
-    res.json({ message: "Category deleted" });
+
+    res.json({ success: true, message: "Category deleted" });
   } catch (error) {
     console.error("Error deleting category:", error);
-    res.status(500).json({ error: "Failed to delete category" });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to delete category" });
   }
-});
+}
 
-// עדכון שם וצבע קטגוריה
-router.put("/", async (req, res) => {
+async function updateCategory(req, res) {
   const { old_name, new_name, new_color, user_email } = req.body;
 
   try {
@@ -68,11 +73,19 @@ router.put("/", async (req, res) => {
         "UPDATE category SET category_name = ?, category_color = ? WHERE category_name = ? AND user_email = ?",
         [new_name, new_color, old_name, user_email]
       );
-    res.json({ message: "Category updated" });
+
+    res.json({ success: true, message: "Category updated" });
   } catch (error) {
     console.error("Error updating category:", error);
-    res.status(500).json({ error: "Failed to update category" });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to update category" });
   }
-});
+}
 
-module.exports = router;
+module.exports = {
+  getCategories,
+  addCategory,
+  deleteCategory,
+  updateCategory,
+};

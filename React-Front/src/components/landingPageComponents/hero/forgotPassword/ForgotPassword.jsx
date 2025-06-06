@@ -12,7 +12,7 @@ export default function ForgotPassword({ onSwitch }) {
 
   const handleSendCode = async () => {
     setMessage({ error: "", successMessage: "" });
-    const res = await fetch("http://localhost:8801/manageLogin/sendResetCode", {
+    const res = await fetch("http://localhost:8801/api/auth/sendResetCode", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
@@ -40,7 +40,7 @@ export default function ForgotPassword({ onSwitch }) {
     if (password !== confirmPassword) {
       return setMessage({ error: "הסיסמאות לא תואמות", successMessage: "" });
     }
-    const res = await fetch("http://localhost:8801/manageLogin/resetPassword", {
+    const res = await fetch("http://localhost:8801/api/auth/resetPassword", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),

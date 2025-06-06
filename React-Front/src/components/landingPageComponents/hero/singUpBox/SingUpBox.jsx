@@ -64,7 +64,7 @@ export default function SignUpBox({ onSwitch }) {
     if (!validateForm()) return;
 
     try {
-      const response = await fetch("http://localhost:8801/manageLogin/signUp", {
+      const response = await fetch("http://localhost:8801/api/auth/signUp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

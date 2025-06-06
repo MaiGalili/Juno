@@ -17,7 +17,7 @@ export default function LoginBox({ onSwitch, setIsLoggin }) {
     setErrors({ email: "", password: "", server: "" });
 
     try {
-      const response = await fetch("http://localhost:8801/manageLogin/login", {
+      const response = await fetch("http://localhost:8801/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

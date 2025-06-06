@@ -1,12 +1,15 @@
 const express = require("express");
-const app = express();
-const logger = require("./logger");
-const manageLogin = require("./routes/manageLogin");
-const manageCategories = require("./routes/manageCategories");
 const session = require("express-session");
 const cors = require("cors");
+const logger = require("./logger");
+
+const authRoutes = require("./routes/authRoutes");
+const categoryRoutes = require("./routes/categoryRoutes");
+
+const app = express();
 const port = 8801;
 
+// הגדרות CORS
 app.use(
   cors({
     origin: "http://localhost:3000",
@@ -14,13 +17,14 @@ app.use(
   })
 );
 
+// הגדרות session
 app.use(
   session({
     secret: "mySuperSecretKey",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, // true רק בפרודקשן עם HTTPS
+      secure: false, // הפוך ל-true בפרודקשן עם HTTPS
       httpOnly: true,
       sameSite: "lax",
     },
@@ -30,9 +34,10 @@ app.use(
 app.use(express.json());
 app.use(logger);
 
-app.use("/manageLogin", manageLogin);
-app.use("/manageCategories", manageCategories);
+// חיבור הנתיבים
+app.use("/api/auth", authRoutes);
+app.use("/api/categories", categoryRoutes);
 
 app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+  console.log(`Server is running at http://localhost:${port}`);
 });

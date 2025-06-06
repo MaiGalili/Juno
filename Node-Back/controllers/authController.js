@@ -1,15 +1,11 @@
-const express = require("express");
-const router = express.Router();
 const db = require("../db");
 const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
 
-// === Sign Up ===
-router.post("/signUp", async (req, res) => {
+async function signUp(req, res) {
   const { email, password } = req.body;
 
   try {
-    // Check if user already exists
     const [rows] = await db
       .promise()
       .query("SELECT * FROM users WHERE email = ?", [email]);
@@ -18,15 +14,16 @@ router.post("/signUp", async (req, res) => {
       return res.json({ success: false, message: "User already exists" });
     }
 
-    // Hash the password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Insert new user
-    const insertQuery = "INSERT INTO users (email, password) VALUES (?, ?)";
-    await db.promise().query(insertQuery, [email, hashedPassword]);
+    await db
+      .promise()
+      .query("INSERT INTO users (email, password) VALUES (?, ?)", [
+        email,
+        hashedPassword,
+      ]);
 
-    // Insert default categories
     const defaultCategories = [
       { name: "Work", color: "#d5d5ff" },
       { name: "Home", color: "#e0ffe0" },
@@ -34,10 +31,10 @@ router.post("/signUp", async (req, res) => {
     ];
 
     const insertCategoryQuery = `
-    INSERT INTO category (category_name, category_color, user_email)
-    VALUES (?, ?, ?)
-    ON DUPLICATE KEY UPDATE category_color = VALUES(category_color)
-  `;
+      INSERT INTO category (category_name, category_color, user_email)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE category_color = VALUES(category_color)
+    `;
 
     for (const cat of defaultCategories) {
       await db
@@ -50,50 +47,47 @@ router.post("/signUp", async (req, res) => {
     console.error("Error during sign up:", error);
     return res.status(500).json({ success: false, message: "Server error" });
   }
-});
+}
 
-// === Login ===
-router.post("/login", async (req, res) => {
+async function login(req, res) {
   const { email, password } = req.body;
 
-  const query = "SELECT * FROM users WHERE email = ?";
-  db.query(query, [email], async (err, result) => {
-    if (err) {
-      console.log(err);
-      return res.json({ success: false, message: "Server error" });
-    }
-    if (result.length === 0) {
-      return res.json({ success: false, message: "User not found" });
-    }
-    const isMatch = await bcrypt.compare(password, result[0].password);
-    if (!isMatch) {
-      return res.json({
-        success: false,
-        message: "Incorrect username or password.",
-      });
-    }
+  db.query(
+    "SELECT * FROM users WHERE email = ?",
+    [email],
+    async (err, result) => {
+      if (err) return res.json({ success: false, message: "Server error" });
 
-    //save email in session
-    req.session.userEmail = email;
-    req.session.userEmail = email;
-    console.log("Session created after login:", req.session);
+      if (result.length === 0) {
+        return res.json({ success: false, message: "User not found" });
+      }
 
-    return res.json({ success: true, message: "Login successful" });
-  });
-});
+      const isMatch = await bcrypt.compare(password, result[0].password);
+      if (!isMatch) {
+        return res.json({
+          success: false,
+          message: "Incorrect username or password.",
+        });
+      }
 
-router.get("/getSession", (req, res) => {
-  console.log("Checking session:", req.session);
+      req.session.userEmail = email;
+      console.log("Session created after login:", req.session);
+
+      return res.json({ success: true, message: "Login successful" });
+    }
+  );
+}
+
+function getSession(req, res) {
   const userEmail = req.session.userEmail;
   if (userEmail) {
     return res.json({ success: true, userEmail });
   } else {
     return res.json({ success: false, message: "No session found" });
   }
-});
+}
 
-// === Logout ===
-router.post("/logout", (req, res) => {
+function logout(req, res) {
   req.session.destroy((err) => {
     if (err) {
       console.error("Error destroying session:", err);
@@ -101,27 +95,26 @@ router.post("/logout", (req, res) => {
         .status(500)
         .json({ success: false, message: "Failed to log out" });
     }
-    res.clearCookie("connect.sid"); // Clear the session cookie
+    res.clearCookie("connect.sid");
     return res.json({ success: true, message: "Logged out successfully" });
   });
-});
+}
 
-// === Email Lookup (Forgot Password) ===
-router.post("/getEmail", async (req, res) => {
-  const query = "SELECT email FROM users WHERE email = ?";
-  db.query(query, [req.body.email], (err, result) => {
-    if (err) {
-      console.log(err);
-      return res.json({ success: false, message: "Server error" });
+function getEmail(req, res) {
+  db.query(
+    "SELECT email FROM users WHERE email = ?",
+    [req.body.email],
+    (err, result) => {
+      if (err) return res.json({ success: false, message: "Server error" });
+      if (result.length === 0) {
+        return res.json({ success: false, message: "User not found" });
+      }
+      return res.json({ success: true, email: result[0].email });
     }
-    if (result.length === 0) {
-      return res.json({ success: false, message: "User not found" });
-    }
-    return res.json({ success: true, email: result[0].email });
-  });
-});
+  );
+}
 
-router.post("/sendResetCode", (req, res) => {
+function sendResetCode(req, res) {
   const { email } = req.body;
 
   const transporter = nodemailer.createTransport({
@@ -133,27 +126,26 @@ router.post("/sendResetCode", (req, res) => {
   });
 
   db.query("SELECT * FROM users WHERE email = ?", [email], (err, users) => {
-    if (err) return res.json({ success: false, message: "Server error" });
-
+    if (err) return;
+    res.json({ success: false, message: "Server error" });
     if (users.length === 0)
       return res.json({ success: false, message: "Email not found" });
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-
     const emailText = `
-                  Hello,
+      Hello,
 
-                  We received a request to reset your password for Juno Calendar.
+      We received a request to reset your password for Juno Calendar.
 
-                  Your password reset code is:
+      Your password reset code is:
 
-                  ${code}
+      ${code}
 
-                  If you did not request a password reset, please ignore this message.
+      If you did not request a password reset, please ignore this message.
 
-                  Best regards,
-                  The Juno Calendar Team
-                  `;
+      Best regards,
+      The Juno Calendar Team
+    `;
 
     transporter.sendMail(
       {
@@ -162,18 +154,16 @@ router.post("/sendResetCode", (req, res) => {
         subject: "Password Reset Code",
         text: emailText,
       },
-      (err2, info) => {
-        if (err2) {
+      (err2) => {
+        if (err2)
           return res.json({ success: false, message: "Failed to send email" });
-        }
         res.json({ success: true, message: "Code sent", code });
       }
     );
   });
-});
+}
 
-// === Password Reset ===
-router.put("/resetPassword", (req, res) => {
+function resetPassword(req, res) {
   const { email, password } = req.body;
 
   bcrypt.genSalt(10, (err, salt) => {
@@ -194,6 +184,14 @@ router.put("/resetPassword", (req, res) => {
       );
     });
   });
-});
+}
 
-module.exports = router;
+module.exports = {
+  signUp,
+  login,
+  getSession,
+  logout,
+  getEmail,
+  sendResetCode,
+  resetPassword,
+};
