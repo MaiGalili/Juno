@@ -8,12 +8,13 @@ export default function Categories({ userEmail }) {
   const [newCategoryColor, setNewCategoryColor] = useState("#dddddd");
 
   useEffect(() => {
-    if (!userEmail) return;
-    fetch(`http://localhost:8801/manageCategories/${userEmail}`)
+    fetch("http://localhost:8801/api/categories", {
+      credentials: "include",
+    })
       .then((res) => res.json())
       .then((data) => setCategories(data))
       .catch((err) => console.error("Failed to fetch categories:", err));
-  }, [userEmail]);
+  }, []);
 
   const handleAdd = async () => {
     const trimmed = newCategoryName.trim();
@@ -26,13 +27,14 @@ export default function Categories({ userEmail }) {
     const newCategory = {
       category_name: trimmed,
       category_color: newCategoryColor,
-      user_email: userEmail,
+      user_email: userEmail, // נוסף עבור שמירה נכונה
     };
 
     try {
-      const response = await fetch("http://localhost:8801/manageCategories", {
+      const response = await fetch("http://localhost:8801/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(newCategory),
       });
 
@@ -51,12 +53,10 @@ export default function Categories({ userEmail }) {
 
   const handleDelete = async (categoryName) => {
     try {
-      await fetch(
-        `http://localhost:8801/manageCategories/${categoryName}/${userEmail}`,
-        {
-          method: "DELETE",
-        }
-      );
+      await fetch(`http://localhost:8801/api/categories/${categoryName}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
       setCategories(categories.filter((c) => c.name !== categoryName));
     } catch (err) {
       console.error("Error deleting category:", err);
@@ -71,14 +71,15 @@ export default function Categories({ userEmail }) {
       categories.find((c) => c.name === categoryName)?.color || "#dddddd";
 
     try {
-      await fetch("http://localhost:8801/manageCategories", {
+      await fetch("http://localhost:8801/api/categories", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           old_name: categoryName,
           new_name: newName,
           new_color: oldColor,
-          user_email: userEmail,
+          user_email: userEmail, // כדי לעדכן לפי המשתמש
         }),
       });
 
@@ -94,14 +95,15 @@ export default function Categories({ userEmail }) {
 
   const handleColorChange = async (categoryName, newColor) => {
     try {
-      await fetch("http://localhost:8801/manageCategories", {
+      await fetch("http://localhost:8801/api/categories", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           old_name: categoryName,
           new_name: categoryName,
           new_color: newColor,
-          user_email: userEmail,
+          user_email: userEmail, // גם כאן
         }),
       });
 

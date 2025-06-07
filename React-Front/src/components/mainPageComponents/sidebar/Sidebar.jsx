@@ -7,7 +7,7 @@ import Categories from "./categories/Categories";
 import Locations from "./locations/Locations";
 import TaskPopup from "../taskPopup/TaskPopup";
 
-export default function Sidebar({ selectedDate, setSelectedDate }) {
+export default function Sidebar({ selectedDate, setSelectedDate, userEmail }) {
   const [showTaskPopup, setShowTaskPopup] = useState(false);
 
   return (
@@ -43,7 +43,7 @@ export default function Sidebar({ selectedDate, setSelectedDate }) {
         <div className={styles.sectionTitle}>
           <span>Categories</span>
         </div>
-        <Categories />
+        <Categories userEmail={userEmail} />
       </div>
 
       {/* מיקומים */}
