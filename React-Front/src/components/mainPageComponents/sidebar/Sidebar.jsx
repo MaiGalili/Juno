@@ -1,12 +1,15 @@
-import React from "react";
 import styles from "./sidebar.module.css";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import React, { useState } from "react";
 
 import Categories from "./categories/Categories";
 import Locations from "./locations/Locations";
+import TaskPopup from "../taskPopup/TaskPopup";
 
 export default function Sidebar({ selectedDate, setSelectedDate }) {
+  const [showTaskPopup, setShowTaskPopup] = useState(false);
+
   return (
     <aside className={styles.sidebar}>
       {/* בוחר תאריך */}
@@ -17,8 +20,23 @@ export default function Sidebar({ selectedDate, setSelectedDate }) {
       {/* כפתורים */}
       <div className={styles.buttons}>
         <button className={styles.report}>Reports</button>
-        <button className={styles.newTask}>+ New Task</button>
+        <button
+          className={styles.newTask}
+          onClick={() => setShowTaskPopup(true)}
+        >
+          + New Task
+        </button>
       </div>
+      {showTaskPopup && (
+        <TaskPopup
+          mode="create"
+          onClose={() => setShowTaskPopup(false)}
+          onSave={(taskData) => {
+            console.log("Task created:", taskData);
+            setShowTaskPopup(false);
+          }}
+        />
+      )}
 
       {/* לייבלים */}
       <div className={styles.section}>
