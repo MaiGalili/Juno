@@ -8,13 +8,15 @@ export default function Categories({ userEmail }) {
   const [newCategoryColor, setNewCategoryColor] = useState("#dddddd");
 
   useEffect(() => {
+    if (!userEmail) return;
+
     fetch("http://localhost:8801/api/categories", {
       credentials: "include",
     })
       .then((res) => res.json())
       .then((data) => setCategories(data))
       .catch((err) => console.error("Failed to fetch categories:", err));
-  }, []);
+  }, [userEmail]);
 
   const handleAdd = async () => {
     const trimmed = newCategoryName.trim();
