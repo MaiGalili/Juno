@@ -9,5 +9,6 @@ router.post("/logout", authController.logout);
 router.post("/getEmail", authController.getEmail);
 router.post("/sendResetCode", authController.sendResetCode);
 router.put("/resetPassword", authController.resetPassword);
+router.post("/sendMail", authController.sendMail);
 
 module.exports = router;

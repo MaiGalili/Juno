@@ -186,6 +186,71 @@ function resetPassword(req, res) {
   });
 }
 
+function sendMail(req, res) {
+  const { email, message } = req.body;
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: "junocalendar2025@gmail.com",
+      pass: "ygnp yhoi jrwo hppz",
+    },
+  });
+
+  db.query("SELECT * FROM users WHERE email = ?", [email], (err, users) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+
+    if (users.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Email not found" });
+    }
+
+    const mailToAdmin = {
+      from: "junocalendar2025@gmail.com",
+      to: "junocalendar2025@gmail.com",
+      subject: "Juno Calendar Help Request",
+      text: `Message from ${email}:\n\n${message}`,
+    };
+
+    const mailToUser = {
+      from: "junocalendar2025@gmail.com",
+      to: email,
+      subject: "We received your message",
+      text: "Thank you for contacting Juno Calendar! We received your message and will get back to you soon.",
+    };
+
+    transporter.sendMail(mailToAdmin, (err1, info1) => {
+      if (err1) {
+        console.error("Error sending to admin:", err1);
+        return res
+          .status(500)
+          .json({ success: false, message: "Failed to send to admin" });
+      }
+
+      transporter.sendMail(mailToUser, (err2, info2) => {
+        if (err2) {
+          console.error("Error sending to user:", err2);
+          return res.status(500).json({
+            success: false,
+            message: "Sent to admin, but failed to notify user",
+          });
+        }
+
+        res.json({
+          success: true,
+          message: "Message sent to admin and confirmation sent to user",
+          infoAdmin: info1,
+          infoUser: info2,
+        });
+      });
+    });
+  });
+}
+
 module.exports = {
   signUp,
   login,
@@ -194,4 +259,5 @@ module.exports = {
   getEmail,
   sendResetCode,
   resetPassword,
+  sendMail,
 };

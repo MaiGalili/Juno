@@ -6,7 +6,7 @@ export default function LogoutButton({ setIsLoggin }) {
 
   const handleLogout = async () => {
     try {
-      const res = await fetch("http://localhost:8801/manageLogin/logout", {
+      const res = await fetch("http://localhost:8801/api/auth/logout", {
         method: "POST",
         credentials: "include", // חשוב: כדי שה-session יישלח
       });
