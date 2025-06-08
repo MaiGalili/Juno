@@ -12,17 +12,28 @@ export default function ForgotPassword({ onSwitch }) {
 
   const handleSendCode = async () => {
     setMessage({ error: "", successMessage: "" });
-    const res = await fetch("http://localhost:8801/api/auth/sendResetCode", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      setRealCode(data.code);
-      setStep(2);
-    } else {
-      setMessage({ error: data.message, successMessage: "" });
+    try {
+      const res = await fetch("http://localhost:8801/api/auth/sendResetCode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+      console.log("Response from server:", data);
+
+      if (data.success) {
+        setRealCode(data.code);
+        setStep(2);
+      } else {
+        setMessage({
+          error: data.message || "Error sending reset code",
+          successMessage: "",
+        });
+      }
+    } catch (err) {
+      console.error("Error sending reset code:", err);
+      setMessage({ error: "Network error", successMessage: "" });
     }
   };
 
@@ -31,32 +42,52 @@ export default function ForgotPassword({ onSwitch }) {
     if (code === realCode) {
       setStep(3);
     } else {
-      setMessage({ error: "הקוד שגוי", successMessage: "" });
+      setMessage({ error: "Invalid code", successMessage: "" });
     }
   };
 
   const handleResetPassword = async () => {
     setMessage({ error: "", successMessage: "" });
+
     if (password !== confirmPassword) {
-      return setMessage({ error: "הסיסמאות לא תואמות", successMessage: "" });
+      return setMessage({
+        error: "Passwords do not match",
+        successMessage: "",
+      });
     }
-    const res = await fetch("http://localhost:8801/api/auth/resetPassword", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      setMessage({ error: "", successMessage: "הסיסמה אופסה בהצלחה" });
-      setTimeout(() => onSwitch("login"), 2000);
-    } else {
-      setMessage({ error: data.message, successMessage: "" });
+
+    try {
+      const res = await fetch("http://localhost:8801/api/auth/resetPassword", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+      console.log("Reset response:", data);
+
+      if (data.success) {
+        setMessage({
+          error: "",
+          successMessage: "Password reset successfully",
+        });
+        setTimeout(() => onSwitch("login"), 2000);
+      } else {
+        setMessage({
+          error: data.message || "Error resetting password",
+          successMessage: "",
+        });
+      }
+    } catch (err) {
+      console.error("Reset password error:", err);
+      setMessage({ error: "Network error", successMessage: "" });
     }
   };
 
   return (
     <div className="forgotPasswordBox">
-      <h2 className="title">איפוס סיסמה</h2>
+      <h2 className="title">Reset Password</h2>
+
       {message.error && <p className="error">{message.error}</p>}
       {message.successMessage && (
         <p className="successMessage">{message.successMessage}</p>
@@ -73,7 +104,7 @@ export default function ForgotPassword({ onSwitch }) {
             />
           </div>
           <button className="sendCodeButton" onClick={handleSendCode}>
-            <span className="labelText">שלח קוד</span>
+            <span className="labelText">Send Code</span>
           </button>
         </>
       )}
@@ -84,12 +115,12 @@ export default function ForgotPassword({ onSwitch }) {
             <input
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder="הזן קוד שקיבלת במייל"
+              placeholder="Enter Code Received In Mail"
               className="inputEmail"
             />
           </div>
           <button className="sendCodeButton" onClick={handleVerifyCode}>
-            <span className="labelText">אמת קוד</span>
+            <span className="labelText">Verification code</span>
           </button>
         </>
       )}
@@ -101,9 +132,8 @@ export default function ForgotPassword({ onSwitch }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="סיסמה חדשה"
+              placeholder="New Password"
               className="inputEmail"
-              pattern="^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,20}$"
             />
           </div>
           <div className="textField">
@@ -111,19 +141,18 @@ export default function ForgotPassword({ onSwitch }) {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="אימות סיסמה"
+              placeholder="Validate Password"
               className="inputEmail"
-              pattern="^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,20}$"
             />
           </div>
           <button className="sendCodeButton" onClick={handleResetPassword}>
-            <span className="labelText">אפס סיסמה</span>
+            <span className="labelText">Reset Password</span>
           </button>
         </>
       )}
 
       <button className="backButton" onClick={() => onSwitch("login")}>
-        <span className="labelText">חזרה להתחברות</span>
+        <span className="labelText">Back to Login</span>
       </button>
     </div>
   );

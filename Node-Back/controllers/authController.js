@@ -126,10 +126,13 @@ function sendResetCode(req, res) {
   });
 
   db.query("SELECT * FROM users WHERE email = ?", [email], (err, users) => {
-    if (err) return;
-    res.json({ success: false, message: "Server error" });
-    if (users.length === 0)
+    if (err) {
+      return res.json({ success: false, message: "Server error" });
+    }
+
+    if (users.length === 0) {
       return res.json({ success: false, message: "Email not found" });
+    }
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const emailText = `
@@ -155,9 +158,12 @@ function sendResetCode(req, res) {
         text: emailText,
       },
       (err2) => {
-        if (err2)
+        if (err2) {
           return res.json({ success: false, message: "Failed to send email" });
-        res.json({ success: true, message: "Code sent", code });
+        }
+
+        console.log("Reset code sent:", code);
+        return res.json({ success: true, message: "Code sent", code });
       }
     );
   });
