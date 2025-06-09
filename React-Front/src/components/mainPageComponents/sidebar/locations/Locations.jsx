@@ -9,13 +9,15 @@ export default function Locations() {
   const [newLocationAddress, setNewLocationAddress] = useState("");
 
   useEffect(() => {
-    fetch("http://localhost:8801/api/locations", {
-      credentials: "include",
-    })
+    fetch("http://localhost:8801/api/locations", { credentials: "include" })
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data)) setLocations(data);
-        else setLocations([]);
+        if (Array.isArray(data)) {
+          setLocations(data);
+        } else {
+          setLocations([]);
+          console.error("Unexpected response for locations:", data);
+        }
       })
       .catch((err) => {
         console.error("Failed to fetch locations:", err);
@@ -75,6 +77,28 @@ export default function Locations() {
     // שליחת בקשה לעדכון (אם תבחרי לממש)
   };
 
+  const handleIconChange = async (locationId, newIcon) => {
+    try {
+      await fetch("http://localhost:8801/api/locations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          location_id: locationId,
+          new_icon: newIcon,
+        }),
+      });
+
+      setLocations(
+        locations.map((loc) =>
+          loc.location_id === locationId ? { ...loc, icon: newIcon } : loc
+        )
+      );
+    } catch (err) {
+      console.error("Error updating icon:", err);
+    }
+  };
+
   return (
     <div className={styles.wrapper}>
       <ul className={styles.locationList}>
@@ -86,6 +110,7 @@ export default function Locations() {
             icon={loc.icon}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onIconChange={handleIconChange}
           />
         ))}
       </ul>

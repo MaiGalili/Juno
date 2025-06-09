@@ -22,16 +22,23 @@ export default function SingleLocation({
 
       {showMenu && (
         <div className={styles.dropdownMenu}>
-          <label className={styles.colorOption}>
-            🎨 LOCATION COLOR
-            <input
-              type="color"
+          <label className={styles.iconOption}>
+            🏷️ LOCATION ICON
+            <select
+              defaultValue={icon}
               onChange={(e) => {
                 setShowMenu(false);
-                onColorChange(id, e.target.value);
+                onIconChange(id, e.target.value);
               }}
-            />
+            >
+              <option value="📍">📍</option>
+              <option value="🏠">🏠</option>
+              <option value="🚗">🚗</option>
+              <option value="🖥️">🖥️</option>
+              <option value="🏢">🏢</option>
+            </select>
           </label>
+
           <button
             onClick={() => {
               setShowMenu(false);
@@ -46,7 +53,7 @@ export default function SingleLocation({
               onDelete(id);
             }}
           >
-            Remove Location
+            Remove label
           </button>
         </div>
       )}
