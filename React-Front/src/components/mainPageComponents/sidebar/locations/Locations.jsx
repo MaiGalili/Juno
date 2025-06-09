@@ -9,13 +9,18 @@ export default function Locations() {
   const [newLocationAddress, setNewLocationAddress] = useState("");
 
   useEffect(() => {
-    // 🚀 Load locations from server
     fetch("http://localhost:8801/api/locations", {
       credentials: "include",
     })
       .then((res) => res.json())
-      .then((data) => setLocations(data))
-      .catch((err) => console.error("Error loading locations:", err));
+      .then((data) => {
+        if (Array.isArray(data)) setLocations(data);
+        else setLocations([]);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch locations:", err);
+        setLocations([]);
+      });
   }, []);
 
   const handleAdd = async () => {

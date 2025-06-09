@@ -10,8 +10,6 @@ const locationsRoutes = require("./routes/locationsRoutes");
 const app = express();
 const port = 8801;
 
-app.use("/api/locations", locationsRoutes);
-
 // הגדרות CORS
 app.use(
   cors({
@@ -40,6 +38,7 @@ app.use(logger);
 // חיבור הנתיבים
 app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/locations", locationsRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
