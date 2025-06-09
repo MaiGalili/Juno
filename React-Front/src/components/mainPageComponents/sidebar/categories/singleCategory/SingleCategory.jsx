@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import styles from "./singleCategory.module.css";
 
 export default function SingleCategory({
+  id,
   name,
   color = "#ccc",
   onEdit,
@@ -27,14 +28,14 @@ export default function SingleCategory({
               type="color"
               onChange={(e) => {
                 setShowMenu(false);
-                onColorChange(name, e.target.value);
+                onColorChange(id, e.target.value);
               }}
             />
           </label>
           <button
             onClick={() => {
               setShowMenu(false);
-              onEdit(name);
+              onEdit(id);
             }}
           >
             Edit
@@ -42,7 +43,7 @@ export default function SingleCategory({
           <button
             onClick={() => {
               setShowMenu(false);
-              onDelete(name);
+              onDelete(id);
             }}
           >
             Remove Category

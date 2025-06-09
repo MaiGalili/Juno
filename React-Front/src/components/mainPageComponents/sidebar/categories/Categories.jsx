@@ -53,24 +53,22 @@ export default function Categories({ userEmail }) {
     }
   };
 
-  const handleDelete = async (categoryName) => {
+  const handleDelete = async (categoryId) => {
     try {
-      await fetch(`http://localhost:8801/api/categories/${categoryName}`, {
+      await fetch(`http://localhost:8801/api/categories/${categoryId}`, {
         method: "DELETE",
         credentials: "include",
       });
-      setCategories(categories.filter((c) => c.name !== categoryName));
+      setCategories(categories.filter((c) => c.category_id !== categoryId));
     } catch (err) {
       console.error("Error deleting category:", err);
     }
   };
 
-  const handleEdit = async (categoryName) => {
-    const newName = prompt("Enter new name:", categoryName);
+  const handleEdit = async (categoryId) => {
+    const current = categories.find((c) => c.category_id === categoryId);
+    const newName = prompt("Enter new name:", current.name);
     if (!newName) return;
-
-    const oldColor =
-      categories.find((c) => c.name === categoryName)?.color || "#dddddd";
 
     try {
       await fetch("http://localhost:8801/api/categories", {
@@ -78,16 +76,16 @@ export default function Categories({ userEmail }) {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          old_name: categoryName,
+          category_id: categoryId,
           new_name: newName,
-          new_color: oldColor,
-          user_email: userEmail, // כדי לעדכן לפי המשתמש
+          new_color: current.color,
+          user_email: userEmail,
         }),
       });
 
       setCategories(
         categories.map((c) =>
-          c.name === categoryName ? { ...c, name: newName } : c
+          c.category_id === categoryId ? { ...c, name: newName } : c
         )
       );
     } catch (err) {
@@ -95,23 +93,26 @@ export default function Categories({ userEmail }) {
     }
   };
 
-  const handleColorChange = async (categoryName, newColor) => {
+  const handleColorChange = async (categoryId, newColor) => {
+    const current = categories.find((c) => c.category_id === categoryId);
+    if (!current) return;
+
     try {
       await fetch("http://localhost:8801/api/categories", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          old_name: categoryName,
-          new_name: categoryName,
+          category_id: categoryId,
+          new_name: current.name,
           new_color: newColor,
-          user_email: userEmail, // גם כאן
+          user_email: userEmail,
         }),
       });
 
       setCategories(
         categories.map((c) =>
-          c.name === categoryName ? { ...c, color: newColor } : c
+          c.category_id === categoryId ? { ...c, color: newColor } : c
         )
       );
     } catch (err) {
@@ -122,9 +123,10 @@ export default function Categories({ userEmail }) {
   return (
     <div className={styles.wrapper}>
       <ul className={styles.labelList}>
-        {categories.map((category, index) => (
+        {categories.map((category) => (
           <SingleCategory
-            key={index}
+            key={category.category_id}
+            id={category.category_id}
             name={category.name}
             color={category.color}
             onEdit={handleEdit}
