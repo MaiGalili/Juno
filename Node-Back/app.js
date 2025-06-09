@@ -5,9 +5,12 @@ const logger = require("./logger");
 
 const authRoutes = require("./routes/authRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
+const locationsRoutes = require("./routes/locationsRoutes");
 
 const app = express();
 const port = 8801;
+
+app.use("/api/locations", locationsRoutes);
 
 // הגדרות CORS
 app.use(

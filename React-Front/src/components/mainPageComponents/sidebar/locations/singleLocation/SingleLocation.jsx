@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import styles from "./singleLocation.module.css";
 
-export default function SingleLable({
+export default function SingleLocation({
+  id,
   name,
   color = "#ccc",
   onEdit,
@@ -22,19 +23,19 @@ export default function SingleLable({
       {showMenu && (
         <div className={styles.dropdownMenu}>
           <label className={styles.colorOption}>
-            🎨 LABEL COLOR
+            🎨 LOCATION COLOR
             <input
               type="color"
               onChange={(e) => {
                 setShowMenu(false);
-                onColorChange(name, e.target.value);
+                onColorChange(id, e.target.value);
               }}
             />
           </label>
           <button
             onClick={() => {
               setShowMenu(false);
-              onEdit(name);
+              onEdit(id);
             }}
           >
             Edit
@@ -42,10 +43,10 @@ export default function SingleLable({
           <button
             onClick={() => {
               setShowMenu(false);
-              onDelete(name);
+              onDelete(id);
             }}
           >
-            Remove label
+            Remove Location
           </button>
         </div>
       )}
