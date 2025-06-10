@@ -35,6 +35,12 @@ app.use(
 app.use(express.json());
 app.use(logger);
 
+// Add debugging middleware to see all incoming requests
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+
 // חיבור הנתיבים
 app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);

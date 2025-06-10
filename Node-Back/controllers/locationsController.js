@@ -3,9 +3,15 @@ const axios = require("axios");
 const db = require("../db");
 
 async function addLocation(req, res) {
-  const { location_name, location_address, user_email, icon } = req.body;
+  const { location_name, address, icon } = req.body;
+  console.log(address, location_name, icon);
 
-  if (!location_name || !location_address || !user_email || !icon) {
+  // Check if user is authenticated
+  if (!req.session.userEmail) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  if (!location_name || !address || !icon) {
     return res.status(400).json({ success: false, message: "Missing data" });
   }
 
@@ -15,7 +21,7 @@ async function addLocation(req, res) {
       {
         params: {
           api_key: process.env.OPENROUTESERVICE_API_KEY,
-          text: location_address,
+          text: address, // Fixed variable name
           size: 1,
         },
       }
@@ -33,7 +39,7 @@ async function addLocation(req, res) {
     const [result] = await db.promise().query(
       `INSERT INTO location (location_name, location_address, latitude, longitude, user_email, icon)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [location_name, location_address, latitude, longitude, user_email, icon]
+      [location_name, address, latitude, longitude, req.session.userEmail, icon] // Added user_email
     );
 
     res.status(201).json({
@@ -42,7 +48,7 @@ async function addLocation(req, res) {
       location: {
         location_id: result.insertId,
         location_name,
-        location_address,
+        location_address: address, // Fixed variable name
         latitude,
         longitude,
         icon,
@@ -82,7 +88,7 @@ async function deleteLocation(req, res) {
   try {
     await db
       .promise()
-      .query("DELETE FROM locations WHERE location_id = ?", [id]);
+      .query("DELETE FROM location WHERE location_id = ?", [id]);
     res.json({ success: true, message: "Location deleted" });
   } catch (error) {
     console.error("Error deleting location:", error.message);
@@ -102,7 +108,7 @@ async function updateLocation(req, res) {
   try {
     await db
       .promise()
-      .query("UPDATE locations SET icon = ? WHERE location_id = ?", [
+      .query("UPDATE location SET icon = ? WHERE location_id = ?", [
         new_icon,
         location_id,
       ]);

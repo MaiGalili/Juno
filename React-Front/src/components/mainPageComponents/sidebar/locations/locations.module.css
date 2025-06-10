@@ -73,3 +73,22 @@
 .addForm button:hover {
   background-color: #574e67;
 }
+
+.addForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.addForm label {
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.addForm input {
+  padding: 0.4rem;
+  margin-bottom: 0.3rem;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}

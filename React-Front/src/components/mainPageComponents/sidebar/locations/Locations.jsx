@@ -31,16 +31,19 @@ export default function Locations() {
     if (!trimmedName || !trimmedAddress) return;
 
     try {
-      const res = await fetch("http://localhost:8801/api/locations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          location_name: trimmedName,
-          address: trimmedAddress,
-          icon: newLocationIcon,
-        }),
-      });
+      const res = await fetch(
+        "http://localhost:8801/api/locations/add-location",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            location_name: trimmedName,
+            address: trimmedAddress,
+            icon: newLocationIcon,
+          }),
+        }
+      );
 
       const data = await res.json();
       if (data.success) {
@@ -116,18 +119,26 @@ export default function Locations() {
       </ul>
 
       <div className={styles.addForm}>
-        <input
-          type="text"
-          placeholder="Location name"
-          value={newLocationName}
-          onChange={(e) => setNewLocationName(e.target.value)}
-        />
-        <input
-          type="text"
-          placeholder="Address"
-          value={newLocationAddress}
-          onChange={(e) => setNewLocationAddress(e.target.value)}
-        />
+        <label>
+          Location name:
+          <input
+            type="text"
+            placeholder="Home, Work, Gym..."
+            value={newLocationName}
+            onChange={(e) => setNewLocationName(e.target.value)}
+          />
+        </label>
+
+        <label>
+          Address:
+          <input
+            type="text"
+            placeholder="e.g., 12 Herzl St, Tel Aviv"
+            value={newLocationAddress}
+            onChange={(e) => setNewLocationAddress(e.target.value)}
+          />
+        </label>
+
         <select
           value={newLocationIcon}
           onChange={(e) => setNewLocationIcon(e.target.value)}
@@ -138,6 +149,7 @@ export default function Locations() {
           <option value="🖥️">🖥️</option>
           <option value="🏢">🏢</option>
         </select>
+
         <button onClick={handleAdd}>Add</button>
       </div>
     </div>
