@@ -20,7 +20,7 @@ function App() {
         }
       })
       .catch((err) => console.error("Session check failed:", err))
-      .finally(() => setLoading(false)); // מסיים טעינה בכל מקרה
+      .finally(() => setLoading(false)); 
   }, []);
 
   const isLoggin = userEmail !== null;

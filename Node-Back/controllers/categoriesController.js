@@ -27,7 +27,7 @@ async function getCategories(req, res) {
 
 // === Add Category ===
 async function addCategory(req, res) {
-  const user_email = req.body.user_email || req.session.userEmail;
+  const user_email = req.session.userEmail;
   const { category_name, category_color } = req.body;
 
   if (!user_email || !category_name) {
@@ -45,9 +45,15 @@ async function addCategory(req, res) {
       .promise()
       .query(insertQuery, [category_name, category_color, user_email]);
 
-    res
-      .status(201)
-      .json({ success: true, message: "Category added or updated" });
+    // שליפת הקטגוריה שנוצרה או עודכנה
+    const [newCategoryRows] = await db.promise().query(
+      `SELECT category_id, category_name AS name, category_color AS color
+       FROM category
+       WHERE category_name = ? AND user_email = ?`,
+      [category_name, user_email]
+    );
+
+    res.status(201).json(newCategoryRows[0]);
   } catch (error) {
     console.error("Error adding category:", error);
     res.status(500).json({ success: false, message: "Failed to add category" });

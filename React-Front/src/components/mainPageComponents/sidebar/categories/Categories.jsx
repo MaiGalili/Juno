@@ -8,15 +8,16 @@ export default function Categories({ userEmail }) {
   const [newCategoryColor, setNewCategoryColor] = useState("#dddddd");
 
   useEffect(() => {
-    if (!userEmail) return;
-
     fetch("http://localhost:8801/api/categories", {
       credentials: "include",
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error("Unauthorized");
+        return res.json();
+      })
       .then((data) => setCategories(data))
       .catch((err) => console.error("Failed to fetch categories:", err));
-  }, [userEmail]);
+  }, []);
 
   const handleAdd = async () => {
     const trimmed = newCategoryName.trim();
@@ -29,10 +30,10 @@ export default function Categories({ userEmail }) {
     const newCategory = {
       category_name: trimmed,
       category_color: newCategoryColor,
-      user_email: userEmail, // נוסף עבור שמירה נכונה
     };
 
     try {
+      console.log(newCategory);
       const response = await fetch("http://localhost:8801/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -41,10 +42,8 @@ export default function Categories({ userEmail }) {
       });
 
       if (response.ok) {
-        setCategories([
-          ...categories,
-          { name: trimmed, color: newCategoryColor },
-        ]);
+        const createdCategory = await response.json();
+        setCategories([...categories, createdCategory]);
         setNewCategoryName("");
         setNewCategoryColor("#dddddd");
       }

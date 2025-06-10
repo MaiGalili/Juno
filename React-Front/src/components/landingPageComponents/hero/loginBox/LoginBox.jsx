@@ -27,7 +27,7 @@ export default function LoginBox({ onSwitch, setIsLoggin }) {
       const data = await response.json();
 
       if (data.success) {
-        setIsLoggin(true);
+        setIsLoggin(data.userEmail);
         navigate("/calendar");
       } else {
         const msg = data.message.toLowerCase();
