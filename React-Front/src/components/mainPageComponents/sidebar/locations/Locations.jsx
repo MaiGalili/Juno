@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import SingleLocation from "./singleLocation/SingleLocation";
+import AddressInput from "./AddressInput";
 import styles from "./locations.module.css";
 
 export default function Locations() {
@@ -39,7 +40,7 @@ export default function Locations() {
           credentials: "include",
           body: JSON.stringify({
             location_name: trimmedName,
-            address: trimmedAddress,
+            location_address: trimmedAddress,
             icon: newLocationIcon,
           }),
         }
@@ -47,7 +48,11 @@ export default function Locations() {
 
       const data = await res.json();
       if (data.success) {
-        setLocations([...locations, { ...data.location }]);
+        const res = await fetch("http://localhost:8801/api/locations", {
+          credentials: "include",
+        });
+        const updatedList = await res.json();
+        setLocations(Array.isArray(updatedList) ? updatedList : []);
         setNewLocationName("");
         setNewLocationAddress("");
         setNewLocationIcon("📍");
@@ -76,8 +81,6 @@ export default function Locations() {
     const current = locations.find((loc) => loc.location_id === locationId);
     const newName = prompt("Enter new name:", current.location_name);
     if (!newName) return;
-
-    // שליחת בקשה לעדכון (אם תבחרי לממש)
   };
 
   const handleIconChange = async (locationId, newIcon) => {
@@ -111,6 +114,7 @@ export default function Locations() {
             id={loc.location_id}
             name={loc.location_name}
             icon={loc.icon}
+            color={loc.color}
             onEdit={handleEdit}
             onDelete={handleDelete}
             onIconChange={handleIconChange}
@@ -131,11 +135,10 @@ export default function Locations() {
 
         <label>
           Address:
-          <input
-            type="text"
-            placeholder="e.g., 12 Herzl St, Tel Aviv"
+          <AddressInput
             value={newLocationAddress}
-            onChange={(e) => setNewLocationAddress(e.target.value)}
+            onChange={setNewLocationAddress}
+            placeholder="e.g. 100 HaTishbi St, Haifa, Israel"
           />
         </label>
 

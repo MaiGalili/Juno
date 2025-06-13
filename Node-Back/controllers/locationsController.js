@@ -3,52 +3,60 @@ const axios = require("axios");
 const db = require("../db");
 
 async function addLocation(req, res) {
-  const { location_name, address, icon } = req.body;
-  console.log(address, location_name, icon);
+  const { location_name, location_address, icon } = req.body;
 
-  // Check if user is authenticated
+  console.log("📍 DATA RECEIVED:", location_name, location_address, icon);
+
   if (!req.session.userEmail) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
-  if (!location_name || !address || !icon) {
+  if (!location_name || !location_address || !icon) {
     return res.status(400).json({ success: false, message: "Missing data" });
   }
 
   try {
     const geoRes = await axios.get(
-      "https://api.openrouteservice.org/geocode/search",
+      "https://maps.googleapis.com/maps/api/geocode/json",
       {
         params: {
-          api_key: process.env.OPENROUTESERVICE_API_KEY,
-          text: address, // Fixed variable name
-          size: 1,
+          address: location_address,
+          key: process.env.GOOGLE_GEO_API_KEY,
         },
       }
     );
 
-    const coords = geoRes.data.features[0]?.geometry?.coordinates;
+    const result = geoRes.data.results[0];
+    const coords = result?.geometry?.location;
+
     if (!coords) {
       return res
         .status(500)
         .json({ success: false, message: "Failed to geocode address" });
     }
 
-    const [longitude, latitude] = coords;
+    const { lat: latitude, lng: longitude } = coords;
 
-    const [result] = await db.promise().query(
+    const [dbRes] = await db.promise().query(
       `INSERT INTO location (location_name, location_address, latitude, longitude, user_email, icon)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [location_name, address, latitude, longitude, req.session.userEmail, icon] // Added user_email
+      [
+        location_name,
+        location_address,
+        latitude,
+        longitude,
+        req.session.userEmail,
+        icon,
+      ]
     );
 
     res.status(201).json({
       success: true,
       message: "Location added successfully",
       location: {
-        location_id: result.insertId,
+        location_id: dbRes.insertId,
         location_name,
-        location_address: address, // Fixed variable name
+        location_address,
         latitude,
         longitude,
         icon,
@@ -68,9 +76,9 @@ async function getLocations(req, res) {
 
   try {
     const [results] = await db.promise().query(
-      `SELECT location_id, location_name, location_address, latitude, longitude, icon
-         FROM location
-         WHERE user_email = ?`,
+      `SELECT location_id, location_name, location_address, latitude, longitude, icon, color
+       FROM location
+       WHERE user_email = ?`,
       [user_email]
     );
 
@@ -99,24 +107,48 @@ async function deleteLocation(req, res) {
 }
 
 async function updateLocation(req, res) {
-  const { location_id, new_icon } = req.body;
+  const { location_id, new_icon, new_color } = req.body;
 
-  if (!location_id || !new_icon) {
-    return res.status(400).json({ success: false, message: "Missing data" });
+  if (!location_id) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Missing location_id" });
   }
 
   try {
-    await db
-      .promise()
-      .query("UPDATE location SET icon = ? WHERE location_id = ?", [
-        new_icon,
-        location_id,
-      ]);
+    // בניית חלקי העדכון הדינמי
+    const fields = [];
+    const values = [];
 
-    res.json({ success: true, message: "Icon updated" });
+    if (new_icon) {
+      fields.push("icon = ?");
+      values.push(new_icon);
+    }
+
+    if (new_color) {
+      fields.push("color = ?");
+      values.push(new_color);
+    }
+
+    if (fields.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Nothing to update" });
+    }
+
+    values.push(location_id);
+
+    const query = `UPDATE location SET ${fields.join(
+      ", "
+    )} WHERE location_id = ?`;
+    await db.promise().query(query, values);
+
+    res.json({ success: true, message: "Location updated" });
   } catch (error) {
-    console.error("Error updating icon:", error.message);
-    res.status(500).json({ success: false, message: "Failed to update icon" });
+    console.error("Error updating location:", error.message);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to update location" });
   }
 }
 

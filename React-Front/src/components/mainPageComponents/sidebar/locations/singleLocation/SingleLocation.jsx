@@ -5,9 +5,11 @@ export default function SingleLocation({
   id,
   name,
   color = "#ccc",
+  icon,
   onEdit,
   onDelete,
   onColorChange,
+  onIconChange,
 }) {
   const [showMenu, setShowMenu] = useState(false);
 
@@ -15,7 +17,9 @@ export default function SingleLocation({
 
   return (
     <li className={styles.labelItem} style={{ backgroundColor: color }}>
-      <span className={styles.name}>{name}</span>
+      <span className={styles.name}>
+        {icon} {name}
+      </span>
       <button className={styles.menuButton} onClick={toggleMenu}>
         ⋮
       </button>
@@ -37,6 +41,18 @@ export default function SingleLocation({
               <option value="🖥️">🖥️</option>
               <option value="🏢">🏢</option>
             </select>
+          </label>
+
+          <label className={styles.iconOption}>
+            🎨 LOCATION COLOR
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => {
+                setShowMenu(false);
+                onColorChange(id, e.target.value);
+              }}
+            />
           </label>
 
           <button
