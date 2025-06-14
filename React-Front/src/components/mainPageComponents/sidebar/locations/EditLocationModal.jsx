@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import AddressInput from "./AddressInput";
 import { Dialog } from "@headlessui/react";
-import { LoadScript } from "@react-google-maps/api";
 
 export default function EditLocationModal({
   isOpen,
@@ -13,7 +12,6 @@ export default function EditLocationModal({
   const [address, setAddress] = useState(location.location_address);
   const [icon, setIcon] = useState(location.icon);
 
-  // עדכון כשהמיקום משתנה
   useEffect(() => {
     setName(location.location_name);
     setAddress(location.location_address);
@@ -51,16 +49,11 @@ export default function EditLocationModal({
           />
 
           <label className="block font-medium mb-1">Address:</label>
-          <LoadScript
-            googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
-            libraries={["places"]}
-          >
-            <AddressInput
-              value={address}
-              onChange={setAddress}
-              placeholder="Enter address"
-            />
-          </LoadScript>
+          <AddressInput
+            value={address}
+            onChange={setAddress}
+            placeholder="Enter address"
+          />
 
           <label className="block font-medium mb-1 mt-3">Icon:</label>
           <select

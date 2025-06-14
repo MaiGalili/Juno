@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Routes, Route, BrowserRouter, Navigate } from "react-router-dom";
-import { LoadScript } from "@react-google-maps/api"; // ✅ הוספנו
+import { APIProvider } from "@vis.gl/react-google-maps"; // ✨ חדש
 
 import LandingPage from "./pages/landingPage/LandingPage.jsx";
 import Calendar from "./pages/mainPage/MainPage.jsx";
 import Error404 from "./pages/error404/Error404.jsx";
 
-const libraries = ["places"]; // ✅ מוגדר פעם אחת כאן
-
 function App() {
   const [userEmail, setUserEmail] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  console.log("API KEY:", process.env.REACT_APP_GOOGLE_MAPS_API_KEY);
 
   useEffect(() => {
     fetch("http://localhost:8801/api/auth/getSession", {
@@ -31,11 +27,8 @@ function App() {
   const isLoggin = userEmail !== null;
 
   return (
-    <BrowserRouter>
-      <LoadScript
-        googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
-        libraries={libraries}
-      >
+    <APIProvider apiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}>
+      <BrowserRouter>
         <div className="App">
           {loading ? (
             <div style={{ textAlign: "center", marginTop: "50px" }}>
@@ -65,8 +58,8 @@ function App() {
             </Routes>
           )}
         </div>
-      </LoadScript>
-    </BrowserRouter>
+      </BrowserRouter>
+    </APIProvider>
   );
 }
 
