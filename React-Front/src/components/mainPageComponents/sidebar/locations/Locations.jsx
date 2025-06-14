@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import SingleLocation from "./singleLocation/SingleLocation";
 import AddressInput from "./AddressInput";
+import EditLocationModal from "./EditLocationModal";
 import styles from "./locations.module.css";
 
 export default function Locations() {
@@ -8,23 +9,25 @@ export default function Locations() {
   const [newLocationName, setNewLocationName] = useState("");
   const [newLocationIcon, setNewLocationIcon] = useState("📍");
   const [newLocationAddress, setNewLocationAddress] = useState("");
+  const [editingLocation, setEditingLocation] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:8801/api/locations", { credentials: "include" })
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setLocations(data);
-        } else {
-          setLocations([]);
-          console.error("Unexpected response for locations:", data);
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to fetch locations:", err);
-        setLocations([]);
-      });
+    fetchLocations();
   }, []);
+
+  const fetchLocations = async () => {
+    try {
+      const res = await fetch("http://localhost:8801/api/locations", {
+        credentials: "include",
+      });
+      const data = await res.json();
+      setLocations(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to fetch locations:", err);
+      setLocations([]);
+    }
+  };
 
   const handleAdd = async () => {
     const trimmedName = newLocationName.trim();
@@ -48,11 +51,7 @@ export default function Locations() {
 
       const data = await res.json();
       if (data.success) {
-        const res = await fetch("http://localhost:8801/api/locations", {
-          credentials: "include",
-        });
-        const updatedList = await res.json();
-        setLocations(Array.isArray(updatedList) ? updatedList : []);
+        await fetchLocations();
         setNewLocationName("");
         setNewLocationAddress("");
         setNewLocationIcon("📍");
@@ -66,26 +65,48 @@ export default function Locations() {
 
   const handleDelete = async (locationId) => {
     try {
-      await fetch(`http://localhost:8801/api/locations/${locationId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const res = await fetch(
+        `http://localhost:8801/api/locations/${locationId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.message || "Failed to delete location");
+        return;
+      }
 
       setLocations(locations.filter((loc) => loc.location_id !== locationId));
     } catch (err) {
       console.error("Error deleting location:", err);
+      alert("Error communicating with server.");
     }
   };
 
-  const handleEdit = async (locationId) => {
+  const handleEdit = (locationId) => {
     const current = locations.find((loc) => loc.location_id === locationId);
-    const newName = prompt("Enter new name:", current.location_name);
-    if (!newName) return;
+    if (current) {
+      setEditingLocation(current);
+      setShowModal(true);
+    }
+  };
+
+  const handleLocationUpdate = (updatedLocation) => {
+    setLocations((prev) =>
+      prev.map((loc) =>
+        loc.location_id === updatedLocation.location_id ? updatedLocation : loc
+      )
+    );
+    setShowModal(false);
+    setEditingLocation(null);
   };
 
   const handleIconChange = async (locationId, newIcon) => {
     try {
-      await fetch("http://localhost:8801/api/locations", {
+      const res = await fetch("http://localhost:8801/api/locations", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -95,13 +116,20 @@ export default function Locations() {
         }),
       });
 
-      setLocations(
-        locations.map((loc) =>
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.message || "Failed to update icon");
+        return;
+      }
+
+      setLocations((prev) =>
+        prev.map((loc) =>
           loc.location_id === locationId ? { ...loc, icon: newIcon } : loc
         )
       );
     } catch (err) {
       console.error("Error updating icon:", err);
+      alert("Error communicating with server.");
     }
   };
 
@@ -142,19 +170,33 @@ export default function Locations() {
           />
         </label>
 
-        <select
-          value={newLocationIcon}
-          onChange={(e) => setNewLocationIcon(e.target.value)}
-        >
-          <option value="📍">📍</option>
-          <option value="🏠">🏠</option>
-          <option value="🚗">🚗</option>
-          <option value="🖥️">🖥️</option>
-          <option value="🏢">🏢</option>
-        </select>
+        <label>
+          Icon:
+          <select
+            value={newLocationIcon}
+            onChange={(e) => setNewLocationIcon(e.target.value)}
+          >
+            <option value="📍">📍</option>
+            <option value="🏠">🏠</option>
+            <option value="🚗">🚗</option>
+            <option value="🖥️">🖥️</option>
+            <option value="🏢">🏢</option>
+          </select>
+        </label>
 
         <button onClick={handleAdd}>Add</button>
       </div>
+
+      {showModal && editingLocation && (
+        <EditLocationModal
+          location={editingLocation}
+          onClose={() => {
+            setShowModal(false);
+            setEditingLocation(null);
+          }}
+          onSave={handleLocationUpdate}
+        />
+      )}
     </div>
   );
 }

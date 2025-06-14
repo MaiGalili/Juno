@@ -5,8 +5,6 @@ const db = require("../db");
 async function addLocation(req, res) {
   const { location_name, location_address, icon } = req.body;
 
-  console.log("📍 DATA RECEIVED:", location_name, location_address, icon);
-
   if (!req.session.userEmail) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
@@ -94,9 +92,20 @@ async function getLocations(req, res) {
 async function deleteLocation(req, res) {
   const { id } = req.params;
   try {
-    await db
+    const [result] = await db
       .promise()
-      .query("DELETE FROM location WHERE location_id = ?", [id]);
+      .query("DELETE FROM location WHERE location_id = ? AND user_email = ?", [
+        id,
+        req.session.userEmail,
+      ]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Location not found or unauthorized",
+      });
+    }
+
     res.json({ success: true, message: "Location deleted" });
   } catch (error) {
     console.error("Error deleting location:", error.message);
@@ -107,7 +116,7 @@ async function deleteLocation(req, res) {
 }
 
 async function updateLocation(req, res) {
-  const { location_id, new_icon, new_color } = req.body;
+  const { location_id, new_icon, new_color, new_name, new_address } = req.body;
 
   if (!location_id) {
     return res
@@ -115,8 +124,11 @@ async function updateLocation(req, res) {
       .json({ success: false, message: "Missing location_id" });
   }
 
+  if (!req.session.userEmail) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
   try {
-    // בניית חלקי העדכון הדינמי
     const fields = [];
     const values = [];
 
@@ -130,18 +142,57 @@ async function updateLocation(req, res) {
       values.push(new_color);
     }
 
+    if (new_name) {
+      fields.push("location_name = ?");
+      values.push(new_name);
+    }
+
+    if (new_address) {
+      fields.push("location_address = ?");
+      values.push(new_address);
+
+      // חישוב קורדינטות לפי כתובת חדשה
+      const geoRes = await axios.get(
+        "https://maps.googleapis.com/maps/api/geocode/json",
+        {
+          params: {
+            address: new_address,
+            key: process.env.GOOGLE_GEO_API_KEY,
+          },
+        }
+      );
+
+      const result = geoRes.data.results[0];
+      const coords = result?.geometry?.location;
+
+      if (coords) {
+        fields.push("latitude = ?");
+        values.push(coords.lat);
+        fields.push("longitude = ?");
+        values.push(coords.lng);
+      }
+    }
+
     if (fields.length === 0) {
       return res
         .status(400)
         .json({ success: false, message: "Nothing to update" });
     }
 
-    values.push(location_id);
+    values.push(location_id, req.session.userEmail);
 
     const query = `UPDATE location SET ${fields.join(
       ", "
-    )} WHERE location_id = ?`;
-    await db.promise().query(query, values);
+    )} WHERE location_id = ? AND user_email = ?`;
+
+    const [result] = await db.promise().query(query, values);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Location not found or unauthorized",
+      });
+    }
 
     res.json({ success: true, message: "Location updated" });
   } catch (error) {
