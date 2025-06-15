@@ -1,144 +1,271 @@
-import React, { useState } from "react";
+// TaskPopup.jsx - Create/Edit/View Task Modal Component
+import React, { useState, useEffect } from "react";
 import styles from "./taskPopup.module.css";
 
 export default function TaskPopup({
   mode = "create",
   task = {},
-  onClose,
   onSave,
+  onClose,
+  userCategories = [],
+  userLocations = [],
+  userStartTime = "08:00",
+  userEndTime = "21:00",
 }) {
   const [title, setTitle] = useState(task.title || "");
-  const [date, setDate] = useState(task.date || "");
-  const [startTime, setStartTime] = useState(task.startTime || "");
-  const [endTime, setEndTime] = useState(task.endTime || "");
-  const [category, setCategory] = useState(task.category || "");
-  const [description, setDescription] = useState(task.description || "");
-  const [isFavorite, setIsFavorite] = useState(task.isFavorite || false);
-  const [location, setLocation] = useState(task.location || "");
+  const [allDay, setAllDay] = useState(task.all_day || false);
+  const [startDate, setStartDate] = useState(task.start_date || "");
+  const [endDate, setEndDate] = useState(task.end_date || "");
+  const [startTime, setStartTime] = useState(task.start_time || "");
+  const [endTime, setEndTime] = useState(task.end_time || "");
+  const [duration, setDuration] = useState(task.duration || "");
+  const [note, setNote] = useState(task.note || "");
+  const [selectedCategories, setSelectedCategories] = useState(
+    task.categories || []
+  );
+  const [locationId, setLocationId] = useState(task.location_id || "");
+  const [dueDate, setDueDate] = useState(task.due_date || "");
+  const [dueTime, setDueTime] = useState(task.due_time || "");
+  const [bufferTime, setBufferTime] = useState(task.buffer_time || 10);
+  const [error, setError] = useState("");
 
-  const isViewMode = mode === "view";
+  useEffect(() => {
+    if (allDay) {
+      setStartTime(userStartTime);
+      setEndTime(userEndTime);
+    }
+  }, [allDay, userStartTime, userEndTime]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const taskData = {
-      title,
-      date,
-      startTime,
-      endTime,
-      category,
-      description,
-      isFavorite,
-      location,
+  const validate = () => {
+    if (!startDate && !dueDate) return "Please select a date or due date.";
+    if (!duration && !(startTime && endTime))
+      return "Please provide duration or start and end time.";
+    if (note.length > 160) return "Note cannot exceed 160 characters.";
+    return "";
+  };
+
+  const handleSave = () => {
+    const validationMessage = validate();
+    if (validationMessage) {
+      setError(validationMessage);
+      return;
+    }
+
+    const payload = {
+      title: title || "Title",
+      all_day: allDay,
+      start_date: startDate,
+      end_date: endDate || startDate,
+      start_time: startTime,
+      end_time: endTime,
+      duration,
+      note,
+      category_ids: selectedCategories,
+      location_id: locationId,
+      due_date: dueDate,
+      due_time: dueTime,
+      buffer_time: bufferTime,
     };
-    onSave(taskData);
+
+    onSave(payload);
   };
 
   return (
-    <div className={styles.overlay}>
-      <div className={styles.popup}>
+    <div
+      className={styles.popupWrapper}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(0, 0, 0, 0.3)",
+        zIndex: 1000,
+      }}
+    >
+      <div
+        className={styles.popup}
+        style={{
+          backgroundColor: "white",
+          padding: "1.5rem",
+          borderRadius: "10px",
+          width: "400px",
+          maxHeight: "90vh",
+          overflowY: "auto",
+        }}
+      >
         <h2>
           {mode === "edit"
             ? "Edit Task"
             : mode === "view"
             ? "Task Details"
-            : "New Task"}
+            : "Create Task"}
         </h2>
-        <form onSubmit={handleSubmit}>
-          <label>
-            Title:
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              disabled={isViewMode}
-              required
-            />
-          </label>
 
-          <label>
-            Date:
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              disabled={isViewMode}
-            />
-          </label>
+        <label>
+          Title:
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            disabled={mode === "view"}
+          />
+        </label>
 
-          <label>
-            Start Time:
-            <input
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              disabled={isViewMode}
-            />
-          </label>
+        <label>
+          All Day:
+          <input
+            type="checkbox"
+            checked={allDay}
+            onChange={(e) => setAllDay(e.target.checked)}
+            disabled={mode === "view"}
+          />
+        </label>
 
-          <label>
-            End Time:
-            <input
-              type="time"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              disabled={isViewMode}
-            />
-          </label>
+        <label>
+          Start Date:
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            disabled={mode === "view"}
+          />
+        </label>
 
-          <label>
-            Category:
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              disabled={isViewMode}
-            >
-              <option value="">Select...</option>
-              <option value="work">Work</option>
-              <option value="personal">Personal</option>
-              <option value="study">Study</option>
-            </select>
-          </label>
+        <label>
+          End Date:
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            disabled={mode === "view"}
+          />
+        </label>
 
-          <label>
-            Description:
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={isViewMode}
-            />
-          </label>
+        {!allDay && (
+          <>
+            <label>
+              Start Time:
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                disabled={mode === "view"}
+              />
+            </label>
+            <label>
+              End Time:
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                disabled={mode === "view"}
+              />
+            </label>
+          </>
+        )}
 
-          <label>
-            <input
-              type="checkbox"
-              checked={isFavorite}
-              onChange={(e) => setIsFavorite(e.target.checked)}
-              disabled={isViewMode}
-            />
-            Favorite
-          </label>
+        <label>
+          Duration (minutes):
+          <input
+            type="number"
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+            disabled={mode === "view"}
+          />
+        </label>
 
-          <label>
-            Location:
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              disabled={isViewMode}
-            />
-          </label>
+        <label>
+          Due Date:
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            disabled={mode === "view"}
+          />
+        </label>
 
-          <div className={styles.buttons}>
-            <button type="button" onClick={onClose}>
-              Close
-            </button>
-            {!isViewMode && (
-              <button type="submit">
-                {mode === "edit" ? "Update" : "Save"}
-              </button>
-            )}
-          </div>
-        </form>
+        <label>
+          Due Time:
+          <input
+            type="time"
+            value={dueTime}
+            onChange={(e) => setDueTime(e.target.value)}
+            disabled={mode === "view"}
+          />
+        </label>
+
+        <label>
+          Buffer Time (min):
+          <input
+            type="number"
+            value={bufferTime}
+            onChange={(e) => setBufferTime(e.target.value)}
+            disabled={mode === "view"}
+          />
+        </label>
+
+        <label>
+          Categories:
+          <select
+            multiple
+            value={selectedCategories}
+            onChange={(e) =>
+              setSelectedCategories(
+                Array.from(e.target.selectedOptions, (opt) => opt.value)
+              )
+            }
+            disabled={mode === "view"}
+          >
+            {userCategories.map((cat) => (
+              <option key={cat.category_id} value={cat.category_id}>
+                {cat.category_name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Location:
+          <select
+            value={locationId}
+            onChange={(e) => setLocationId(e.target.value)}
+            disabled={mode === "view"}
+          >
+            <option value="">Select</option>
+            {userLocations.map((loc) => (
+              <option key={loc.location_id} value={loc.location_id}>
+                {loc.icon} {loc.location_name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Note:
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={160}
+            disabled={mode === "view"}
+          />
+        </label>
+
+        {error && <p className={styles.error}>{error}</p>}
+
+        <div
+          className={styles.buttons}
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginTop: "1rem",
+          }}
+        >
+          <button onClick={onClose}>Cancel</button>
+          {mode !== "view" && <button onClick={handleSave}>Save</button>}
+        </div>
       </div>
     </div>
   );
