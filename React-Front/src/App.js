@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Routes, Route, BrowserRouter, Navigate } from "react-router-dom";
-import { APIProvider } from "@vis.gl/react-google-maps"; // ✨ חדש
+import { LoadScript } from "@react-google-maps/api"; // חזרה לחבילה היציבה
 
 import LandingPage from "./pages/landingPage/LandingPage.jsx";
 import Calendar from "./pages/mainPage/MainPage.jsx";
 import Error404 from "./pages/error404/Error404.jsx";
+
+const libraries = ["places"];
 
 function App() {
   const [userEmail, setUserEmail] = useState(null);
@@ -27,7 +29,10 @@ function App() {
   const isLoggin = userEmail !== null;
 
   return (
-    <APIProvider apiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}>
+    <LoadScript
+      googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
+      libraries={libraries}
+    >
       <BrowserRouter>
         <div className="App">
           {loading ? (
@@ -59,7 +64,7 @@ function App() {
           )}
         </div>
       </BrowserRouter>
-    </APIProvider>
+    </LoadScript>
   );
 }
 
