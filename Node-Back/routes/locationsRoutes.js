@@ -9,7 +9,7 @@ console.log("Locations controller loaded:", Object.keys(locationsController));
 router.get("/", locationsController.getLocations);
 router.post("/add-location", locationsController.addLocation);
 router.delete("/:id", locationsController.deleteLocation);
-router.put("/", locationsController.updateLocation);
+router.put("/update-location", locationsController.updateLocation);
 
 console.log("Locations routes registered");
 module.exports = router;

@@ -1,6 +1,11 @@
 require("dotenv").config();
+console.log("GOOGLE_GEO_API_KEY:", process.env.GOOGLE_GEO_API_KEY);
+
+
 const axios = require("axios");
 const db = require("../db");
+
+
 
 async function addLocation(req, res) {
   const { location_name, location_address, icon } = req.body;
@@ -61,7 +66,11 @@ async function addLocation(req, res) {
       },
     });
   } catch (error) {
-    console.error("Error adding location:", error.message);
+    console.error("Error adding location:", {
+      message: error.message,
+      data: error.response?.data,
+      status: error.response?.status,
+    });
     res.status(500).json({ success: false, message: "Failed to add location" });
   }
 }

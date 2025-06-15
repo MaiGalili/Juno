@@ -106,15 +106,18 @@ export default function Locations() {
 
   const handleIconChange = async (locationId, newIcon) => {
     try {
-      const res = await fetch("http://localhost:8801/api/locations", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          location_id: locationId,
-          new_icon: newIcon,
-        }),
-      });
+      const res = await fetch(
+        "http://localhost:8801/api/locations/update-location",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            location_id: locationId,
+            new_icon: newIcon,
+          }),
+        }
+      );
 
       const data = await res.json();
       if (!data.success) {
@@ -133,6 +136,38 @@ export default function Locations() {
     }
   };
 
+  const handleColorChange = async (locationId, newColor) => {
+    try {
+      const res = await fetch(
+        "http://localhost:8801/api/locations/update-location",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            location_id: locationId,
+            new_color: newColor,
+          }),
+        }
+      );
+
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.message || "Failed to update color");
+        return;
+      }
+
+      setLocations((prev) =>
+        prev.map((loc) =>
+          loc.location_id === locationId ? { ...loc, color: newColor } : loc
+        )
+      );
+    } catch (err) {
+      console.error("Error updating color:", err);
+      alert("Error communicating with server.");
+    }
+  };
+
   return (
     <div className={styles.wrapper}>
       <ul className={styles.locationList}>
@@ -146,6 +181,7 @@ export default function Locations() {
             onEdit={handleEdit}
             onDelete={handleDelete}
             onIconChange={handleIconChange}
+            onColorChange={handleColorChange}
           />
         ))}
       </ul>
