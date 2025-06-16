@@ -87,7 +87,7 @@ export default function TaskPopup({
       setError("Server error while creating task");
     }
   };
-  
+
   return (
     <div
       className={styles.popupWrapper}

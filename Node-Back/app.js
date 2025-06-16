@@ -1,3 +1,4 @@
+//Node-Bakc/app.js
 const express = require("express");
 const session = require("express-session");
 const cors = require("cors");
@@ -10,8 +11,6 @@ const taskRoutes = require("./routes/taskRoutes");
 
 const app = express();
 const port = 8801;
-
-app.use("/api/tasks", taskRoutes);
 
 // הגדרות CORS
 app.use(
@@ -48,6 +47,7 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/locations", locationsRoutes);
+app.use("/api/tasks", taskRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);

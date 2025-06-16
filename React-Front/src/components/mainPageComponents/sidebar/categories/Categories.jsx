@@ -1,3 +1,4 @@
+//Categories.jsx
 import React, { useEffect, useState } from "react";
 import SingleCategory from "./singleCategory/SingleCategory";
 import styles from "./categories.module.css";
