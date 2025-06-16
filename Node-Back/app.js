@@ -6,9 +6,12 @@ const logger = require("./logger");
 const authRoutes = require("./routes/authRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const locationsRoutes = require("./routes/locationsRoutes");
+const taskRoutes = require("./routes/taskRoutes");
 
 const app = express();
 const port = 8801;
+
+app.use("/api/tasks", taskRoutes);
 
 // הגדרות CORS
 app.use(

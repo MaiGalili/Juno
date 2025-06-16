@@ -44,7 +44,7 @@ export default function TaskPopup({
     return "";
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const validationMessage = validate();
     if (validationMessage) {
       setError(validationMessage);
@@ -61,15 +61,33 @@ export default function TaskPopup({
       duration,
       note,
       category_ids: selectedCategories,
-      location_id: locationId,
-      due_date: dueDate,
-      due_time: dueTime,
+      location_id: locationId || null,
+      due_date: dueDate || null,
+      due_time: dueTime || null,
       buffer_time: bufferTime,
+      user_email: sessionStorage.getItem("user_email"),
     };
 
-    onSave(payload);
-  };
+    try {
+      const res = await fetch("http://localhost:8801/api/tasks/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
 
+      const result = await res.json();
+      if (result.success) {
+        onSave?.(result); // קורא לפעולה שמועברת מבחוץ אם קיימת
+      } else {
+        setError(result.message || "Failed to create task");
+      }
+    } catch (err) {
+      console.error("Failed to create task:", err);
+      setError("Server error while creating task");
+    }
+  };
+  
   return (
     <div
       className={styles.popupWrapper}

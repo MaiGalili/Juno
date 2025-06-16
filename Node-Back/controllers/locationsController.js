@@ -1,11 +1,7 @@
 require("dotenv").config();
 console.log("GOOGLE_GEO_API_KEY:", process.env.GOOGLE_GEO_API_KEY);
 
-
-const axios = require("axios");
 const db = require("../db");
-
-
 
 async function addLocation(req, res) {
   const { location_name, location_address, icon } = req.body;
@@ -19,17 +15,17 @@ async function addLocation(req, res) {
   }
 
   try {
-    const geoRes = await axios.get(
-      "https://maps.googleapis.com/maps/api/geocode/json",
-      {
-        params: {
-          address: location_address,
-          key: process.env.GOOGLE_GEO_API_KEY,
-        },
-      }
-    );
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+      location_address
+    )}&key=${process.env.GOOGLE_GEO_API_KEY}`;
 
-    const result = geoRes.data.results[0];
+    const geoRes = await fetch(url);
+    if (!geoRes.ok) {
+      throw new Error(`Geocoding API returned status ${geoRes.status}`);
+    }
+
+    const geoData = await geoRes.json();
+    const result = geoData.results[0];
     const coords = result?.geometry?.location;
 
     if (!coords) {
@@ -68,8 +64,6 @@ async function addLocation(req, res) {
   } catch (error) {
     console.error("Error adding location:", {
       message: error.message,
-      data: error.response?.data,
-      status: error.response?.status,
     });
     res.status(500).json({ success: false, message: "Failed to add location" });
   }
@@ -160,18 +154,18 @@ async function updateLocation(req, res) {
       fields.push("location_address = ?");
       values.push(new_address);
 
-      // חישוב קורדינטות לפי כתובת חדשה
-      const geoRes = await axios.get(
-        "https://maps.googleapis.com/maps/api/geocode/json",
-        {
-          params: {
-            address: new_address,
-            key: process.env.GOOGLE_GEO_API_KEY,
-          },
-        }
-      );
+      // חישוב קורדינטות לפי כתובת חדשה עם fetch
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+        new_address
+      )}&key=${process.env.GOOGLE_GEO_API_KEY}`;
+      const geoRes = await fetch(url);
 
-      const result = geoRes.data.results[0];
+      if (!geoRes.ok) {
+        throw new Error(`Geocoding API returned status ${geoRes.status}`);
+      }
+
+      const geoData = await geoRes.json();
+      const result = geoData.results[0];
       const coords = result?.geometry?.location;
 
       if (coords) {
@@ -211,7 +205,6 @@ async function updateLocation(req, res) {
       .json({ success: false, message: "Failed to update location" });
   }
 }
-
 module.exports = {
   addLocation,
   getLocations,

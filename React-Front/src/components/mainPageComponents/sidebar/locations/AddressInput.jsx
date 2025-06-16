@@ -8,7 +8,7 @@ export default function AddressInput({
 }) {
   const searchBoxRef = useRef(null);
   const [inputValue, setInputValue] = useState(value || "");
-  const [isValid, setIsValid] = useState(true); // 🟡 חדש: האם נבחר מקום תקף
+  const [isValid, setIsValid] = useState(true); // 
 
   const handlePlacesChanged = () => {
     const places = searchBoxRef.current.getPlaces();
@@ -16,17 +16,17 @@ export default function AddressInput({
       const address = places[0].formatted_address || places[0].name;
       setInputValue(address);
       onChange(address);
-      setIsValid(true); // ✅ מקום תקף נבחר
+      setIsValid(true);
     } else {
       console.warn("No place selected");
-      setIsValid(false); // ❌ לא נבחר מקום
+      setIsValid(false);
     }
   };
 
   const handleChange = (e) => {
     setInputValue(e.target.value);
-    onChange(e.target.value); // עדיין שולחים למעלה כדי לשמור סנכרון
-    setIsValid(false); // 🟡 ברגע שמקלידים ידנית, מבטלים את התוקף
+    onChange(e.target.value); 
+    setIsValid(false); // 
   };
 
   return (
