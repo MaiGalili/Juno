@@ -1,4 +1,3 @@
-//taskController.js
 const db = require("../db");
 
 async function createTask(req, res) {
@@ -16,13 +15,14 @@ async function createTask(req, res) {
     due_time,
     buffer_time,
     category_ids,
-    user_email,
   } = req.body;
+
+  const user_email = req.session.userEmail;
 
   if (!user_email) {
     return res
-      .status(400)
-      .json({ success: false, message: "Missing user email" });
+      .status(401)
+      .json({ success: false, message: "Missing user session" });
   }
 
   try {

@@ -3,6 +3,7 @@ import classes from "./mainPage.module.css";
 import Sidebar from "../../components/mainPageComponents/sidebar/Sidebar";
 import TaskPanel from "../../components/mainPageComponents/taskPanel/TaskPanel";
 import LogoutButton from "../../components/mainPageComponents/logoutButton/LogoutButton";
+import CalendarMain from "../../components/mainPageComponents/calendarMain/CalendarMain";
 
 function MainPage({ isLoggin, setIsLoggin, userEmail }) {
   console.log("User Email:", userEmail);
@@ -16,7 +17,8 @@ function MainPage({ isLoggin, setIsLoggin, userEmail }) {
 
       <div className={classes.mainContent}>
         <Sidebar userEmail={userEmail} />
-        <TaskPanel userEmail={userEmail} />
+        <CalendarMain />
+        {/* <TaskPanel userEmail={userEmail} /> */}
       </div>
     </div>
   );

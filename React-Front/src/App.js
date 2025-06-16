@@ -1,3 +1,4 @@
+//React-Front/src/App.js
 import React, { useState, useEffect } from "react";
 import { Routes, Route, BrowserRouter, Navigate } from "react-router-dom";
 import { LoadScript } from "@react-google-maps/api"; // חזרה לחבילה היציבה

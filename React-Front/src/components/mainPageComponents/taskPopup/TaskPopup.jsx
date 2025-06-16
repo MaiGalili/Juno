@@ -29,12 +29,56 @@ export default function TaskPopup({
   const [bufferTime, setBufferTime] = useState(task.buffer_time || 10);
   const [error, setError] = useState("");
 
+  const toTime = (str) => {
+    if (!str) return 0;
+    const [h, m] = str.split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  const fromMinutes = (mins) => {
+    const h = Math.floor(mins / 60)
+      .toString()
+      .padStart(2, "0");
+    const m = (mins % 60).toString().padStart(2, "0");
+    return `${h}:${m}`;
+  };
+
   useEffect(() => {
     if (allDay) {
       setStartTime(userStartTime);
       setEndTime(userEndTime);
     }
   }, [allDay, userStartTime, userEndTime]);
+
+  useEffect(() => {
+    if (startDate && !endDate) {
+      setEndDate(startDate);
+    }
+  }, [startDate]);
+
+  useEffect(() => {
+    if (startTime && endTime) {
+      const mins = toTime(endTime) - toTime(startTime);
+      if (mins >= 0) setDuration(fromMinutes(mins));
+    }
+  }, [startTime, endTime]);
+
+  useEffect(() => {
+    if (startTime && duration && !endTime) {
+      const endMins = toTime(startTime) + toTime(duration);
+      setEndTime(fromMinutes(endMins));
+    }
+  }, [startTime, duration]);
+
+  useEffect(() => {
+    if (endTime && duration && !startTime) {
+      const startMins = toTime(endTime) - toTime(duration);
+      if (startMins >= 0) setStartTime(fromMinutes(startMins));
+    }
+  }, [endTime, duration]);
+
+  const disableTimeFields = dueDate !== "";
+  const disableDueFields = startTime && endTime && duration;
 
   const validate = () => {
     if (!startDate && !dueDate) return "Please select a date or due date.";
@@ -65,7 +109,6 @@ export default function TaskPopup({
       due_date: dueDate || null,
       due_time: dueTime || null,
       buffer_time: bufferTime,
-      user_email: sessionStorage.getItem("user_email"),
     };
 
     try {
@@ -78,7 +121,7 @@ export default function TaskPopup({
 
       const result = await res.json();
       if (result.success) {
-        onSave?.(result); // קורא לפעולה שמועברת מבחוץ אם קיימת
+        onSave?.(result);
       } else {
         setError(result.message || "Failed to create task");
       }
@@ -89,32 +132,8 @@ export default function TaskPopup({
   };
 
   return (
-    <div
-      className={styles.popupWrapper}
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "rgba(0, 0, 0, 0.3)",
-        zIndex: 1000,
-      }}
-    >
-      <div
-        className={styles.popup}
-        style={{
-          backgroundColor: "white",
-          padding: "1.5rem",
-          borderRadius: "10px",
-          width: "400px",
-          maxHeight: "90vh",
-          overflowY: "auto",
-        }}
-      >
+    <div className={styles.popupWrapper}>
+      <div className={styles.popup}>
         <h2>
           {mode === "edit"
             ? "Edit Task"
@@ -170,7 +189,7 @@ export default function TaskPopup({
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                disabled={mode === "view"}
+                disabled={mode === "view" || disableTimeFields}
               />
             </label>
             <label>
@@ -179,19 +198,19 @@ export default function TaskPopup({
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                disabled={mode === "view"}
+                disabled={mode === "view" || disableTimeFields}
               />
             </label>
           </>
         )}
 
         <label>
-          Duration (minutes):
+          Duration:
           <input
-            type="number"
+            type="time"
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
-            disabled={mode === "view"}
+            disabled={mode === "view" || disableTimeFields}
           />
         </label>
 
@@ -201,7 +220,8 @@ export default function TaskPopup({
             type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
-            disabled={mode === "view"}
+            disabled={mode === "view" || disableDueFields}
+            style={{ color: disableDueFields ? "#999" : undefined }}
           />
         </label>
 
@@ -211,7 +231,8 @@ export default function TaskPopup({
             type="time"
             value={dueTime}
             onChange={(e) => setDueTime(e.target.value)}
-            disabled={mode === "view"}
+            disabled={mode === "view" || disableDueFields}
+            style={{ color: disableDueFields ? "#999" : undefined }}
           />
         </label>
 
@@ -273,14 +294,7 @@ export default function TaskPopup({
 
         {error && <p className={styles.error}>{error}</p>}
 
-        <div
-          className={styles.buttons}
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginTop: "1rem",
-          }}
-        >
+        <div className={styles.buttons}>
           <button onClick={onClose}>Cancel</button>
           {mode !== "view" && <button onClick={handleSave}>Save</button>}
         </div>
