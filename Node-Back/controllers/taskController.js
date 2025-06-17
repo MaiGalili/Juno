@@ -84,17 +84,30 @@ async function getTasks(req, res) {
         t.task_id,
         t.task_title,
         t.task_note,
+        t.task_all_day,
         a.task_start_time,
         a.task_end_time,
         a.task_start_date,
-        a.task_end_date
+        a.task_end_date,
+        JSON_ARRAYAGG(
+          JSON_OBJECT('category_id', c.category_id, 'name', c.category_name, 'color', c.category_color)
+        ) AS categories
       FROM task t
       JOIN assigned a ON t.task_id = a.task_id
-      WHERE t.email = ?`,
+      LEFT JOIN task_category tc ON t.task_id = tc.task_id
+      LEFT JOIN category c ON tc.category_id = c.category_id
+      WHERE t.email = ?
+      GROUP BY t.task_id`,
       [user_email]
     );
 
-    res.json(rows);
+    // ודאי שפרס JSON תקין
+    const parsedRows = rows.map((row) => ({
+      ...row,
+      categories: JSON.parse(row.categories),
+    }));
+
+    res.json(parsedRows);
   } catch (err) {
     console.error("Error loading tasks:", err);
     res.status(500).json({ success: false, message: "Server error" });
