@@ -47,9 +47,10 @@ async function createTask(req, res) {
           task_id,
           task_start_time,
           task_end_time,
-          task_date
-        ) VALUES (?, ?, ?, ?)`,
-        [task_id, start_time, end_time, start_date]
+          task_start_date,
+          task_end_date
+        ) VALUES (?, ?, ?, ?, ?)`,
+        [task_id, start_time, end_time, start_date, end_date || start_date]
       );
     }
 
@@ -85,12 +86,14 @@ async function getTasks(req, res) {
         t.task_note,
         a.task_start_time,
         a.task_end_time,
-        a.task_date
+        a.task_start_date,
+        a.task_end_date
       FROM task t
       JOIN assigned a ON t.task_id = a.task_id
       WHERE t.email = ?`,
       [user_email]
     );
+
     res.json(rows);
   } catch (err) {
     console.error("Error loading tasks:", err);

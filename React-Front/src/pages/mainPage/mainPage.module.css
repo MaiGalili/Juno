@@ -1,0 +1,61 @@
+.pageWrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  background-color: #f5f5f5;
+  border-bottom: 1px solid #ccc;
+}
+
+.searchContainer {
+  flex-grow: 1;
+}
+
+.searchInput {
+  width: 100%;
+  max-width: 400px;
+  padding: 8px;
+  font-size: 16px;
+}
+
+.topBarButtons {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.settingsIcon {
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.mainContent {
+  display: grid;
+  grid-template-columns: 220px 1fr 280px;
+  height: 100%;
+}
+
+.sidebar {
+  border-right: 1px solid #ccc;
+  background-color: #fafafa;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.calendar {
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.taskPanel {
+  border-left: 1px solid #ccc;
+  background-color: #fafafa;
+  padding: 10px;
+  overflow-y: auto;
+}
