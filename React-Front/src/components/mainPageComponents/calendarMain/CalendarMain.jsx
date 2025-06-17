@@ -1,64 +1,57 @@
-// React-Front/src/pages/mainPage/CalendarMain.jsx
-import React, { useState } from "react";
-import TaskPopup from "../taskPopup/TaskPopup";
-// import styles from "./calendarMain.module.css";
+import React, { useState, useEffect } from "react";
+import { Calendar, dateFnsLocalizer } from "react-big-calendar";
+import { format, parse, startOfWeek, getDay } from "date-fns";
+import "react-big-calendar/lib/css/react-big-calendar.css";
 
-export default function CalendarMain({ userEmail, isLoggin, setIsLoggin }) {
-  const [showPopup, setShowPopup] = useState(false);
-  const [viewMode, setViewMode] = useState("day"); // "day", "week", "month"
+const locales = {
+  "en-US": require("date-fns/locale/en-US"),
+};
 
-  const handleModeChange = (mode) => setViewMode(mode);
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 0 }),
+  getDay,
+  locales,
+});
+
+export default function CalendarMain() {
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    fetch("http://localhost:8801/api/tasks", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => {
+        const formatted = data.map((task) => {
+          const start = new Date(`${task.task_date}T${task.task_start_time}`);
+          const end = new Date(`${task.task_date}T${task.task_end_time}`);
+          return {
+            title: task.task_title,
+            start,
+            end,
+            id: task.task_id,
+            note: task.task_note,
+          };
+        });
+        setEvents(formatted);
+      })
+      .catch((err) => console.error("Failed to load tasks:", err));
+  }, []);
 
   return (
-    <div className="calendar-container">
-      {/* צד שמאל: ניווט ותפריטים */}
-      <aside className="sidebar">
-        <h2>JUNO</h2>
-        <button onClick={() => setShowPopup(true)}>+ NEW TASK</button>
-        <button>Reports</button>
-        <div>
-          <h3>LABELS</h3>
-          {/* כאן נטען תוויות */}
-        </div>
-        <div>
-          <h3>LOCATIONS</h3>
-          {/* כאן נטען מיקומים */}
-        </div>
-      </aside>
-
-      {/* מרכז המסך: לוח השנה */}
-      <main className="calendar-main">
-        <div className="calendar-header">
-          <input type="text" placeholder="SEARCH TASK" className="search-bar" />
-          <div className="view-mode-buttons">
-            <button onClick={() => handleModeChange("day")}>📅</button>
-            <button onClick={() => handleModeChange("week")}>🗓️</button>
-            <button onClick={() => handleModeChange("month")}>📆</button>
-          </div>
-        </div>
-
-        <div className="calendar-view">
-          {viewMode === "day" && <div>Day View (to be implemented)</div>}
-          {viewMode === "week" && <div>Week View (to be implemented)</div>}
-          {viewMode === "month" && <div>Month View (to be implemented)</div>}
-        </div>
-      </main>
-
-      {/* צד ימין: רשימת משימות */}
-      <aside className="task-sidebar">
-        <h3>TASKS</h3>
-        {/* כאן תופיע רשימת משימות */}
-      </aside>
-
-      {showPopup && (
-        <TaskPopup
-          mode="create"
-          onClose={() => setShowPopup(false)}
-          userEmail={userEmail}
-          userCategories={[]} // יתווסף בעתיד מ־backend
-          userLocations={[]} // יתווסף בעתיד מ־backend
-        />
-      )}
+    <div style={{ height: "calc(100vh - 100px)", padding: "20px" }}>
+      <Calendar
+        localizer={localizer}
+        events={events}
+        startAccessor="start"
+        endAccessor="end"
+        defaultView="week"
+        views={["month", "week", "day", "agenda"]}
+        style={{ height: "100%" }}
+        onSelectEvent={(event) =>
+          alert(`Task: ${event.title}\nNote: ${event.note}`)
+        }
+      />
     </div>
   );
 }
