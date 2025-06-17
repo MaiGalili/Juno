@@ -34,8 +34,8 @@ async function createTask(req, res) {
         task_note,
         task_buffertime,
         email
-      ) VALUES (?, ?, ?, ?, ?)`,
-      [title, duration, note, buffer_time, user_email]
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
+      [title, all_day, duration, note, buffer_time, user_email]
     );
 
     const task_id = result.insertId;
@@ -89,28 +89,54 @@ async function getTasks(req, res) {
         a.task_end_time,
         a.task_start_date,
         a.task_end_date,
-        JSON_ARRAYAGG(
-          JSON_OBJECT('category_id', c.category_id, 'name', c.category_name, 'color', c.category_color)
-        ) AS categories
+        c.category_id,
+        c.category_name,
+        c.category_color
       FROM task t
       JOIN assigned a ON t.task_id = a.task_id
       LEFT JOIN task_category tc ON t.task_id = tc.task_id
       LEFT JOIN category c ON tc.category_id = c.category_id
       WHERE t.email = ?
-      GROUP BY t.task_id`,
+      ORDER BY t.task_id`,
       [user_email]
     );
 
-    // ודאי שפרס JSON תקין
-    const parsedRows = rows.map((row) => ({
-      ...row,
-      categories: JSON.parse(row.categories),
-    }));
+    const taskMap = new Map();
 
-    res.json(parsedRows);
+    for (const row of rows) {
+      if (!taskMap.has(row.task_id)) {
+        taskMap.set(row.task_id, {
+          task_id: row.task_id,
+          task_title: row.task_title,
+          task_note: row.task_note,
+          task_all_day: row.task_all_day === 1,
+          task_start_time: row.task_start_time,
+          task_end_time: row.task_end_time,
+          task_start_date: row.task_start_date,
+          task_end_date: row.task_end_date,
+          categories: [],
+        });
+      }
+      console.log(taskMap);
+
+      const task = taskMap.get(row.task_id);
+      if (row.category_id) {
+        task.categories.push({
+          category_id: row.category_id,
+          name: row.category_name,
+          color: row.category_color,
+        });
+      }
+    }
+
+    const tasks = Array.from(taskMap.values());
+    console.log(tasks);
+    res.json(tasks);
   } catch (err) {
-    console.error("Error loading tasks:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("🔥 Error loading tasks:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: err.message });
   }
 }
 

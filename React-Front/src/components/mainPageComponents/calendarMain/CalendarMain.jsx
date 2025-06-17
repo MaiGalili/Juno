@@ -28,6 +28,7 @@ export default function CalendarMain() {
     fetch("http://localhost:8801/api/tasks", { credentials: "include" })
       .then((res) => res.json())
       .then((data) => {
+        console.log("📦 כל המשימות מהשרת:", data);
         const formatted = data
           .filter((task) => task.task_start_date && task.task_end_date)
           .map((task) => {
@@ -42,14 +43,17 @@ export default function CalendarMain() {
               end,
               allDay: task.task_all_day,
               note: task.task_note,
-              categories: task.categories || [], // assume list of { color, name }
+              categories: task.categories || [],
               raw: task,
             };
           });
+        console.log("🎨 משימות אחרי עיבוד:", formatted);
         setEvents(formatted);
       })
       .catch((err) => console.error("Failed to load tasks:", err));
   }, []);
+  
+  
 
   const eventStyleGetter = (event) => {
     const colors = event.categories?.map((c) => c.color) || ["#ccc"];
