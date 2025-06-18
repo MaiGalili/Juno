@@ -1,4 +1,4 @@
-// TaskPopup.jsx - Create/Edit/View Task Modal Component
+// TaskPopup.jsx - Create/Edit/View/Delete Task Modal Component
 import React, { useState, useEffect } from "react";
 import styles from "./taskPopup.module.css";
 

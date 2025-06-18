@@ -1,13 +1,11 @@
 .sidebar {
   width: 260px;
-  height: 100vh; /* גובה כל המסך */
   position: sticky;
   top: 0;
   background-color: #f9f9f9;
   padding: 20px;
   box-sizing: border-box;
   border-right: 1px solid #ccc;
-  overflow-y: auto; /* גלילה פנימית */
   scrollbar-width: thin;
   scrollbar-color: #bbb transparent;
 }

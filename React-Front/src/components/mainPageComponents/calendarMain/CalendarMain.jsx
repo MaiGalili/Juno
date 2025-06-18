@@ -1,5 +1,4 @@
-// CalendarMain.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import "react-big-calendar/lib/css/react-big-calendar.css";
@@ -17,43 +16,62 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-export default function CalendarMain() {
+export default function CalendarMain({ userEmail }) {
   const [events, setEvents] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
   const [popupMode, setPopupMode] = useState("view");
   const [popupOpen, setPopupOpen] = useState(false);
   const [currentView, setCurrentView] = useState("week");
 
+  const fetchTasks = async () => {
+    try {
+      const res = await fetch("http://localhost:8801/api/tasks/assigned", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userEmail }), // שליחת מייל כ־body
+      });
+
+      const data = await res.json();
+      if (!data || data.success === false || !Array.isArray(data.data)) {
+        console.error("❌ Invalid task data received:", data);
+        return;
+      }
+
+      const formatted = data.data.map((task) => {
+        const start = new Date(
+          `${task.task_start_date}T${task.task_start_time}`
+        );
+        const end = new Date(`${task.task_end_date}T${task.task_end_time}`);
+        return {
+          id: task.task_id,
+          title: task.task_title,
+          start,
+          end,
+          allDay: task.task_all_day === 1,
+          note: task.task_note,
+          categories: task.categories,
+          raw: task,
+        };
+      });
+
+      console.log(formatted);
+
+
+      setEvents(formatted);
+    } catch (err) {
+      console.error("❌ Failed to load tasks:", err);
+    }
+  };
+
+  // 📥 פונקציה שמביאה משימות
   useEffect(() => {
-    fetch("http://localhost:8801/api/tasks", { credentials: "include" })
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("📦 כל המשימות מהשרת:", data);
-        const formatted = data
-          .filter((task) => task.task_start_date && task.task_end_date)
-          .map((task) => {
-            const start = new Date(
-              `${task.task_start_date}T${task.task_start_time}`
-            );
-            const end = new Date(`${task.task_end_date}T${task.task_end_time}`);
-            return {
-              id: task.task_id,
-              title: task.task_title,
-              start,
-              end,
-              allDay: task.task_all_day,
-              note: task.task_note,
-              categories: task.categories || [],
-              raw: task,
-            };
-          });
-        console.log("🎨 משימות אחרי עיבוד:", formatted);
-        setEvents(formatted);
-      })
-      .catch((err) => console.error("Failed to load tasks:", err));
-  }, []);
-  
-  
+    if (userEmail) {
+      fetchTasks();
+    }
+  }, [userEmail]);
 
   const eventStyleGetter = (event) => {
     const colors = event.categories?.map((c) => c.color) || ["#ccc"];
@@ -90,7 +108,6 @@ export default function CalendarMain() {
 
   return (
     <div style={{ height: "calc(100vh - 100px)", padding: "20px" }}>
-      {/* לוח השנה */}
       <Calendar
         view={currentView}
         onView={(view) => setCurrentView(view)}
@@ -113,7 +130,7 @@ export default function CalendarMain() {
           task={selectedTask}
           onSave={() => {
             setPopupOpen(false);
-            window.location.reload();
+            fetchTasks(); // 🔄 ריענון חכם במקום reload
           }}
           onClose={() => setPopupOpen(false)}
         />
