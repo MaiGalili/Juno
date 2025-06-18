@@ -35,22 +35,30 @@ export default function CalendarMain({ userEmail }) {
       });
 
       const data = await res.json();
+
+      console.log(data.data)
       if (!data || data.success === false || !Array.isArray(data.data)) {
         console.error("❌ Invalid task data received:", data);
         return;
       }
 
       const formatted = data.data.map((task) => {
-        const start = new Date(
-          `${task.task_start_date}T${task.task_start_time}`
-        );
-        const end = new Date(`${task.task_end_date}T${task.task_end_time}`);
+        const startDate = task.task_start_date;
+        const endDate = task.task_end_date;
+        const startTime = task.task_start_time?.slice(0, 5); // HH:mm
+        const endTime = task.task_end_time?.slice(0, 5); // HH:mm
+
+        const start =
+          startDate && startTime ? new Date(`${startDate}T${startTime}`) : null;
+        const end =
+          endDate && endTime ? new Date(`${endDate}T${endTime}`) : null;
+
         return {
           id: task.task_id,
           title: task.task_title,
           start,
           end,
-          allDay: task.task_all_day === 1,
+          allDay: task.task_all_day === 1 || !start || !end,
           note: task.task_note,
           categories: task.categories,
           raw: task,
@@ -58,7 +66,6 @@ export default function CalendarMain({ userEmail }) {
       });
 
       console.log(formatted);
-
 
       setEvents(formatted);
     } catch (err) {

@@ -89,7 +89,7 @@ async function createTask(req, res) {
 // Fetch Assigned Tasks for Calendar
 // Fetch Assigned Tasks for Calendar
 async function getAssignedTasks(req, res) {
-  const {userEmail} = req.body
+  const { userEmail } = req.body;
   console.log("Fetching tasks for user:", userEmail);
 
   if (!userEmail) {
@@ -99,38 +99,37 @@ async function getAssignedTasks(req, res) {
 
   try {
     const taskQuery = `
-      SELECT 
-        t.task_id,
-        t.task_title,
-        t.task_note,
-        t.task_buffertime,
-        t.task_duration,
-        a.task_start_date,
-        a.task_end_date,
-        a.task_start_time,
-        a.task_end_time,
-        c.category_id,
-        c.category_name,
-        c.category_color
-      FROM task t
-      JOIN assigned a ON t.task_id = a.task_id
-      LEFT JOIN task_category tc ON tc.task_id = t.task_id
-      LEFT JOIN category c ON tc.category_id = c.category_id
-      WHERE t.email = ?
-    `;
+  SELECT 
+    t.task_id,
+    t.task_title,
+    t.task_note,
+    t.task_buffertime,
+    t.task_duration,
+    a.task_all_day,
+    DATE_FORMAT(a.task_start_date, '%Y-%m-%d') AS task_start_date,
+    DATE_FORMAT(a.task_end_date, '%Y-%m-%d') AS task_end_date,
+    TIME_FORMAT(a.task_start_time, '%H:%i') AS task_start_time,
+    TIME_FORMAT(a.task_end_time, '%H:%i') AS task_end_time,
+    c.category_id,
+    c.category_name,
+    c.category_color
+  FROM task t
+  JOIN assigned a ON t.task_id = a.task_id
+  LEFT JOIN task_category tc ON tc.task_id = t.task_id
+  LEFT JOIN category c ON tc.category_id = c.category_id
+  WHERE t.email = ?
+`;
 
     console.log("Running query to fetch tasks...");
 
     db.query(taskQuery, [userEmail], (error, results) => {
       if (error) {
         console.error("MySQL error:", error.sqlMessage || error.message, error);
-        return res
-          .status(500)
-          .json({
-            success: false,
-            message: "Database error",
-            error: error.message,
-          });
+        return res.status(500).json({
+          success: false,
+          message: "Database error",
+          error: error.message,
+        });
       }
 
       console.log("Query successful. Rows fetched:", results.length);
@@ -150,6 +149,7 @@ async function getAssignedTasks(req, res) {
               task_title: row.task_title,
               task_note: row.task_note,
               task_buffertime: row.task_buffertime,
+              talk_all_day: row.task_all_day,
               task_duration: row.task_duration,
               task_start_date: row.task_start_date,
               task_end_date: row.task_end_date,
@@ -169,7 +169,7 @@ async function getAssignedTasks(req, res) {
         });
 
         const tasks = Object.values(taskMap);
-
+        console.log(tasks);
         console.log("Returning tasks to client. Total tasks:", tasks.length);
         return res.status(200).json({ success: true, data: tasks });
       } catch (mapErr) {
