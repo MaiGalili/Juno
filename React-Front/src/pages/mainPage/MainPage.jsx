@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from "react";
 import classes from "./mainPage.module.css";
+
 import Sidebar from "../../components/mainPageComponents/sidebar/Sidebar";
 import TaskPanel from "../../components/mainPageComponents/taskPanel/TaskPanel";
 import LogoutButton from "../../components/mainPageComponents/logoutButton/LogoutButton";
 import CalendarMain from "../../components/mainPageComponents/calendarMain/CalendarMain";
-import { FaCog } from "react-icons/fa"; // for settings icon
+import TaskPopup from "../../components/mainPageComponents/taskPopup/TaskPopup";
+import { FaCog } from "react-icons/fa"; // אייקון הגדרות
 
 function MainPage({ isLoggin, setIsLoggin }) {
   const [userEmail, setUserEmail] = useState(null);
+  const [showPopup, setShowPopup] = useState(false);
 
-  // 🧠 טען אימייל מה־session
+  // 🧠 שליפת אימייל מה־session
   useEffect(() => {
     const fetchSession = async () => {
       try {
@@ -37,7 +40,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
 
   return (
     <div className={classes.pageWrapper}>
-      {/* Top Bar */}
+      {/* סרגל עליון */}
       <header className={classes.topBar}>
         <div className={classes.searchContainer}>
           <input
@@ -52,10 +55,10 @@ function MainPage({ isLoggin, setIsLoggin }) {
         </div>
       </header>
 
-      {/* Main Layout: Sidebar + Calendar + Task Panel */}
+      {/* פריסת הדף: תפריט צד + לוח שנה + פאנל משימות */}
       <div className={classes.mainContent}>
         <div className={classes.sidebar}>
-          <Sidebar userEmail={userEmail} />
+          <Sidebar userEmail={userEmail} setShowPopup={setShowPopup} />
         </div>
         <div className={classes.calendar}>
           <CalendarMain userEmail={userEmail} />
@@ -64,6 +67,9 @@ function MainPage({ isLoggin, setIsLoggin }) {
           <TaskPanel userEmail={userEmail} />
         </div>
       </div>
+
+      {/* 🚀 חלון יצירת משימה מוצג על גבי הכל */}
+      {showPopup && <TaskPopup setShowPopup={setShowPopup} />}
     </div>
   );
 }
