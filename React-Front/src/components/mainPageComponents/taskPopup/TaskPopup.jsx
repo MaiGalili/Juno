@@ -11,6 +11,7 @@ export default function TaskPopup({
   userLocations = [],
   userStartTime = "08:00",
   userEndTime = "21:00",
+  selectedTask,
 }) {
   const [title, setTitle] = useState(task.title || "");
   const [allDay, setAllDay] = useState(task.all_day || false);
@@ -184,7 +185,7 @@ export default function TaskPopup({
       setError("Error while deleting task");
     }
   };
-
+console.log(selectedTask)
   return (
     <div className={styles.popupWrapper}>
       <div className={styles.popup}>
@@ -199,7 +200,7 @@ export default function TaskPopup({
         <label>
           Title:
           <input
-            value={title}
+            value={selectedTask.task_title}
             onChange={(e) => setTitle(e.target.value)}
             disabled={mode === "view"}
           />

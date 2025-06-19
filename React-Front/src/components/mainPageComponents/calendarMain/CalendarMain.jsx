@@ -4,6 +4,7 @@ import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import TaskPopup from "../taskPopup/TaskPopup";
+import { data } from "react-router-dom";
 
 const locales = {
   "en-US": require("date-fns/locale/en-US"),
@@ -32,12 +33,12 @@ export default function CalendarMain({ userEmail }) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ userEmail }), // שליחת מייל כ־body
+        body: JSON.stringify({ userEmail }),
       });
 
       const data = await res.json();
 
-      console.log(data.data)
+      console.log(data.data);
       if (!data || data.success === false || !Array.isArray(data.data)) {
         console.error("❌ Invalid task data received:", data);
         return;
@@ -74,7 +75,7 @@ export default function CalendarMain({ userEmail }) {
     }
   };
 
-  // 📥 פונקציה שמביאה משימות
+  //  פונקציה שמביאה משימות
   useEffect(() => {
     if (userEmail) {
       fetchTasks();
@@ -113,7 +114,7 @@ export default function CalendarMain({ userEmail }) {
     setPopupMode("create");
     setPopupOpen(true);
   };
-
+  
   return (
     <div style={{ height: "calc(100vh - 100px)", padding: "20px" }}>
       <Calendar
@@ -138,8 +139,9 @@ export default function CalendarMain({ userEmail }) {
           task={selectedTask}
           onSave={() => {
             setPopupOpen(false);
-            fetchTasks(); // 🔄 ריענון חכם במקום reload
+            fetchTasks();
           }}
+          selectedTask={selectedTask}
           onClose={() => setPopupOpen(false)}
         />
       )}
