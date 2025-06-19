@@ -1,3 +1,4 @@
+// MainPage.jsx
 import React, { useEffect, useState } from "react";
 import classes from "./mainPage.module.css";
 
@@ -69,7 +70,16 @@ function MainPage({ isLoggin, setIsLoggin }) {
       </div>
 
       {/* 🚀 חלון יצירת משימה מוצג על גבי הכל */}
-      {showPopup && <TaskPopup setShowPopup={setShowPopup} />}
+      {showPopup && (
+        <TaskPopup
+          mode="create"
+          onClose={() => setShowPopup(false)}
+          onSave={(taskData) => {
+            console.log("Task saved:", taskData);
+            setShowPopup(false);
+          }}
+        />
+      )}
     </div>
   );
 }

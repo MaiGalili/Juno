@@ -21,7 +21,7 @@ export default function TaskPopup({
   const [duration, setDuration] = useState(task.duration || "");
   const [note, setNote] = useState(task.note || "");
   const [selectedCategories, setSelectedCategories] = useState(
-    task.categories || []
+    task.categories?.map((c) => c.category_id) || []
   );
   const [locationId, setLocationId] = useState(task.location_id || "");
   const [dueDate, setDueDate] = useState(task.due_date || "");
@@ -51,9 +51,7 @@ export default function TaskPopup({
   }, [allDay, userStartTime, userEndTime]);
 
   useEffect(() => {
-    if (startDate && !endDate) {
-      setEndDate(startDate);
-    }
+    if (startDate && !endDate) setEndDate(startDate);
   }, [startDate]);
 
   useEffect(() => {
@@ -88,6 +86,23 @@ export default function TaskPopup({
     return "";
   };
 
+  const clearFields = () => {
+    setTitle("");
+    setAllDay(false);
+    setStartDate("");
+    setEndDate("");
+    setStartTime("");
+    setEndTime("");
+    setDuration("");
+    setNote("");
+    setSelectedCategories([]);
+    setLocationId("");
+    setDueDate("");
+    setDueTime("");
+    setBufferTime(10);
+    setError("");
+  };
+
   const handleSave = async () => {
     const validationMessage = validate();
     if (validationMessage) {
@@ -111,9 +126,19 @@ export default function TaskPopup({
       buffer_time: bufferTime,
     };
 
+    const isWaitingTask = dueDate && !startDate && !startTime && !endTime;
+    const endpoint =
+      mode === "edit"
+        ? `http://localhost:8801/api/tasks/${task.task_id}`
+        : isWaitingTask
+        ? "http://localhost:8801/api/tasks/create/waiting"
+        : "http://localhost:8801/api/tasks/create/assigned";
+
+    const method = mode === "edit" ? "PUT" : "POST";
+
     try {
-      const res = await fetch("http://localhost:8801/api/tasks/create", {
-        method: "POST",
+      const res = await fetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(payload),
@@ -122,12 +147,41 @@ export default function TaskPopup({
       const result = await res.json();
       if (result.success) {
         onSave?.(result);
+        if (mode === "create") clearFields();
       } else {
-        setError(result.message || "Failed to create task");
+        setError(result.message || "Failed to save task");
       }
     } catch (err) {
-      console.error("Failed to create task:", err);
-      setError("Server error while creating task");
+      console.error("Failed to save task:", err);
+      setError("Server error while saving task");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!task.task_id) return;
+
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this task?"
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:8801/api/tasks/delete/${task.task_id}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+      const result = await res.json();
+      if (result.success) {
+        onSave?.(result);
+        onClose?.();
+      } else {
+        setError(result.message || "Failed to delete task");
+      }
+    } catch (err) {
+      setError("Error while deleting task");
     }
   };
 
@@ -192,6 +246,7 @@ export default function TaskPopup({
                 disabled={mode === "view" || disableTimeFields}
               />
             </label>
+
             <label>
               End Time:
               <input
@@ -297,6 +352,11 @@ export default function TaskPopup({
         <div className={styles.buttons}>
           <button onClick={onClose}>Cancel</button>
           {mode !== "view" && <button onClick={handleSave}>Save</button>}
+          {mode === "edit" && (
+            <button className={styles.deleteButton} onClick={handleDelete}>
+              Delete
+            </button>
+          )}
         </div>
       </div>
     </div>

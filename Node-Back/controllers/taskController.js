@@ -1,7 +1,9 @@
+// taskController.js
 const db = require("../db");
 
-// Create Task and Save Assignment
-async function createTask(req, res) {
+// יצירת משימה עם תזמון (assigned)
+// יצירת משימה עם תזמון (assigned)
+async function createAssignedTask(req, res) {
   const {
     title,
     all_day,
@@ -12,40 +14,30 @@ async function createTask(req, res) {
     duration,
     note,
     location_id,
-    due_date,
-    due_time,
     buffer_time,
     category_ids,
   } = req.body;
 
   const email = req.session.userEmail;
-
-  if (!email) {
+  if (!email)
     return res.status(401).json({ success: false, message: "Unauthorized" });
-  }
 
   try {
-    // 1. יצירת משימה בטבלה הראשית
+    // שלב 1: הכנסת המשימה לטבלת task
     const [result] = await db.promise().query(
       `INSERT INTO task (
         task_title,
-        task_all_day,
         task_duration,
         task_note,
         task_buffertime,
-        task_due_date,
-        task_due_time,
         location_id,
         email
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
       [
         title || "Untitled Task",
-        all_day ? 1 : 0,
         duration,
         note,
         buffer_time,
-        due_date,
-        due_time,
         location_id || null,
         email,
       ]
@@ -53,21 +45,20 @@ async function createTask(req, res) {
 
     const task_id = result.insertId;
 
-    // 2. שמירת מידע מתוזמן אם קיים
-    if (start_date && end_date && start_time && end_time) {
-      await db.promise().query(
-        `INSERT INTO assigned (
-          task_id,
-          task_start_date,
-          task_end_date,
-          task_start_time,
-          task_end_time
-        ) VALUES (?, ?, ?, ?, ?)`,
-        [task_id, start_date, end_date, start_time, end_time]
-      );
-    }
+    // שלב 2: הכנסת פרטי התזמון לטבלת assigned
+    await db.promise().query(
+      `INSERT INTO assigned (
+        task_id,
+        task_all_day,
+        task_start_date,
+        task_end_date,
+        task_start_time,
+        task_end_time
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
+      [task_id, all_day ? 1 : 0, start_date, end_date, start_time, end_time]
+    );
 
-    // 3. שיוך לקטגוריות
+    // שלב 3: שיוך קטגוריות
     if (Array.isArray(category_ids)) {
       for (const category_id of category_ids) {
         await db
@@ -79,52 +70,121 @@ async function createTask(req, res) {
       }
     }
 
-    res.status(201).json({ success: true, message: "Task created", task_id });
+    // שלב 4: החזרת תגובה ללקוח
+    res.status(201).json({
+      success: true,
+      message: "Assigned task created",
+      task_id,
+    });
   } catch (err) {
-    console.error("Failed to create task:", err.message);
+    console.error("Create Assigned Task Error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 }
 
-// Fetch Assigned Tasks for Calendar
-// Fetch Assigned Tasks for Calendar
+// יצירת משימה לרשימת המתנה (waiting_list)
+// יצירת משימה לרשימת המתנה (waiting_list)
+async function createWaitingTask(req, res) {
+  const {
+    title,
+    all_day,
+    duration,
+    note,
+    location_id,
+    due_date,
+    due_time,
+    buffer_time,
+    category_ids,
+  } = req.body;
+
+  const email = req.session.userEmail;
+  if (!email)
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+
+  try {
+    // שלב 1: הכנסת המשימה לטבלת task
+    const [result] = await db.promise().query(
+      `INSERT INTO task (
+        task_title,
+        task_duration,
+        task_note,
+        task_buffertime,
+        location_id,
+        email
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        title || "Untitled Task",
+        duration,
+        note,
+        buffer_time,
+        location_id || null,
+        email,
+      ]
+    );
+
+    const task_id = result.insertId;
+
+    // שלב 2: הכנסת פרטי תאריך יעד לטבלת waiting_list
+    await db.promise().query(
+      `INSERT INTO waiting_list (
+        task_id,
+        task_duedate,
+        task_duetime
+      ) VALUES (?, ?, ?)`,
+      [task_id, due_date, due_time]
+    );
+
+    // שלב 3: שיוך קטגוריות
+    if (Array.isArray(category_ids)) {
+      for (const category_id of category_ids) {
+        await db
+          .promise()
+          .query(
+            `INSERT INTO task_category (task_id, category_id) VALUES (?, ?)`,
+            [task_id, category_id]
+          );
+      }
+    }
+
+    // שלב 4: החזרת תגובה ללקוח
+    res.status(201).json({
+      success: true,
+      message: "Waiting task created",
+      task_id,
+    });
+  } catch (err) {
+    console.error("Create Waiting Task Error:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+}
+
+// שליפת משימות מתוזמנות בלבד (ללוח שנה)
 async function getAssignedTasks(req, res) {
   const { userEmail } = req.body;
-  console.log("Fetching tasks for user:", userEmail);
-
   if (!userEmail) {
-    console.warn("No user email in session!");
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
   try {
     const taskQuery = `
-  SELECT 
-    t.task_id,
-    t.task_title,
-    t.task_note,
-    t.task_buffertime,
-    t.task_duration,
-    a.task_all_day,
-    DATE_FORMAT(a.task_start_date, '%Y-%m-%d') AS task_start_date,
-    DATE_FORMAT(a.task_end_date, '%Y-%m-%d') AS task_end_date,
-    TIME_FORMAT(a.task_start_time, '%H:%i') AS task_start_time,
-    TIME_FORMAT(a.task_end_time, '%H:%i') AS task_end_time,
-    c.category_id,
-    c.category_name,
-    c.category_color
-  FROM task t
-  JOIN assigned a ON t.task_id = a.task_id
-  LEFT JOIN task_category tc ON tc.task_id = t.task_id
-  LEFT JOIN category c ON tc.category_id = c.category_id
-  WHERE t.email = ?
-`;
-
-    console.log("Running query to fetch tasks...");
+      SELECT 
+        t.task_id, t.task_title, t.task_note, t.task_buffertime,
+        t.task_duration, a.task_all_day,
+        DATE_FORMAT(a.task_start_date, '%Y-%m-%d') AS task_start_date,
+        DATE_FORMAT(a.task_end_date, '%Y-%m-%d') AS task_end_date,
+        TIME_FORMAT(a.task_start_time, '%H:%i') AS task_start_time,
+        TIME_FORMAT(a.task_end_time, '%H:%i') AS task_end_time,
+        c.category_id, c.category_name, c.category_color
+      FROM task t
+      JOIN assigned a ON t.task_id = a.task_id
+      LEFT JOIN task_category tc ON tc.task_id = t.task_id
+      LEFT JOIN category c ON tc.category_id = c.category_id
+      WHERE t.email = ?
+    `;
 
     db.query(taskQuery, [userEmail], (error, results) => {
       if (error) {
-        console.error("MySQL error:", error.sqlMessage || error.message, error);
+        console.error("MySQL error:", error.message);
         return res.status(500).json({
           success: false,
           message: "Database error",
@@ -132,62 +192,222 @@ async function getAssignedTasks(req, res) {
         });
       }
 
-      console.log("Query successful. Rows fetched:", results.length);
-      if (!results || results.length === 0) {
-        console.warn("⚠️ No assigned tasks found for user:", userEmail);
-      }
-
       const taskMap = {};
+      results.forEach((row) => {
+        const taskKey = `${row.task_id}-${row.task_start_date}-${row.task_start_time}`;
+        if (!taskMap[taskKey]) {
+          taskMap[taskKey] = {
+            task_id: row.task_id,
+            task_title: row.task_title,
+            task_note: row.task_note,
+            task_buffertime: row.task_buffertime,
+            talk_all_day: row.task_all_day,
+            task_duration: row.task_duration,
+            task_start_date: row.task_start_date,
+            task_end_date: row.task_end_date,
+            task_start_time: row.task_start_time,
+            task_end_time: row.task_end_time,
+            categories: [],
+          };
+        }
 
-      try {
-        results.forEach((row) => {
-          const taskKey = `${row.task_id}-${row.task_start_date}-${row.task_start_time}`;
+        if (row.category_id) {
+          taskMap[taskKey].categories.push({
+            category_id: row.category_id,
+            category_name: row.category_name,
+            color: row.category_color,
+          });
+        }
+      });
 
-          if (!taskMap[taskKey]) {
-            taskMap[taskKey] = {
-              task_id: row.task_id,
-              task_title: row.task_title,
-              task_note: row.task_note,
-              task_buffertime: row.task_buffertime,
-              talk_all_day: row.task_all_day,
-              task_duration: row.task_duration,
-              task_start_date: row.task_start_date,
-              task_end_date: row.task_end_date,
-              task_start_time: row.task_start_time,
-              task_end_time: row.task_end_time,
-              categories: [],
-            };
-          }
-
-          if (row.category_id) {
-            taskMap[taskKey].categories.push({
-              category_id: row.category_id,
-              category_name: row.category_name,
-              color: row.category_color,
-            });
-          }
-        });
-
-        const tasks = Object.values(taskMap);
-        console.log(tasks);
-        console.log("Returning tasks to client. Total tasks:", tasks.length);
-        return res.status(200).json({ success: true, data: tasks });
-      } catch (mapErr) {
-        console.error("Error mapping tasks:", mapErr.message);
-        return res
-          .status(500)
-          .json({ success: false, message: "Failed to process task data" });
-      }
+      const tasks = Object.values(taskMap);
+      return res.status(200).json({ success: true, data: tasks });
     });
   } catch (err) {
-    console.error("Server error:", err.message);
+    console.error("getAssignedTasks Error:", err.message);
     return res
       .status(500)
       .json({ success: false, message: "Internal server error" });
   }
 }
 
+// עריכת משימה מתוזמנת
+// עדכון משימה מתוזמנת (assigned)
+async function updateAssignedTask(req, res) {
+  const { task_id } = req.params;
+  const {
+    title,
+    all_day,
+    start_date,
+    end_date,
+    start_time,
+    end_time,
+    duration,
+    note,
+    location_id,
+    buffer_time,
+    category_ids,
+  } = req.body;
+
+  try {
+    // שלב 1: עדכון טבלת task
+    await db.promise().query(
+      `UPDATE task
+       SET task_title = ?,
+           task_duration = ?,
+           task_note = ?,
+           task_buffertime = ?,
+           location_id = ?
+       WHERE task_id = ?`,
+      [
+        title || "Untitled Task",
+        duration,
+        note,
+        buffer_time,
+        location_id || null,
+        task_id,
+      ]
+    );
+
+    // שלב 2: עדכון טבלת assigned
+    await db.promise().query(
+      `UPDATE assigned
+       SET task_all_day = ?,
+           task_start_date = ?,
+           task_end_date = ?,
+           task_start_time = ?,
+           task_end_time = ?
+       WHERE task_id = ?`,
+      [all_day ? 1 : 0, start_date, end_date, start_time, end_time, task_id]
+    );
+
+    // שלב 3: עדכון קטגוריות — מחיקה והוספה מחדש
+    await db
+      .promise()
+      .query(`DELETE FROM task_category WHERE task_id = ?`, [task_id]);
+
+    if (Array.isArray(category_ids)) {
+      for (const category_id of category_ids) {
+        await db
+          .promise()
+          .query(
+            `INSERT INTO task_category (task_id, category_id) VALUES (?, ?)`,
+            [task_id, category_id]
+          );
+      }
+    }
+
+    // שלב 4: תגובה ללקוח
+    res.json({ success: true, message: "Assigned task updated" });
+  } catch (err) {
+    console.error("Update Assigned Task Error:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+}
+
+// עריכת משימה ברשימת המתנה
+async function updateWaitingTask(req, res) {
+  const { task_id } = req.params;
+  const {
+    title,
+    all_day,
+    duration,
+    note,
+    location_id,
+    due_date,
+    due_time,
+    buffer_time,
+    category_ids,
+  } = req.body;
+
+  try {
+    // שלב 1: עדכון טבלת task
+    await db.promise().query(
+      `UPDATE task
+       SET task_title = ?,
+           task_duration = ?,
+           task_note = ?,
+           task_buffertime = ?,
+           location_id = ?
+       WHERE task_id = ?`,
+      [
+        title || "Untitled Task",
+        duration,
+        note,
+        buffer_time,
+        location_id || null,
+        task_id,
+      ]
+    );
+
+    // שלב 2: עדכון טבלת waiting_list
+    await db.promise().query(
+      `UPDATE waiting_list
+       SET task_duedate = ?,
+           task_duetime = ?
+       WHERE task_id = ?`,
+      [due_date, due_time, task_id]
+    );
+
+    // שלב 3: עדכון קטגוריות — מחיקה והוספה מחדש
+    await db
+      .promise()
+      .query(`DELETE FROM task_category WHERE task_id = ?`, [task_id]);
+
+    if (Array.isArray(category_ids)) {
+      for (const category_id of category_ids) {
+        await db
+          .promise()
+          .query(
+            `INSERT INTO task_category (task_id, category_id) VALUES (?, ?)`,
+            [task_id, category_id]
+          );
+      }
+    }
+
+    // שלב 4: תגובה ללקוח
+    res.json({ success: true, message: "Waiting task updated" });
+  } catch (err) {
+    console.error("Update Waiting Task Error:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+}
+
+// Delete Task (and all related entries via CASCADE)
+async function deleteTask(req, res) {
+  const { task_id } = req.params;
+  const email = req.session.userEmail;
+
+  if (!email) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  try {
+    const [result] = await db
+      .promise()
+      .query(`DELETE FROM task WHERE task_id = ? AND email = ?`, [
+        task_id,
+        email,
+      ]);
+
+    if (result.affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Task not found or access denied" });
+    }
+
+    res.json({ success: true, message: "Task deleted successfully" });
+  } catch (err) {
+    console.error("Delete Task Error:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+}
+
 module.exports = {
-  createTask,
+  createAssignedTask,
+  createWaitingTask,
   getAssignedTasks,
+  updateAssignedTask,
+  updateWaitingTask,
+  deleteTask,
 };
