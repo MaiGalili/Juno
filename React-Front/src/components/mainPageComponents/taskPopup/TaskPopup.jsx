@@ -1,6 +1,6 @@
-// TaskPopup.jsx - Create/Edit/View/Delete Task Modal Component
 import React, { useState, useEffect } from "react";
 import styles from "./taskPopup.module.css";
+import ConfirmModal from "../../ConfirmModal";
 
 export default function TaskPopup({
   mode = "create",
@@ -32,8 +32,15 @@ export default function TaskPopup({
   const [dueDate, setDueDate] = useState(task.due_date || "");
   const [dueTime, setDueTime] = useState(task.due_time || "");
   const [bufferTime, setBufferTime] = useState(task.buffer_time || 10);
-  const [error, setError] = useState("");
 
+  const [error, setError] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
+  const [statusType, setStatusType] = useState(""); // "success" | "error"
+
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [confirmMessage, setConfirmMessage] = useState("");
+
+  // === TIME HELPERS ===
   const toTime = (str) => {
     if (!str) return 0;
     const [h, m] = str.split(":").map(Number);
@@ -48,41 +55,58 @@ export default function TaskPopup({
     return `${h}:${m}`;
   };
 
+  // === EFFECTS ===
   useEffect(() => {
+    // Handle all-day toggle
     if (allDay) {
       setStartTime(userStartTime);
       setEndTime(userEndTime);
     }
-  }, [allDay, userStartTime, userEndTime]);
 
-  useEffect(() => {
-    if (startDate && !endDate) setEndDate(startDate);
-  }, [startDate]);
+    // Set endDate if not set
+    if (startDate && !endDate) {
+      setEndDate(startDate);
+    }
 
-  useEffect(() => {
+    // Calculate duration from start and end time
     if (startTime && endTime) {
       const mins = toTime(endTime) - toTime(startTime);
       if (mins >= 0) setDuration(fromMinutes(mins));
     }
-  }, [startTime, endTime]);
 
-  useEffect(() => {
+    // Calculate end time from start time and duration
     if (startTime && duration && !endTime) {
       const endMins = toTime(startTime) + toTime(duration);
       setEndTime(fromMinutes(endMins));
     }
-  }, [startTime, duration]);
 
-  useEffect(() => {
+    // Calculate start time from end time and duration
     if (endTime && duration && !startTime) {
       const startMins = toTime(endTime) - toTime(duration);
       if (startMins >= 0) setStartTime(fromMinutes(startMins));
     }
-  }, [endTime, duration]);
 
-  const disableTimeFields = dueDate !== "";
-  const disableDueFields = startTime && endTime && duration;
+    // Status message timeout
+    if (statusMessage) {
+      const timer = setTimeout(() => {
+        setStatusMessage("");
+        setStatusType("");
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [
+    allDay,
+    userStartTime,
+    userEndTime,
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+    duration,
+    statusMessage,
+  ]);
 
+  // === VALIDATION ===
   const validate = () => {
     if (!startDate && !dueDate) return "Please select a date or due date.";
     if (!duration && !(startTime && endTime))
@@ -91,6 +115,7 @@ export default function TaskPopup({
     return "";
   };
 
+  // === CLEAR FORM ===
   const clearFields = () => {
     setTitle("");
     setAllDay(false);
@@ -106,6 +131,97 @@ export default function TaskPopup({
     setDueTime("");
     setBufferTime(10);
     setError("");
+  };
+
+  // === ACTIONS ===
+  const handleDelete = () => {
+    if (!task.task_id) return;
+    setConfirmMessage("Are you sure you want to delete this task?");
+    setConfirmAction(() => handleDeleteConfirmed);
+  };
+
+  const handleUpdate = () => {
+    if (!task.task_id) return;
+    setConfirmMessage("Are you sure you want to save changes?");
+    setConfirmAction(() => handleUpdateConfirmed);
+  };
+
+  const handleDeleteConfirmed = async () => {
+    setConfirmAction(null);
+    try {
+      const res = await fetch(
+        `http://localhost:8801/api/tasks/delete/${task.task_id}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+      const result = await res.json();
+
+      if (result.success) {
+        setStatusMessage("Task deleted successfully.");
+        setStatusType("success");
+
+        setTimeout(() => {
+          onSave?.(result);
+          onClose?.();
+        }, 4000);
+      } else {
+        setStatusMessage(result.message || "Failed to delete task");
+        setStatusType("error");
+      }
+    } catch (err) {
+      setStatusMessage("Error while deleting task");
+      setStatusType("error");
+    }
+  };
+
+  const handleUpdateConfirmed = async () => {
+    setConfirmAction(null);
+    try {
+      const res = await fetch(
+        `http://localhost:8801/api/tasks/update/assigned/${task.task_id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            title,
+            all_day: allDay,
+            start_date: startDate,
+            end_date: endDate,
+            start_time: startTime,
+            end_time: endTime,
+            duration,
+            note,
+            category_ids: selectedCategories,
+            location_id: locationId || null,
+            due_date: dueDate || null,
+            due_time: dueTime || null,
+            buffer_time: bufferTime,
+          }),
+        }
+      );
+      const result = await res.json();
+
+      if (result.success) {
+        // Set status message
+        setStatusMessage("Task updated successfully.");
+        setStatusType("success");
+
+        // Close popup timer
+        setTimeout(() => {
+          onSave?.(result);
+          onClose?.();
+        }, 4000);
+      } else {
+        setStatusMessage(result.message || "Failed to update task");
+        setStatusType("error");
+      }
+    } catch (err) {
+      setStatusMessage("Error while updating task");
+      setStatusType("error");
+    }
   };
 
   const handleSave = async () => {
@@ -153,86 +269,18 @@ export default function TaskPopup({
       if (result.success) {
         onSave?.(result);
         if (mode === "create") clearFields();
+        setStatusMessage("Task saved successfully.");
+        setStatusType("success");
       } else {
-        setError(result.message || "Failed to save task");
+        setStatusMessage(result.message || "Failed to save task");
+        setStatusType("error");
       }
     } catch (err) {
-      console.error("Failed to save task:", err);
-      setError("Server error while saving task");
+      setStatusMessage("Server error while saving task");
+      setStatusType("error");
     }
   };
 
-  const handleDelete = async () => {
-    if (!task.task_id) return;
-
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this task?"
-    );
-    if (!confirmDelete) return;
-
-    try {
-      const res = await fetch(
-        `http://localhost:8801/api/tasks/delete/${task.task_id}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        }
-      );
-      const result = await res.json();
-      if (result.success) {
-        onSave?.(result);
-        onClose?.();
-      } else {
-        setError(result.message || "Failed to delete task");
-      }
-    } catch (err) {
-      setError("Error while deleting task");
-    }
-  };
-  const handleUpdate = async () => {
-    if (!task.task_id) return;
-
-    const confirmUpdate = window.confirm(
-      "Are you sure you want to update this task?"
-    );
-    if (!confirmUpdate) return;
-
-    try {
-      const res = await fetch(
-        `http://localhost:8801/api/tasks/update/assigned/${task.task_id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            title,
-            all_day: allDay,
-            start_date: startDate,
-            end_date: endDate,
-            start_time: startTime,
-            end_time: endTime,
-            duration,
-            note,
-            category_ids: selectedCategories,
-            location_id: locationId || null,
-            due_date: dueDate || null,
-            due_time: dueTime || null,
-            buffer_time: bufferTime,
-          }),
-        }
-      );
-      const result = await res.json();
-      if (result.success) {
-        onSave?.(result);
-        onClose?.();
-      } else {
-        setError(result.message || "Failed to update task");
-      }
-    } catch (err) {
-      setError("Error while updating task");
-    }
-  };
-  console.log(selectedTask);
   return (
     <div className={styles.popupWrapper}>
       <div className={styles.popup}>
@@ -387,7 +435,25 @@ export default function TaskPopup({
             </>
           )}
         </div>
+
+        {statusMessage && (
+          <div
+            className={`${styles.statusBox} ${
+              statusType === "success" ? styles.success : styles.error
+            }`}
+          >
+            {statusMessage}
+          </div>
+        )}
       </div>
+
+      {confirmAction && (
+        <ConfirmModal
+          message={confirmMessage}
+          onConfirm={confirmAction}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
     </div>
   );
 }

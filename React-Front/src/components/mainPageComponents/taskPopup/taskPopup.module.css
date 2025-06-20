@@ -106,3 +106,18 @@
   margin-bottom: 4px;
   line-height: 1.2;
 }
+
+.statusBox {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  text-align: center;
+  font-weight: normal;
+}
+
+.success {
+  color: #006400;
+}
+
+.error {
+  color: #a50000;
+}

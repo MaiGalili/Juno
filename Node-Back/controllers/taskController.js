@@ -1,8 +1,7 @@
 // taskController.js
 const db = require("../db");
 
-// יצירת משימה עם תזמון (assigned)
-// יצירת משימה עם תזמון (assigned)
+// Create assigned task
 async function createAssignedTask(req, res) {
   const {
     title,
@@ -23,7 +22,7 @@ async function createAssignedTask(req, res) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
 
   try {
-    // שלב 1: הכנסת המשימה לטבלת task
+    //Insert input into to the task table
     const [result] = await db.promise().query(
       `INSERT INTO task (
         task_title,
@@ -45,7 +44,7 @@ async function createAssignedTask(req, res) {
 
     const task_id = result.insertId;
 
-    // שלב 2: הכנסת פרטי התזמון לטבלת assigned
+    //Insert input into to the assigned table
     await db.promise().query(
       `INSERT INTO assigned (
         task_id,
@@ -58,7 +57,7 @@ async function createAssignedTask(req, res) {
       [task_id, all_day ? 1 : 0, start_date, end_date, start_time, end_time]
     );
 
-    // שלב 3: שיוך קטגוריות
+    //Assign categories
     if (Array.isArray(category_ids)) {
       for (const category_id of category_ids) {
         await db
@@ -70,7 +69,7 @@ async function createAssignedTask(req, res) {
       }
     }
 
-    // שלב 4: החזרת תגובה ללקוח
+    //Return response
     res.status(201).json({
       success: true,
       message: "Assigned task created",
@@ -82,12 +81,10 @@ async function createAssignedTask(req, res) {
   }
 }
 
-// יצירת משימה לרשימת המתנה (waiting_list)
-// יצירת משימה לרשימת המתנה (waiting_list)
+//Create waiting task
 async function createWaitingTask(req, res) {
   const {
     title,
-    all_day,
     duration,
     note,
     location_id,
@@ -101,8 +98,8 @@ async function createWaitingTask(req, res) {
   if (!email)
     return res.status(401).json({ success: false, message: "Unauthorized" });
 
+  //Insert input into to the task table
   try {
-    // שלב 1: הכנסת המשימה לטבלת task
     const [result] = await db.promise().query(
       `INSERT INTO task (
         task_title,
@@ -124,7 +121,7 @@ async function createWaitingTask(req, res) {
 
     const task_id = result.insertId;
 
-    // שלב 2: הכנסת פרטי תאריך יעד לטבלת waiting_list
+    //Insert input into to the waiting table
     await db.promise().query(
       `INSERT INTO waiting_list (
         task_id,
@@ -134,7 +131,7 @@ async function createWaitingTask(req, res) {
       [task_id, due_date, due_time]
     );
 
-    // שלב 3: שיוך קטגוריות
+    //Assign categories
     if (Array.isArray(category_ids)) {
       for (const category_id of category_ids) {
         await db
@@ -146,7 +143,7 @@ async function createWaitingTask(req, res) {
       }
     }
 
-    // שלב 4: החזרת תגובה ללקוח
+    //Return response
     res.status(201).json({
       success: true,
       message: "Waiting task created",
@@ -158,7 +155,7 @@ async function createWaitingTask(req, res) {
   }
 }
 
-// שליפת משימות מתוזמנות בלבד (ללוח שנה)
+//Get assigned tasks (calendar view)
 async function getAssignedTasks(req, res) {
   const { userEmail } = req.body;
   if (!userEmail) {
@@ -231,8 +228,7 @@ async function getAssignedTasks(req, res) {
   }
 }
 
-// עריכת משימה מתוזמנת
-// עדכון משימה מתוזמנת (assigned)
+//Edit assigned task
 async function updateAssignedTask(req, res) {
   const { task_id } = req.params;
   const {
@@ -249,8 +245,8 @@ async function updateAssignedTask(req, res) {
     category_ids,
   } = req.body;
 
+  //Update task
   try {
-    // שלב 1: עדכון טבלת task
     await db.promise().query(
       `UPDATE task
        SET task_title = ?,
@@ -269,7 +265,7 @@ async function updateAssignedTask(req, res) {
       ]
     );
 
-    // שלב 2: עדכון טבלת assigned
+    //Update assigned
     await db.promise().query(
       `UPDATE assigned
        SET task_all_day = ?,
@@ -281,7 +277,7 @@ async function updateAssignedTask(req, res) {
       [all_day ? 1 : 0, start_date, end_date, start_time, end_time, task_id]
     );
 
-    // שלב 3: עדכון קטגוריות — מחיקה והוספה מחדש
+    //Update categories
     await db
       .promise()
       .query(`DELETE FROM task_category WHERE task_id = ?`, [task_id]);
@@ -297,7 +293,7 @@ async function updateAssignedTask(req, res) {
       }
     }
 
-    // שלב 4: תגובה ללקוח
+    //Response
     res.json({ success: true, message: "Assigned task updated" });
   } catch (err) {
     console.error("Update Assigned Task Error:", err.message);
@@ -305,12 +301,11 @@ async function updateAssignedTask(req, res) {
   }
 }
 
-// עריכת משימה ברשימת המתנה
+//Edit waiting task
 async function updateWaitingTask(req, res) {
   const { task_id } = req.params;
   const {
     title,
-    all_day,
     duration,
     note,
     location_id,
@@ -320,8 +315,8 @@ async function updateWaitingTask(req, res) {
     category_ids,
   } = req.body;
 
+  //Update task
   try {
-    // שלב 1: עדכון טבלת task
     await db.promise().query(
       `UPDATE task
        SET task_title = ?,
@@ -340,7 +335,7 @@ async function updateWaitingTask(req, res) {
       ]
     );
 
-    // שלב 2: עדכון טבלת waiting_list
+    //Update waiting list
     await db.promise().query(
       `UPDATE waiting_list
        SET task_duedate = ?,
@@ -349,7 +344,7 @@ async function updateWaitingTask(req, res) {
       [due_date, due_time, task_id]
     );
 
-    // שלב 3: עדכון קטגוריות — מחיקה והוספה מחדש
+    //Update categories
     await db
       .promise()
       .query(`DELETE FROM task_category WHERE task_id = ?`, [task_id]);
@@ -365,7 +360,7 @@ async function updateWaitingTask(req, res) {
       }
     }
 
-    // שלב 4: תגובה ללקוח
+    // Response
     res.json({ success: true, message: "Waiting task updated" });
   } catch (err) {
     console.error("Update Waiting Task Error:", err.message);
