@@ -12,6 +12,7 @@ export default function TaskPopup({
   userStartTime = "08:00",
   userEndTime = "21:00",
   selectedTask,
+  fetchTasks,
 }) {
   const [title, setTitle] = useState(selectedTask?.task_title || "");
   const [allDay, setAllDay] = useState(selectedTask?.task_all_day || false);
@@ -35,7 +36,7 @@ export default function TaskPopup({
 
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
-  const [statusType, setStatusType] = useState(""); // "success" | "error"
+  const [statusType, setStatusType] = useState("");
 
   const [confirmAction, setConfirmAction] = useState(null);
   const [confirmMessage, setConfirmMessage] = useState("");
@@ -159,13 +160,9 @@ export default function TaskPopup({
       const result = await res.json();
 
       if (result.success) {
-        setStatusMessage("Task deleted successfully.");
-        setStatusType("success");
-
-        setTimeout(() => {
-          onSave?.(result);
-          onClose?.();
-        }, 4000);
+        await fetchTasks();
+        onSave?.(result);
+        onClose?.();
       } else {
         setStatusMessage(result.message || "Failed to delete task");
         setStatusType("error");
@@ -205,15 +202,9 @@ export default function TaskPopup({
       const result = await res.json();
 
       if (result.success) {
-        // Set status message
-        setStatusMessage("Task updated successfully.");
-        setStatusType("success");
-
-        // Close popup timer
-        setTimeout(() => {
-          onSave?.(result);
-          onClose?.();
-        }, 4000);
+        await fetchTasks(); // רענון לוח
+        onSave?.(result); // עדכון ה־Calendar
+        onClose?.(); // סגור את הפופאפ
       } else {
         setStatusMessage(result.message || "Failed to update task");
         setStatusType("error");
@@ -266,6 +257,8 @@ export default function TaskPopup({
       });
 
       const result = await res.json();
+      console.log(result);
+
       if (result.success) {
         onSave?.(result);
         if (mode === "create") clearFields();
@@ -276,7 +269,7 @@ export default function TaskPopup({
         setStatusType("error");
       }
     } catch (err) {
-      setStatusMessage("Server error while saving task");
+      setStatusMessage("Error while saving task");
       setStatusType("error");
     }
   };
@@ -284,7 +277,7 @@ export default function TaskPopup({
   return (
     <div className={styles.popupWrapper}>
       <div className={styles.popup}>
-        <h2>{selectedTask === undefined ? "Create Task" : "Edit Task"}</h2>
+        <h2>{selectedTask?.task_id ? "Edit Task" : "Create Task"}</h2>
 
         <label>
           Title:
@@ -424,7 +417,7 @@ export default function TaskPopup({
         <div className={styles.buttons}>
           <button onClick={onClose}>Cancel</button>
           {mode !== "view" && <button onClick={handleSave}>Save</button>}
-          {selectedTask && (
+          {selectedTask?.task_id && (
             <>
               <button className={styles.deleteButton} onClick={handleDelete}>
                 Delete

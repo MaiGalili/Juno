@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import styles from "./forgotPassword.module.css";
 
 export default function ForgotPassword({ onSwitch }) {
   const [step, setStep] = useState(1);
@@ -85,74 +86,77 @@ export default function ForgotPassword({ onSwitch }) {
   };
 
   return (
-    <div className="forgotPasswordBox">
-      <h2 className="title">Reset Password</h2>
+    <div className={styles.forgotPasswordBox}>
+      <h2 className={styles.title}>Reset Password</h2>
 
-      {message.error && <p className="error">{message.error}</p>}
+      {message.error && <p className={styles.error}>{message.error}</p>}
       {message.successMessage && (
-        <p className="successMessage">{message.successMessage}</p>
+        <p className={styles.successMessage}>{message.successMessage}</p>
       )}
 
       {step === 1 && (
         <>
-          <div className="textField">
+          <div className={styles.textField}>
             <input
-              className="inputEmail"
+              className={styles.inputEmail}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email"
             />
           </div>
-          <button className="sendCodeButton" onClick={handleSendCode}>
-            <span className="labelText">Send Code</span>
+          <button className={styles.sendCodeButton} onClick={handleSendCode}>
+            <span className={styles.labelText}>Send Code</span>
           </button>
         </>
       )}
 
       {step === 2 && (
         <>
-          <div className="textField">
+          <div className={styles.textField}>
             <input
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="Enter Code Received In Mail"
-              className="inputEmail"
+              className={styles.inputEmail}
             />
           </div>
-          <button className="sendCodeButton" onClick={handleVerifyCode}>
-            <span className="labelText">Verification code</span>
+          <button className={styles.sendCodeButton} onClick={handleVerifyCode}>
+            <span className={styles.labelText}>Verify Code</span>
           </button>
         </>
       )}
 
       {step === 3 && (
         <>
-          <div className="textField">
+          <div className={styles.textField}>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="New Password"
-              className="inputEmail"
+              className={styles.inputEmail}
             />
           </div>
-          <div className="textField">
+          <div className={styles.textField}>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Validate Password"
-              className="inputEmail"
+              placeholder="Confirm Password"
+              className={styles.inputEmail}
             />
           </div>
-          <button className="sendCodeButton" onClick={handleResetPassword}>
-            <span className="labelText">Reset Password</span>
+          <button
+            className={styles.sendCodeButton}
+            onClick={handleResetPassword}
+          >
+            <span className={styles.labelText}>Reset Password</span>
           </button>
         </>
       )}
 
-      <button className="backButton" onClick={() => onSwitch("login")}>
-        <span className="labelText">Back to Login</span>
+      <button className={styles.backButton} onClick={() => onSwitch("login")}>
+        <span className={styles.labelText}>Back to Login</span>
       </button>
     </div>
   );
