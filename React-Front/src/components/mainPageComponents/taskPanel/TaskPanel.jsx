@@ -1,7 +1,9 @@
+// TaskPanel.jsx
 import React from "react";
 import TaskCard from "./taskCard/TaskCard";
 import styles from "./taskPanel.module.css";
 
+// A list of tasks that are scheduled for a specific time and location
 export default function TaskPanel() {
   const upcomingTasks = [
     {

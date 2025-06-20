@@ -1,3 +1,4 @@
+//Hero.jsx
 import React, { useState } from "react";
 import styles from "./hero.module.css";
 import Login from "./loginBox/LoginBox";
@@ -5,8 +6,10 @@ import SignUp from "./singUpBox/SingUpBox";
 import ForgotPassword from "./forgotPassword/ForgotPassword";
 
 export default function Hero({ setIsLoggin }) {
+  // Controls which form to display: "login", "signup", or "forgot"
   const [formType, setFormType] = useState("login");
 
+  //Dynamically renders the form based on the current formType
   const renderForm = () => {
     switch (formType) {
       case "signup":
@@ -35,6 +38,7 @@ export default function Hero({ setIsLoggin }) {
           </p>
         </div>
 
+        {/* Form section (login, signup, or forgot password) */}
         <div className={styles.rightForm}>{renderForm()}</div>
       </div>
     </section>

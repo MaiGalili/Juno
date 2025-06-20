@@ -1,3 +1,4 @@
+// SingleLocation.jsx
 import React, { useState } from "react";
 import styles from "./singleLocation.module.css";
 
@@ -11,19 +12,24 @@ export default function SingleLocation({
   onColorChange,
   onIconChange,
 }) {
+  // Controls visibility of the dropdown menu
   const [showMenu, setShowMenu] = useState(false);
 
+  // Toggle the dropdown menu
   const toggleMenu = () => setShowMenu((prev) => !prev);
 
   return (
     <li className={styles.labelItem} style={{ backgroundColor: color }}>
+      {/* Display the location icon and name */}
       <span className={styles.name}>
         {icon} {name}
       </span>
+      {/* Button to toggle the dropdown menu (three-dot icon) */}
       <button className={styles.menuButton} onClick={toggleMenu}>
         ⋮
       </button>
 
+      {/* Dropdown menu for icon/color selection, editing, and deleting */}
       {showMenu && (
         <div className={styles.dropdownMenu}>
           <label className={styles.iconOption}>
@@ -63,6 +69,8 @@ export default function SingleLocation({
           >
             Edit
           </button>
+
+          {/* Delete button */}
           <button
             onClick={() => {
               setShowMenu(false);

@@ -1,3 +1,4 @@
+// WhyJuno.jsx
 import React, { useState } from "react";
 import WhyJunoBox from "./WhyJunoBox";
 import styles from "./whyJuno.module.css";

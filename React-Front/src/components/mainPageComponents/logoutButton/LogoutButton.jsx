@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import styles from "./logoutButton.module.css"; 
 
 export default function LogoutButton({ setIsLoggin }) {
   const navigate = useNavigate();
@@ -8,35 +9,23 @@ export default function LogoutButton({ setIsLoggin }) {
     try {
       const res = await fetch("http://localhost:8801/api/auth/logout", {
         method: "POST",
-        credentials: "include", // חשוב: כדי שה-session יישלח
+        credentials: "include",
       });
 
       const data = await res.json();
 
       if (data.success) {
-        setIsLoggin(false); // מבטלת התחברות
-        navigate("/"); // חוזרת לדף הבית
-      } else {
-        alert("Logout failed: " + data.message);
+        setIsLoggin(false); // Logout successful
+        navigate("/"); // Redirect to home page
       }
-    } catch (err) {
-      console.error("Logout error:", err);
-      alert("An error occurred during logout");
+    } catch {
+      // Silent catch
+      console.log("Logout failed");
     }
   };
 
   return (
-    <button
-      onClick={handleLogout}
-      style={{
-        padding: "8px 16px",
-        backgroundColor: "#6b607d",
-        color: "white",
-        border: "none",
-        borderRadius: "10px",
-        cursor: "pointer",
-      }}
-    >
+    <button onClick={handleLogout} className={styles.logoutButton}>
       Logout
     </button>
   );

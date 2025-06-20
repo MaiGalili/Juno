@@ -1,7 +1,8 @@
+// forgotPassword.jsx
 import React, { useState } from "react";
-import styles from "./forgotPassword.module.css";
 
 export default function ForgotPassword({ onSwitch }) {
+  // State for form inputs
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -9,8 +10,10 @@ export default function ForgotPassword({ onSwitch }) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  // State for error messages
   const [message, setMessage] = useState({ error: "", successMessage: "" });
 
+  //Step 1: Send reset code to user's email
   const handleSendCode = async () => {
     setMessage({ error: "", successMessage: "" });
     try {
@@ -24,8 +27,8 @@ export default function ForgotPassword({ onSwitch }) {
       console.log("Response from server:", data);
 
       if (data.success) {
-        setRealCode(data.code);
-        setStep(2);
+        setRealCode(data.code); // Save the code sent by the server
+        setStep(2); // Move to the next step
       } else {
         setMessage({
           error: data.message || "Error sending reset code",
@@ -38,18 +41,21 @@ export default function ForgotPassword({ onSwitch }) {
     }
   };
 
+  //Step 2: Verify the code entered by the user
   const handleVerifyCode = () => {
     setMessage({ error: "", successMessage: "" });
     if (code === realCode) {
-      setStep(3);
+      setStep(3); // Code matches, move to next step: reset password
     } else {
       setMessage({ error: "Invalid code", successMessage: "" });
     }
   };
 
+  //Step 3: Reset the user's password
   const handleResetPassword = async () => {
     setMessage({ error: "", successMessage: "" });
 
+    // Password match validation
     if (password !== confirmPassword) {
       return setMessage({
         error: "Passwords do not match",
@@ -72,6 +78,7 @@ export default function ForgotPassword({ onSwitch }) {
           error: "",
           successMessage: "Password reset successfully",
         });
+        // Redirect to login after short delay
         setTimeout(() => onSwitch("login"), 2000);
       } else {
         setMessage({
@@ -86,77 +93,78 @@ export default function ForgotPassword({ onSwitch }) {
   };
 
   return (
-    <div className={styles.forgotPasswordBox}>
-      <h2 className={styles.title}>Reset Password</h2>
+    <div className="forgotPasswordBox">
+      <h2 className="title">Reset Password</h2>
 
-      {message.error && <p className={styles.error}>{message.error}</p>}
+      {message.error && <p className="error">{message.error}</p>}
       {message.successMessage && (
-        <p className={styles.successMessage}>{message.successMessage}</p>
+        <p className="successMessage">{message.successMessage}</p>
       )}
 
+      {/*Step 1: Enter email */}
       {step === 1 && (
         <>
-          <div className={styles.textField}>
+          <div className="textField">
             <input
-              className={styles.inputEmail}
+              className="inputEmail"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email"
             />
           </div>
-          <button className={styles.sendCodeButton} onClick={handleSendCode}>
-            <span className={styles.labelText}>Send Code</span>
+          <button className="sendCodeButton" onClick={handleSendCode}>
+            <span className="labelText">Send Code</span>
           </button>
         </>
       )}
 
+      {/*Step 2: Enter verification code */}
       {step === 2 && (
         <>
-          <div className={styles.textField}>
+          <div className="textField">
             <input
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="Enter Code Received In Mail"
-              className={styles.inputEmail}
+              className="inputEmail"
             />
           </div>
-          <button className={styles.sendCodeButton} onClick={handleVerifyCode}>
-            <span className={styles.labelText}>Verify Code</span>
+          <button className="sendCodeButton" onClick={handleVerifyCode}>
+            <span className="labelText">Verification code</span>
           </button>
         </>
       )}
 
+      {/*Step 3: Enter new password */}
       {step === 3 && (
         <>
-          <div className={styles.textField}>
+          <div className="textField">
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="New Password"
-              className={styles.inputEmail}
+              className="inputEmail"
             />
           </div>
-          <div className={styles.textField}>
+          <div className="textField">
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm Password"
-              className={styles.inputEmail}
+              placeholder="Validate Password"
+              className="inputEmail"
             />
           </div>
-          <button
-            className={styles.sendCodeButton}
-            onClick={handleResetPassword}
-          >
-            <span className={styles.labelText}>Reset Password</span>
+          {/* Back to login link/button */}
+          <button className="sendCodeButton" onClick={handleResetPassword}>
+            <span className="labelText">Reset Password</span>
           </button>
         </>
       )}
 
-      <button className={styles.backButton} onClick={() => onSwitch("login")}>
-        <span className={styles.labelText}>Back to Login</span>
+      <button className="backButton" onClick={() => onSwitch("login")}>
+        <span className="labelText">Back to Login</span>
       </button>
     </div>
   );

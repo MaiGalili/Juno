@@ -1,10 +1,13 @@
+// Help.jsx
 import React from "react";
 import styles from "./help.module.css";
 import HelpForm from "./helpForm/HelpForm";
 
 export default function Help() {
   return (
+    // Wrapper section for the help page
     <section className={styles.helpSection}>
+      {/* Title and introductory text */}
       <h2 className={styles.title}>Need Help?</h2>
       <p className={styles.subtitle}>
         Here’s everything you need to know to get started with Juno and make the
@@ -50,6 +53,7 @@ export default function Help() {
           core to how we build.
         </p>
       </div>
+      {/* Contact/help request form */}
       <HelpForm />
     </section>
   );

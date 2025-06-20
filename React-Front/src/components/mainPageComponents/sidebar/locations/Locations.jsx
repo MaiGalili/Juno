@@ -1,3 +1,4 @@
+// Locations.jsx
 import React, { useState, useEffect } from "react";
 import SingleLocation from "./singleLocation/SingleLocation";
 import AddressInput from "./AddressInput";

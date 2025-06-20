@@ -23,7 +23,7 @@ export default function SingleCategory({
       {showMenu && (
         <div className={styles.dropdownMenu}>
           <label className={styles.colorOption}>
-            🎨 CATEGORY COLOR
+            CATEGORY COLOR
             <input
               type="color"
               onChange={(e) => {

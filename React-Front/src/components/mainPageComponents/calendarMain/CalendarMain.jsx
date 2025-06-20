@@ -1,13 +1,16 @@
+// CalendarMain.jsx
 import React, { useState } from "react";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import TaskPopup from "../taskPopup/TaskPopup";
 
+// Locale configuration for the calendar (English - US)
 const locales = {
   "en-US": require("date-fns/locale/en-US"),
 };
 
+// Setup the localizer using date-fns functions
 const localizer = dateFnsLocalizer({
   format,
   parse,
@@ -17,11 +20,13 @@ const localizer = dateFnsLocalizer({
 });
 
 export default function CalendarMain({ userEmail, tasks, fetchTasks }) {
+  //State
   const [selectedTask, setSelectedTask] = useState(null);
   const [popupMode, setPopupMode] = useState("view");
   const [popupOpen, setPopupOpen] = useState(false);
   const [currentView, setCurrentView] = useState("week");
 
+  //Style customizer for events
   const eventStyleGetter = (event) => {
     const colors = event.categories?.map((c) => c.color) || ["#ccc"];
     const background =
@@ -39,22 +44,25 @@ export default function CalendarMain({ userEmail, tasks, fetchTasks }) {
     };
   };
 
+  //When an existing task is selected from the calendar
   const handleSelectEvent = (event) => {
     setSelectedTask(event.raw);
     setPopupMode("view");
     setPopupOpen(true);
   };
 
+  //When a time slot is selected (for creating a new task)
   const handleSelectSlot = (slotInfo) => {
     setSelectedTask({
       task_start_date: format(slotInfo.start, "yyyy-MM-dd"),
       task_end_date: format(slotInfo.end, "yyyy-MM-dd"),
       task_all_day: true,
     });
-    setPopupMode("create");
+    setPopupMode("create"); // Open popup in create mode
     setPopupOpen(true);
   };
 
+  //Callback after saving a task
   const onSave = async () => {
     setPopupOpen(false);
     await fetchTasks();
@@ -78,6 +86,7 @@ export default function CalendarMain({ userEmail, tasks, fetchTasks }) {
         onSelectSlot={handleSelectSlot}
       />
 
+      {/* Conditionally render the popup when a task is selected or created */}
       {popupOpen && (
         <TaskPopup
           mode={popupMode}

@@ -1,13 +1,16 @@
+// SingUpBox.jsx
 import React, { useState } from "react";
 import styles from "./singUpBox.module.css";
 
 export default function SignUpBox({ onSwitch }) {
+  // Form state: email, password, retype password
   const [signUpForm, setSignUpForm] = useState({
     email: "",
     password: "",
     retypePassword: "",
   });
 
+  // Error messages for each field and for server errors
   const [errors, setErrors] = useState({
     email: "",
     password: "",
@@ -15,25 +18,29 @@ export default function SignUpBox({ onSwitch }) {
     server: "",
   });
 
+  // Success message after successful signup
   const [success, setSuccess] = useState("");
 
+  // Handle changes in input fields
   const handleChange = (e) => {
     const { name, value } = e.target;
     setSignUpForm({ ...signUpForm, [name]: value });
     setErrors({ ...errors, [name]: "", server: "" });
   };
 
+  // Validate the form before submission
   const validateForm = () => {
     const newErrors = {};
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+    // Validate email format
     if (!emailRegex.test(signUpForm.email)) {
       newErrors.email = "Please enter a valid email address.";
     }
 
     const password = signUpForm.password;
 
-    // Length check
+    // Password length check
     if (password.length < 8 || password.length > 20) {
       newErrors.password = "Password must be between 8 and 20 characters.";
     }
@@ -48,14 +55,17 @@ export default function SignUpBox({ onSwitch }) {
       newErrors.password = "Password must contain at least one number.";
     }
 
+    // Password match check
     if (signUpForm.password !== signUpForm.retypePassword) {
       newErrors.retypePassword = "Passwords do not match.";
     }
 
+    // Set and return validation results
     setErrors({ ...errors, ...newErrors });
     return Object.keys(newErrors).length === 0;
   };
 
+  // Submit the signup form
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrors({ email: "", password: "", retypePassword: "", server: "" });
@@ -79,16 +89,14 @@ export default function SignUpBox({ onSwitch }) {
       const data = await response.json();
 
       if (data.success) {
-        setSuccess(data.message);
+        setSuccess(data.message); // Show success message
+        // Switch to login form after 2 seconds
         setTimeout(() => {
           onSwitch("login");
         }, 2000);
       } else {
         // If server message is related to existing user, attach to email error
-        if (
-          data.message.toLowerCase().includes("already exists") ||
-          data.message.toLowerCase().includes("כבר קיים")
-        ) {
+        if (data.message.toLowerCase().includes("already exists")) {
           setErrors({ ...errors, email: data.message });
         } else {
           setErrors({ ...errors, server: data.message });
@@ -104,6 +112,7 @@ export default function SignUpBox({ onSwitch }) {
     <form className={styles.container} onSubmit={handleSubmit}>
       <h1 className={styles.title}>Create Account</h1>
 
+      {/* Email input */}
       <div
         className={`${styles.inputWrapper} ${
           errors.email ? styles.inputErrorWrapper : ""
@@ -121,6 +130,7 @@ export default function SignUpBox({ onSwitch }) {
         {errors.email && <p className={styles.error}>{errors.email}</p>}
       </div>
 
+      {/* Password input */}
       <div
         className={`${styles.inputWrapper} ${
           errors.password ? styles.inputErrorWrapper : ""
@@ -138,6 +148,7 @@ export default function SignUpBox({ onSwitch }) {
         {errors.password && <p className={styles.error}>{errors.password}</p>}
       </div>
 
+      {/* Retype password input */}
       <div
         className={`${styles.inputWrapper} ${
           errors.retypePassword ? styles.inputErrorWrapper : ""
@@ -157,6 +168,7 @@ export default function SignUpBox({ onSwitch }) {
         )}
       </div>
 
+      {/* Form buttons */}
       <div className={styles.buttonRow}>
         <button className={styles.signUpButton} type="submit">
           Sign Up
@@ -170,6 +182,7 @@ export default function SignUpBox({ onSwitch }) {
         </button>
       </div>
 
+      {/* Error and success messages */}
       {errors.server && <p className={styles.error}>{errors.server}</p>}
       {success && <p className={styles.success}>{success}</p>}
     </form>

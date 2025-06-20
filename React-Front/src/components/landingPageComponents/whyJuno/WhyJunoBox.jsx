@@ -1,3 +1,4 @@
+// WhyJunoBox.jsx
 import classes from "./whyJunoBox.module.css";
 export default function WhyJunoBox({ item }) {
   return (

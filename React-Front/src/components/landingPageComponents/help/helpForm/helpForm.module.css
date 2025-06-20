@@ -49,3 +49,16 @@
 .button:hover {
   background-color: #4a3a6b;
 }
+
+.successMessage {
+  color: green;
+  font-size: 0.9em;
+  margin-top: 10px;
+}
+
+.errorMessage {
+  color: red;
+  font-size: 0.9em;
+  margin-top: 10px;
+}
+

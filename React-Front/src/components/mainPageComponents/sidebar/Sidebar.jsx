@@ -1,4 +1,4 @@
-// React-Front/src/components/mainPageComponents/sidebar/Sidebar.jsx
+// Sidebar.jsx
 import styles from "./sidebar.module.css";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -15,12 +15,12 @@ export default function Sidebar({
 }) {
   return (
     <aside className={styles.sidebar}>
-      {/* בוחר תאריך */}
+      {/* Date picker for selecting a day */}
       <div className={styles.datePickerWrapper}>
         <DatePicker selected={selectedDate} onChange={setSelectedDate} inline />
       </div>
 
-      {/* כפתורים */}
+      {/* Buttons for generating reports and creating a new task */}
       <div className={styles.buttons}>
         <button className={styles.report}>Reports</button>
         <button className={styles.newTask} onClick={() => setShowPopup(true)}>
@@ -28,7 +28,7 @@ export default function Sidebar({
         </button>
       </div>
 
-      {/* לייבלים */}
+      {/* Categories section */}
       <div className={styles.section}>
         <div className={styles.sectionTitle}>
           <span>Categories</span>
@@ -36,11 +36,12 @@ export default function Sidebar({
         <Categories userEmail={userEmail} />
       </div>
 
-      {/* מיקומים */}
+      {/* Locations section */}
       <div className={styles.section}>
         <div className={styles.sectionTitle}>
           <span>LOCATIONS</span>
         </div>
+        {/* Renders the list of locations */}
         <Locations />
       </div>
     </aside>

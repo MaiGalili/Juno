@@ -1,3 +1,4 @@
+//TaskPopup.jsx
 import React, { useState, useEffect } from "react";
 import styles from "./taskPopup.module.css";
 import ConfirmModal from "../../ConfirmModal";
@@ -14,6 +15,7 @@ export default function TaskPopup({
   selectedTask,
   fetchTasks,
 }) {
+  // === State for all task fields ===
   const [title, setTitle] = useState(selectedTask?.task_title || "");
   const [allDay, setAllDay] = useState(selectedTask?.task_all_day || false);
   const [startDate, setStartDate] = useState(
@@ -34,20 +36,23 @@ export default function TaskPopup({
   const [dueTime, setDueTime] = useState(task.due_time || "");
   const [bufferTime, setBufferTime] = useState(task.buffer_time || 10);
 
+  // === UI feedback states ===
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [statusType, setStatusType] = useState("");
 
+  // === Confirmation modal state ===
   const [confirmAction, setConfirmAction] = useState(null);
   const [confirmMessage, setConfirmMessage] = useState("");
 
-  // === TIME HELPERS ===
+  // === TIME HELPERS convert HH:MM string to minutes ===
   const toTime = (str) => {
     if (!str) return 0;
     const [h, m] = str.split(":").map(Number);
     return h * 60 + m;
   };
 
+  // === Helper to convert minutes back to HH:MM ===
   const fromMinutes = (mins) => {
     const h = Math.floor(mins / 60)
       .toString()
@@ -56,7 +61,7 @@ export default function TaskPopup({
     return `${h}:${m}`;
   };
 
-  // === EFFECTS ===
+  // === useEffect: Sync and calculate values ===
   useEffect(() => {
     // Handle all-day toggle
     if (allDay) {
@@ -85,15 +90,6 @@ export default function TaskPopup({
     if (endTime && duration && !startTime) {
       const startMins = toTime(endTime) - toTime(duration);
       if (startMins >= 0) setStartTime(fromMinutes(startMins));
-    }
-
-    // Status message timeout
-    if (statusMessage) {
-      const timer = setTimeout(() => {
-        setStatusMessage("");
-        setStatusType("");
-      }, 4000);
-      return () => clearTimeout(timer);
     }
   }, [
     allDay,
@@ -135,18 +131,21 @@ export default function TaskPopup({
   };
 
   // === ACTIONS ===
+  //Show confirmation modal for delete
   const handleDelete = () => {
     if (!task.task_id) return;
     setConfirmMessage("Are you sure you want to delete this task?");
     setConfirmAction(() => handleDeleteConfirmed);
   };
 
+  //Show confirmation modal for update
   const handleUpdate = () => {
     if (!task.task_id) return;
     setConfirmMessage("Are you sure you want to save changes?");
     setConfirmAction(() => handleUpdateConfirmed);
   };
 
+  //Execute delete operation
   const handleDeleteConfirmed = async () => {
     setConfirmAction(null);
     try {
@@ -173,6 +172,7 @@ export default function TaskPopup({
     }
   };
 
+  //Execute update operation
   const handleUpdateConfirmed = async () => {
     setConfirmAction(null);
     try {
@@ -202,9 +202,9 @@ export default function TaskPopup({
       const result = await res.json();
 
       if (result.success) {
-        await fetchTasks(); // רענון לוח
-        onSave?.(result); // עדכון ה־Calendar
-        onClose?.(); // סגור את הפופאפ
+        await fetchTasks();
+        onSave?.(result);
+        onClose?.();
       } else {
         setStatusMessage(result.message || "Failed to update task");
         setStatusType("error");
@@ -215,6 +215,7 @@ export default function TaskPopup({
     }
   };
 
+  //Save new task or update existing task
   const handleSave = async () => {
     const validationMessage = validate();
     if (validationMessage) {
