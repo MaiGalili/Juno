@@ -1,7 +1,7 @@
 // taskController.js
 const db = require("../db");
 
-// Create assigned task
+// Create assigned task function
 async function createAssignedTask(req, res) {
   const {
     title,
@@ -57,7 +57,7 @@ async function createAssignedTask(req, res) {
       [task_id, all_day ? 1 : 0, start_date, end_date, start_time, end_time]
     );
 
-    //Assign categories
+    //Assign categories to task
     if (Array.isArray(category_ids)) {
       for (const category_id of category_ids) {
         await db
@@ -69,7 +69,6 @@ async function createAssignedTask(req, res) {
       }
     }
 
-    //Return response
     res.status(201).json({
       success: true,
       message: "Assigned task created",
@@ -81,7 +80,7 @@ async function createAssignedTask(req, res) {
   }
 }
 
-//Create waiting task
+//Create waiting task function
 async function createWaitingTask(req, res) {
   const {
     title,
@@ -131,7 +130,7 @@ async function createWaitingTask(req, res) {
       [task_id, due_date, due_time]
     );
 
-    //Assign categories
+    //Assign categories to task
     if (Array.isArray(category_ids)) {
       for (const category_id of category_ids) {
         await db
@@ -143,7 +142,6 @@ async function createWaitingTask(req, res) {
       }
     }
 
-    //Return response
     res.status(201).json({
       success: true,
       message: "Waiting task created",
@@ -162,6 +160,7 @@ async function getAssignedTasks(req, res) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
+  // Retrieve tasks for this user
   try {
     const taskQuery = `
       SELECT 
@@ -228,7 +227,7 @@ async function getAssignedTasks(req, res) {
   }
 }
 
-//Edit assigned task
+//Update assigned task
 async function updateAssignedTask(req, res) {
   const { task_id } = req.params;
   const {
@@ -245,7 +244,7 @@ async function updateAssignedTask(req, res) {
     category_ids,
   } = req.body;
 
-  //Update task
+  // Update the task details
   try {
     await db.promise().query(
       `UPDATE task
@@ -265,7 +264,7 @@ async function updateAssignedTask(req, res) {
       ]
     );
 
-    //Update assigned
+    // Update the scheduling info
     await db.promise().query(
       `UPDATE assigned
        SET task_all_day = ?,
@@ -277,7 +276,7 @@ async function updateAssignedTask(req, res) {
       [all_day ? 1 : 0, start_date, end_date, start_time, end_time, task_id]
     );
 
-    //Update categories
+    // Reset and reassign categories
     await db
       .promise()
       .query(`DELETE FROM task_category WHERE task_id = ?`, [task_id]);
@@ -293,7 +292,6 @@ async function updateAssignedTask(req, res) {
       }
     }
 
-    //Response
     res.json({ success: true, message: "Assigned task updated" });
   } catch (err) {
     console.error("Update Assigned Task Error:", err.message);
@@ -344,7 +342,7 @@ async function updateWaitingTask(req, res) {
       [due_date, due_time, task_id]
     );
 
-    //Update categories
+    //Reset and reassign categories
     await db
       .promise()
       .query(`DELETE FROM task_category WHERE task_id = ?`, [task_id]);
@@ -360,7 +358,6 @@ async function updateWaitingTask(req, res) {
       }
     }
 
-    // Response
     res.json({ success: true, message: "Waiting task updated" });
   } catch (err) {
     console.error("Update Waiting Task Error:", err.message);

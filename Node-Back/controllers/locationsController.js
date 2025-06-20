@@ -1,20 +1,25 @@
+// locationsController.js
+// Load environment variables from .env
 require("dotenv").config();
-console.log("GOOGLE_GEO_API_KEY:", process.env.GOOGLE_GEO_API_KEY);
 
 const db = require("../db");
 
+// Add location function
 async function addLocation(req, res) {
   const { location_name, location_address, icon } = req.body;
 
+  // Check if user is authenticated
   if (!req.session.userEmail) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
+  // Validate required fields
   if (!location_name || !location_address || !icon) {
     return res.status(400).json({ success: false, message: "Missing data" });
   }
 
   try {
+    // Call Google Geocoding API to get coordinates from address
     const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
       location_address
     )}&key=${process.env.GOOGLE_GEO_API_KEY}`;
@@ -36,6 +41,7 @@ async function addLocation(req, res) {
 
     const { lat: latitude, lng: longitude } = coords;
 
+    // Save the location to the database
     const [dbRes] = await db.promise().query(
       `INSERT INTO location (location_name, location_address, latitude, longitude, user_email, icon)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -49,6 +55,7 @@ async function addLocation(req, res) {
       ]
     );
 
+    // Return the new location
     res.status(201).json({
       success: true,
       message: "Location added successfully",
@@ -69,12 +76,16 @@ async function addLocation(req, res) {
   }
 }
 
+// Get all locations for the logged-in user
 async function getLocations(req, res) {
   const user_email = req.session.userEmail;
+
+  // Check if user is logged in
   if (!user_email) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
+  // Retrieve locations for this user
   try {
     const [results] = await db.promise().query(
       `SELECT location_id, location_name, location_address, latitude, longitude, icon, color
@@ -92,8 +103,11 @@ async function getLocations(req, res) {
   }
 }
 
+// Delete location function
 async function deleteLocation(req, res) {
   const { id } = req.params;
+
+  // Only delete if it belongs to the logged-in user
   try {
     const [result] = await db
       .promise()
@@ -118,9 +132,11 @@ async function deleteLocation(req, res) {
   }
 }
 
+// Update location function
 async function updateLocation(req, res) {
   const { location_id, new_icon, new_color, new_name, new_address } = req.body;
 
+  // Validate required values
   if (!location_id) {
     return res
       .status(400)
@@ -135,6 +151,7 @@ async function updateLocation(req, res) {
     const fields = [];
     const values = [];
 
+    // Prepare update fields
     if (new_icon) {
       fields.push("icon = ?");
       values.push(new_icon);
@@ -154,7 +171,7 @@ async function updateLocation(req, res) {
       fields.push("location_address = ?");
       values.push(new_address);
 
-      // חישוב קורדינטות לפי כתובת חדשה עם fetch
+      // Get updated coordinates from new address
       const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
         new_address
       )}&key=${process.env.GOOGLE_GEO_API_KEY}`;
@@ -176,12 +193,14 @@ async function updateLocation(req, res) {
       }
     }
 
+    // If there's nothing to update
     if (fields.length === 0) {
       return res
         .status(400)
         .json({ success: false, message: "Nothing to update" });
     }
 
+    // Add WHERE clause values
     values.push(location_id, req.session.userEmail);
 
     const query = `UPDATE location SET ${fields.join(

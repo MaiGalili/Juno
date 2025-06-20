@@ -1,12 +1,18 @@
 //authController.js
+// Import required modules
 const db = require("../db");
 const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
 
+// Load environment variables from .env
+require("dotenv").config();  
+
+//Sign up function
 async function signUp(req, res) {
   const { email, password } = req.body;
 
   try {
+    // Check if user already exists
     const [rows] = await db
       .promise()
       .query("SELECT * FROM users WHERE email = ?", [email]);
@@ -15,9 +21,11 @@ async function signUp(req, res) {
       return res.json({ success: false, message: "User already exists" });
     }
 
+    // Hash the password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Insert new user into database
     await db
       .promise()
       .query("INSERT INTO users (email, password) VALUES (?, ?)", [
@@ -25,6 +33,7 @@ async function signUp(req, res) {
         hashedPassword,
       ]);
 
+    // Add default categories for new user
     const defaultCategories = [
       { name: "Work", color: "#d5d5ff" },
       { name: "Home", color: "#e0ffe0" },
@@ -50,6 +59,7 @@ async function signUp(req, res) {
   }
 }
 
+//Login function
 async function login(req, res) {
   const { email, password } = req.body;
 
@@ -63,6 +73,7 @@ async function login(req, res) {
         return res.json({ success: false, message: "User not found" });
       }
 
+      // Check if password  matches
       const isMatch = await bcrypt.compare(password, result[0].password);
       if (!isMatch) {
         return res.json({
@@ -71,6 +82,7 @@ async function login(req, res) {
         });
       }
 
+      // Store user's email in session
       req.session.userEmail = email;
       console.log("Session created after login:", req.session);
 
@@ -79,6 +91,7 @@ async function login(req, res) {
   );
 }
 
+//Get session function
 function getSession(req, res) {
   const userEmail = req.session.userEmail;
   if (userEmail) {
@@ -88,6 +101,7 @@ function getSession(req, res) {
   }
 }
 
+//Logout function
 function logout(req, res) {
   req.session.destroy((err) => {
     if (err) {
@@ -101,6 +115,7 @@ function logout(req, res) {
   });
 }
 
+//Get email function
 function getEmail(req, res) {
   db.query(
     "SELECT email FROM users WHERE email = ?",
@@ -115,14 +130,15 @@ function getEmail(req, res) {
   );
 }
 
+//Send reset code function
 function sendResetCode(req, res) {
   const { email } = req.body;
 
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: "junocalendar2025@gmail.com",
-      pass: "ygnp yhoi jrwo hppz",
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
     },
   });
 
@@ -153,9 +169,9 @@ function sendResetCode(req, res) {
 
     transporter.sendMail(
       {
-        from: "junocalendar2025@gmail.com",
+        from: process.env.EMAIL_USER,
         to: email,
-        subject: "Password Reset Code",
+        subject: "Reset your Juno Calendar password",
         text: emailText,
       },
       (err2) => {
@@ -170,6 +186,7 @@ function sendResetCode(req, res) {
   });
 }
 
+//Reset password function
 function resetPassword(req, res) {
   const { email, password } = req.body;
 
@@ -193,14 +210,15 @@ function resetPassword(req, res) {
   });
 }
 
+//Send mail function
 function sendMail(req, res) {
   const { email, message } = req.body;
 
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: "junocalendar2025@gmail.com",
-      pass: "ygnp yhoi jrwo hppz",
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
     },
   });
 
@@ -216,20 +234,22 @@ function sendMail(req, res) {
         .json({ success: false, message: "Email not found" });
     }
 
+    // Prepare emails
     const mailToAdmin = {
-      from: "junocalendar2025@gmail.com",
-      to: "junocalendar2025@gmail.com",
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_USER,
       subject: "Juno Calendar Help Request",
       text: `Message from ${email}:\n\n${message}`,
     };
 
     const mailToUser = {
-      from: "junocalendar2025@gmail.com",
+      from: process.env.EMAIL_USER,
       to: email,
       subject: "We received your message",
       text: "Thank you for contacting Juno Calendar! We received your message and will get back to you soon.",
     };
 
+    // Send to admin first
     transporter.sendMail(mailToAdmin, (err1, info1) => {
       if (err1) {
         console.error("Error sending to admin:", err1);
@@ -238,6 +258,7 @@ function sendMail(req, res) {
           .json({ success: false, message: "Failed to send to admin" });
       }
 
+      // Then send confirmation to user
       transporter.sendMail(mailToUser, (err2, info2) => {
         if (err2) {
           console.error("Error sending to user:", err2);

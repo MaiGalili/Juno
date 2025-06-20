@@ -1,7 +1,9 @@
+// categoriesController.js
 const db = require("../db");
 
-// === Get Categories ===
+// Get categories function
 async function getCategories(req, res) {
+  // Get user email from session
   const user_email = req.session.userEmail;
 
   if (!user_email) {
@@ -16,7 +18,9 @@ async function getCategories(req, res) {
         [user_email]
       );
 
+    // Send list of categories as response
     res.json(results);
+
   } catch (error) {
     console.error("Error fetching categories:", error);
     res
@@ -25,7 +29,7 @@ async function getCategories(req, res) {
   }
 }
 
-// === Add Category ===
+// Add category function
 async function addCategory(req, res) {
   const user_email = req.session.userEmail;
   const { category_name, category_color } = req.body;
@@ -41,11 +45,12 @@ async function addCategory(req, res) {
       ON DUPLICATE KEY UPDATE category_color = VALUES(category_color)
     `;
 
+    // Insert or update category color if the name already exists
     await db
       .promise()
       .query(insertQuery, [category_name, category_color, user_email]);
 
-    // שליפת הקטגוריה שנוצרה או עודכנה
+    // Fetch and return the newly added/updated category
     const [newCategoryRows] = await db.promise().query(
       `SELECT category_id, category_name AS name, category_color AS color
        FROM category
@@ -60,7 +65,7 @@ async function addCategory(req, res) {
   }
 }
 
-// === Delete Category ===
+// Delete category function
 async function deleteCategory(req, res) {
   const user_email = req.session.userEmail;
   const { category_id } = req.params;
@@ -83,7 +88,7 @@ async function deleteCategory(req, res) {
   }
 }
 
-// === Update Category ===
+// Update category function
 async function updateCategory(req, res) {
   const user_email = req.body.user_email || req.session.userEmail;
   const { category_id, new_name, new_color } = req.body;
