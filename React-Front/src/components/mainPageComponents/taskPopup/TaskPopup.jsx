@@ -13,12 +13,16 @@ export default function TaskPopup({
   userEndTime = "21:00",
   selectedTask,
 }) {
-  const [title, setTitle] = useState(task.title || "");
-  const [allDay, setAllDay] = useState(task.all_day || false);
-  const [startDate, setStartDate] = useState(task.start_date || "");
-  const [endDate, setEndDate] = useState(task.end_date || "");
-  const [startTime, setStartTime] = useState(task.start_time || "");
-  const [endTime, setEndTime] = useState(task.end_time || "");
+  const [title, setTitle] = useState(selectedTask?.task_title || "");
+  const [allDay, setAllDay] = useState(selectedTask?.task_all_day || false);
+  const [startDate, setStartDate] = useState(
+    selectedTask?.task_start_date || ""
+  );
+  const [endDate, setEndDate] = useState(selectedTask?.task_end_date || "");
+  const [startTime, setStartTime] = useState(
+    selectedTask?.task_start_time || ""
+  );
+  const [endTime, setEndTime] = useState(selectedTask?.task_end_time || "");
   const [duration, setDuration] = useState(task.duration || "");
   const [note, setNote] = useState(task.note || "");
   const [selectedCategories, setSelectedCategories] = useState(
@@ -185,25 +189,58 @@ export default function TaskPopup({
       setError("Error while deleting task");
     }
   };
-console.log(selectedTask)
+  const handleUpdate = async () => {
+    if (!task.task_id) return;
+
+    const confirmUpdate = window.confirm(
+      "Are you sure you want to update this task?"
+    );
+    if (!confirmUpdate) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:8801/api/tasks/update/assigned/${task.task_id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            title,
+            all_day: allDay,
+            start_date: startDate,
+            end_date: endDate,
+            start_time: startTime,
+            end_time: endTime,
+            duration,
+            note,
+            category_ids: selectedCategories,
+            location_id: locationId || null,
+            due_date: dueDate || null,
+            due_time: dueTime || null,
+            buffer_time: bufferTime,
+          }),
+        }
+      );
+      const result = await res.json();
+      if (result.success) {
+        onSave?.(result);
+        onClose?.();
+      } else {
+        setError(result.message || "Failed to update task");
+      }
+    } catch (err) {
+      setError("Error while updating task");
+    }
+  };
+  console.log(selectedTask);
   return (
     <div className={styles.popupWrapper}>
       <div className={styles.popup}>
-        <h2>
-          {mode === "edit"
-            ? "Edit Task"
-            : mode === "view"
-            ? "Task Details"
-            : "Create Task"}
-        </h2>
+        <h2>{selectedTask === undefined ? "Create Task" : "Edit Task"}</h2>
 
         <label>
           Title:
-          <input
-            value={selectedTask.task_title}
-            onChange={(e) => setTitle(e.target.value)}
-            disabled={mode === "view"}
-          />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} />
         </label>
 
         <label>
@@ -212,7 +249,6 @@ console.log(selectedTask)
             type="checkbox"
             checked={allDay}
             onChange={(e) => setAllDay(e.target.checked)}
-            disabled={mode === "view"}
           />
         </label>
 
@@ -222,7 +258,6 @@ console.log(selectedTask)
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            disabled={mode === "view"}
           />
         </label>
 
@@ -232,7 +267,6 @@ console.log(selectedTask)
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            disabled={mode === "view"}
           />
         </label>
 
@@ -244,7 +278,6 @@ console.log(selectedTask)
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                disabled={mode === "view" || disableTimeFields}
               />
             </label>
 
@@ -254,7 +287,6 @@ console.log(selectedTask)
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                disabled={mode === "view" || disableTimeFields}
               />
             </label>
           </>
@@ -266,7 +298,6 @@ console.log(selectedTask)
             type="time"
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
-            disabled={mode === "view" || disableTimeFields}
           />
         </label>
 
@@ -276,8 +307,6 @@ console.log(selectedTask)
             type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
-            disabled={mode === "view" || disableDueFields}
-            style={{ color: disableDueFields ? "#999" : undefined }}
           />
         </label>
 
@@ -287,8 +316,6 @@ console.log(selectedTask)
             type="time"
             value={dueTime}
             onChange={(e) => setDueTime(e.target.value)}
-            disabled={mode === "view" || disableDueFields}
-            style={{ color: disableDueFields ? "#999" : undefined }}
           />
         </label>
 
@@ -298,7 +325,6 @@ console.log(selectedTask)
             type="number"
             value={bufferTime}
             onChange={(e) => setBufferTime(e.target.value)}
-            disabled={mode === "view"}
           />
         </label>
 
@@ -312,7 +338,6 @@ console.log(selectedTask)
                 Array.from(e.target.selectedOptions, (opt) => opt.value)
               )
             }
-            disabled={mode === "view"}
           >
             {userCategories.map((cat) => (
               <option key={cat.category_id} value={cat.category_id}>
@@ -327,7 +352,6 @@ console.log(selectedTask)
           <select
             value={locationId}
             onChange={(e) => setLocationId(e.target.value)}
-            disabled={mode === "view"}
           >
             <option value="">Select</option>
             {userLocations.map((loc) => (
@@ -344,7 +368,6 @@ console.log(selectedTask)
             value={note}
             onChange={(e) => setNote(e.target.value)}
             maxLength={160}
-            disabled={mode === "view"}
           />
         </label>
 
@@ -353,10 +376,15 @@ console.log(selectedTask)
         <div className={styles.buttons}>
           <button onClick={onClose}>Cancel</button>
           {mode !== "view" && <button onClick={handleSave}>Save</button>}
-          {mode === "edit" && (
-            <button className={styles.deleteButton} onClick={handleDelete}>
-              Delete
-            </button>
+          {selectedTask && (
+            <>
+              <button className={styles.deleteButton} onClick={handleDelete}>
+                Delete
+              </button>
+              <button className={styles.updateButton} onClick={handleUpdate}>
+                Update
+              </button>
+            </>
           )}
         </div>
       </div>
