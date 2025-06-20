@@ -1,11 +1,15 @@
+// MainPage.jsx
 import React, { useEffect, useState } from "react";
 import classes from "./mainPage.module.css";
 
+// Components
 import Sidebar from "../../components/mainPageComponents/sidebar/Sidebar";
 import TaskPanel from "../../components/mainPageComponents/taskPanel/TaskPanel";
 import LogoutButton from "../../components/mainPageComponents/logoutButton/LogoutButton";
 import CalendarMain from "../../components/mainPageComponents/calendarMain/CalendarMain";
 import TaskPopup from "../../components/mainPageComponents/taskPopup/TaskPopup";
+
+//icon Settings
 import { FaCog } from "react-icons/fa";
 
 function MainPage({ isLoggin, setIsLoggin }) {
@@ -13,6 +17,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
   const [showPopup, setShowPopup] = useState(false);
   const [tasks, setTasks] = useState([]);
 
+  // Fetch assigned tasks for the current user
   const fetchTasks = async () => {
     if (!userEmail) return;
     try {
@@ -29,6 +34,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
         return;
       }
 
+      // Format tasks for use with calendar
       const formatted = data.data.map((task) => {
         const startDate = task.task_start_date;
         const endDate = task.task_end_date;
@@ -58,6 +64,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
     }
   };
 
+  // Check session and get user email on mount
   useEffect(() => {
     const fetchSession = async () => {
       try {
@@ -76,21 +83,27 @@ function MainPage({ isLoggin, setIsLoggin }) {
     fetchSession();
   }, []);
 
+  // Fetch tasks once user email is available
   useEffect(() => {
     if (userEmail) {
       fetchTasks();
     }
   }, [userEmail]);
 
+  // Show loading screen while session is being resolved
   if (!userEmail) {
     return <div>Loading...</div>;
   }
+
+  // Callback when saving a new task
   const onSave = async (taskData) => {
     await fetchTasks();
     setShowPopup(false);
   };
+
   return (
     <div className={classes.pageWrapper}>
+      {/* Top bar with search, settings, logout */}
       <header className={classes.topBar}>
         <div className={classes.searchContainer}>
           <input
@@ -105,6 +118,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
         </div>
       </header>
 
+      {/* Main content layout */}
       <div className={classes.mainContent}>
         <div className={classes.sidebar}>
           <Sidebar userEmail={userEmail} setShowPopup={setShowPopup} />
@@ -124,7 +138,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
           />
         </div>
       </div>
-
+      {/* Popup for creating new task */}
       {showPopup && (
         <TaskPopup
           mode="create"
