@@ -12,9 +12,6 @@ const categoryRoutes = require("./routes/categoryRoutes");
 const locationsRoutes = require("./routes/locationsRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 
-//Import 404page
-import Error404 from "../React-Front/src/pages/error404/Error404.jsx";
-
 // Create an instance of the Express application
 const app = express();
 
@@ -64,11 +61,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/locations", locationsRoutes);
 app.use("/api/tasks", taskRoutes);
-
-//404 page error
-app.use("/api/*", (req, res) => {
-  res.status(404).send(Error404);
-});
 
 // Start the server
 app.listen(port, () => {
