@@ -1,4 +1,3 @@
-//אביאל מלכה ומאי גלילי 49.1
 //Node-Bakc/app.js
 //Import required modules
 const express = require("express");
@@ -11,6 +10,7 @@ const authRoutes = require("./routes/authRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const locationsRoutes = require("./routes/locationsRoutes");
 const taskRoutes = require("./routes/taskRoutes");
+const suggestionsRoutes = require("./routes/suggestionsRoutes");
 
 // Create an instance of the Express application
 const app = express();
@@ -61,6 +61,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/locations", locationsRoutes);
 app.use("/api/tasks", taskRoutes);
+app.use("/api/tasks", suggestionsRoutes);
 
 // Start the server
 app.listen(port, () => {
