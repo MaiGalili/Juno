@@ -1,8 +1,12 @@
+// Import required modules
 const express = require("express");
 const router = express.Router();
-const { getSuggestions } = require("../controllers/suggestionsController");
 
-// Route for fetching suggested time slots
-router.post("/suggestions", getSuggestions);
+// Import the suggestions controller
+const suggestionsController = require("../controllers/suggestionsController");
+
+// === ROUTES ===
+// Generate task suggestions
+router.post("/", suggestionsController.getSuggestions);
 
 module.exports = router;

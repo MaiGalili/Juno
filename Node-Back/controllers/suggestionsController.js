@@ -6,39 +6,64 @@ async function getSuggestions(req, res) {
   try {
     const {
       due_date,
+      due_time,
       duration,
-      buffer_time,
+      buffer_time = 0,
       location_id,
       email,
       page = 1,
     } = req.body;
 
+    console.log("➡ Incoming request:", req.body);
+
+    // === Validation ===
     if (!due_date || !duration || !email) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing required fields." });
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields (due_date, duration, email).",
+      });
+    }
+
+    // Validate duration format
+    if (!/^\d{2}:\d{2}$/.test(duration)) {
+      return res.status(400).json({
+        success: false,
+        message: "Duration must be in HH:mm format.",
+      });
     }
 
     // Convert duration HH:mm → total minutes
     const [hours, mins] = duration.split(":").map(Number);
     const durationMinutes = hours * 60 + mins;
 
-    // Get user working hours
+    // === Get user working hours ===
     const [userResult] = await db
       .promise()
       .query(
         `SELECT user_start_time, user_end_time FROM user WHERE email = ?`,
         [email]
       );
+
     if (!userResult.length) {
       return res
         .status(404)
         .json({ success: false, message: "User not found." });
     }
-    const startDay = toMinutes(userResult[0].user_start_time);
-    const endDay = toMinutes(userResult[0].user_end_time);
 
-    // Get all assigned tasks for that day
+    let startDay = toMinutes(userResult[0].user_start_time);
+    let endDay = toMinutes(userResult[0].user_end_time);
+
+    // If due_time is provided → override endDay to not exceed that time
+    if (due_time) {
+      const dueMinutes = toMinutes(due_time);
+      endDay = Math.min(endDay, dueMinutes);
+    }
+
+    console.log(
+      `Working window: ${fromMinutes(startDay)} - ${fromMinutes(endDay)}`
+    );
+
+    // === Get all assigned tasks for that day ===
     const [tasks] = await db.promise().query(
       `SELECT t.task_id, a.task_start_time, a.task_end_time, a.task_start_date,
               loc.location_address
@@ -50,7 +75,9 @@ async function getSuggestions(req, res) {
       [email, due_date]
     );
 
-    // Get new task location
+    console.log(`Tasks found: ${tasks.length}`);
+
+    // === Get new task destination location ===
     let destination = null;
     if (location_id) {
       const [locResult] = await db
@@ -61,7 +88,7 @@ async function getSuggestions(req, res) {
       destination = locResult[0]?.location_address || null;
     }
 
-    // Generate available time slots
+    // === Generate available time slots ===
     let currentTime = startDay;
     const availableSlots = [];
 
@@ -80,7 +107,7 @@ async function getSuggestions(req, res) {
       currentTime = toMinutes(tasks[i].task_end_time);
     }
 
-    // Last gap after last task
+    // Gap after last task
     if (endDay - currentTime >= durationMinutes + buffer_time) {
       availableSlots.push({
         start: fromMinutes(currentTime),
@@ -89,11 +116,11 @@ async function getSuggestions(req, res) {
       });
     }
 
-    // Paginate 3 per page
+    // === Paginate (3 per page) ===
     const startIndex = (page - 1) * 3;
     const slotsPage = availableSlots.slice(startIndex, startIndex + 3);
 
-    // Add Google travel time if origin & destination exist
+    // === Add Google travel time if possible ===
     for (let slot of slotsPage) {
       if (slot.origin && destination) {
         slot.travel_time = await getTravelTime(slot.origin, destination);
@@ -113,23 +140,26 @@ async function getSuggestions(req, res) {
   }
 }
 
-// Convert time string to minutes
+// === Helpers ===
 function toMinutes(timeStr) {
   const [h, m] = timeStr.split(":").map(Number);
   return h * 60 + m;
 }
 
-// Convert minutes back to HH:mm
 function fromMinutes(total) {
   const h = String(Math.floor(total / 60)).padStart(2, "0");
   const m = String(total % 60).padStart(2, "0");
   return `${h}:${m}`;
 }
 
-// Call Google Maps API
 async function getTravelTime(origin, destination) {
   try {
     const apiKey = process.env.GOOGLE_GEO_API_KEY;
+    if (!apiKey) {
+      console.warn("⚠ Missing Google API Key");
+      return "N/A";
+    }
+
     const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(
       origin
     )}&destinations=${encodeURIComponent(destination)}&key=${apiKey}`;

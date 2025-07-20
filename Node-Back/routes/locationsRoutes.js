@@ -25,4 +25,7 @@ router.put("/update-location", locationsController.updateLocation);
 // Log to confirm routes were registered
 console.log("Locations routes registered");
 
+//Get all locations
+router.post("/getAll", locationsController.getAllLocations);
+
 module.exports = router;

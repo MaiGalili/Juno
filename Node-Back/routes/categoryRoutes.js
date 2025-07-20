@@ -20,4 +20,7 @@ router.delete("/:category_id", categoryController.deleteCategory);
 // Update a category
 router.put("/", categoryController.updateCategory);
 
+//Get all categories
+router.post("/getAll", categoryController.getAllCategories);
+
 module.exports = router;

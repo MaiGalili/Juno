@@ -114,9 +114,30 @@ async function updateCategory(req, res) {
   }
 }
 
+// Get all categories for a user
+async function getAllCategories(req, res) {
+  try {
+    const { userEmail } = req.body;
+    if (!userEmail) {
+      return res.status(400).json({ success: false, message: "Missing user email" });
+    }
+
+    const [rows] = await db.promise().query(
+      "SELECT category_id, category_name FROM categories WHERE email = ?",
+      [userEmail]
+    );
+
+    return res.json({ success: true, categories: rows });
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    res.status(500).json({ success: false, message: "Database error" });
+  }
+}
+
 module.exports = {
   getCategories,
   addCategory,
   deleteCategory,
   updateCategory,
+  getAllCategories,
 };

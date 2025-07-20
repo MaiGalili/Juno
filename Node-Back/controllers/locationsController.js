@@ -224,9 +224,35 @@ async function updateLocation(req, res) {
       .json({ success: false, message: "Failed to update location" });
   }
 }
+
+// Get all locations for a user
+async function getAllLocations(req, res) {
+  try {
+    const { userEmail } = req.body;
+    if (!userEmail) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing user email" });
+    }
+
+    const [rows] = await db
+      .promise()
+      .query(
+        "SELECT location_id, location_name FROM locations WHERE email = ?",
+        [userEmail]
+      );
+
+    return res.json({ success: true, locations: rows });
+  } catch (error) {
+    console.error("Error fetching locations:", error);
+    res.status(500).json({ success: false, message: "Database error" });
+  }
+}
+
 module.exports = {
   addLocation,
   getLocations,
   deleteLocation,
   updateLocation,
+  getAllLocations,
 };
