@@ -226,6 +226,7 @@ async function updateLocation(req, res) {
 }
 
 // Get all locations for a user
+// Get all locations for a user
 async function getAllLocations(req, res) {
   try {
     const { userEmail } = req.body;
@@ -238,7 +239,7 @@ async function getAllLocations(req, res) {
     const [rows] = await db
       .promise()
       .query(
-        "SELECT location_id, location_name FROM locations WHERE email = ?",
+        "SELECT location_id, location_name FROM location WHERE user_email = ?",
         [userEmail]
       );
 

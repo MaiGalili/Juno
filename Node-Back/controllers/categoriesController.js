@@ -20,7 +20,6 @@ async function getCategories(req, res) {
 
     // Send list of categories as response
     res.json(results);
-
   } catch (error) {
     console.error("Error fetching categories:", error);
     res
@@ -115,17 +114,22 @@ async function updateCategory(req, res) {
 }
 
 // Get all categories for a user
+// Get all categories for a user
 async function getAllCategories(req, res) {
   try {
     const { userEmail } = req.body;
     if (!userEmail) {
-      return res.status(400).json({ success: false, message: "Missing user email" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing user email" });
     }
 
-    const [rows] = await db.promise().query(
-      "SELECT category_id, category_name FROM categories WHERE email = ?",
-      [userEmail]
-    );
+    const [rows] = await db
+      .promise()
+      .query(
+        "SELECT category_id, category_name AS name FROM category WHERE user_email = ?",
+        [userEmail]
+      );
 
     return res.json({ success: true, categories: rows });
   } catch (error) {
