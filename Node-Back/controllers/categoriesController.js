@@ -113,8 +113,7 @@ async function updateCategory(req, res) {
   }
 }
 
-// Get all categories for a user
-// Get all categories for a user
+// Get all categories for a user for task
 async function getAllCategories(req, res) {
   try {
     const { userEmail } = req.body;

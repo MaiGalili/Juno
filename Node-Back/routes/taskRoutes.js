@@ -1,22 +1,23 @@
-//taskRoutes.js
-//Import required modules
+// routes/taskRoutes.js
+
 const express = require("express");
 const router = express.Router();
 const taskController = require("../controllers/taskController");
 
-//Create task
+// Create tasks
 router.post("/create/assigned", taskController.createAssignedTask);
 router.post("/create/waiting", taskController.createWaitingTask);
 
-//Get tasks
+// Get tasks
 router.post("/assigned", taskController.getAssignedTasks);
-//missing get for waiting list tasks
+// New: fetch all waiting‑list tasks
+router.post("/waiting", taskController.getWaitingTasks);
 
-//Edit tasks
+// Update tasks
 router.put("/update/assigned/:task_id", taskController.updateAssignedTask);
 router.put("/update/waiting/:task_id", taskController.updateWaitingTask);
 
-// Delete task
+// Delete task (assigned or waiting—cascade will clean up)
 router.delete("/delete/:task_id", taskController.deleteTask);
 
 module.exports = router;

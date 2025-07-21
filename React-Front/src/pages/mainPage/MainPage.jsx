@@ -97,8 +97,27 @@ function MainPage({ isLoggin, setIsLoggin }) {
 
   // Callback when saving a new task
   const onSave = async (taskData) => {
-    await fetchTasks();
-    setShowPopup(false);
+    try {
+      const res = await fetch(
+        "http://localhost:8801/api/tasks/assigned/create",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(taskData),
+        }
+      );
+      const json = await res.json();
+      if (!json.success) {
+        console.error("Create task failed:", json.message);
+        return;
+      }
+      //Only after successfully creating the task- fetch tasks
+      await fetchTasks();
+      setShowPopup(false);
+    } catch (err) {
+      console.error("Error creating task:", err);
+    }
   };
 
   return (

@@ -1,0 +1,63 @@
+/* taskLocationPicker.module.css */
+
+.locationPicker {
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modeSelector {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 8px;
+}
+
+.modeSelector label {
+  font-size: 1rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.savedLocations {
+  width: 100%;
+}
+
+.locationSelect {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 1rem;
+  border: 1px solid #cfd8dc;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  background: #fafbfc;
+  transition: border 0.2s;
+}
+
+.locationSelect:focus {
+  border-color: #7c3aed;
+  outline: none;
+}
+
+.customAddress {
+  width: 100%;
+}
+
+@media (max-width: 600px) {
+  .locationPicker {
+    padding: 8px 0;
+    gap: 8px;
+  }
+  .modeSelector {
+    gap: 12px;
+    font-size: 0.95rem;
+  }
+  .locationSelect {
+    font-size: 0.95rem;
+    padding: 8px 8px;
+  }
+}

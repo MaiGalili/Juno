@@ -4,60 +4,67 @@ const db = require("../db");
 // Create assigned task function
 async function createAssignedTask(req, res) {
   const {
-    title,
-    all_day,
-    start_date,
-    end_date,
-    start_time,
-    end_time,
-    duration,
-    note,
+    task_title,
+    task_all_day = false,
+    task_start_date,
+    task_end_date,
+    task_start_time,
+    task_end_time,
+    task_duration,
+    task_note,
     location_id,
-    buffer_time,
-    category_ids,
+    buffer_time = 0,
+    category_ids = [],
   } = req.body;
 
   const email = req.session.userEmail;
-  if (!email)
+  if (!email) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
 
   try {
-    //Insert input into to the task table
+    // 1) Insert into `task`
     const [result] = await db.promise().query(
       `INSERT INTO task (
-        task_title,
+         task_title,
+         task_duration,
+         task_note,
+         task_buffertime,
+         location_id,
+         email
+       ) VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        task_title || "Untitled Task",
         task_duration,
         task_note,
-        task_buffertime,
-        location_id,
-        email
-      ) VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        title || "Untitled Task",
-        duration,
-        note,
         buffer_time,
         location_id || null,
         email,
       ]
     );
-
     const task_id = result.insertId;
 
-    //Insert input into to the assigned table
+    // 2) Insert into `assigned`
     await db.promise().query(
       `INSERT INTO assigned (
+         task_id,
+         task_all_day,
+         task_start_date,
+         task_end_date,
+         task_start_time,
+         task_end_time
+       ) VALUES (?, ?, ?, ?, ?, ?)`,
+      [
         task_id,
-        task_all_day,
+        task_all_day ? 1 : 0,
         task_start_date,
         task_end_date,
         task_start_time,
-        task_end_time
-      ) VALUES (?, ?, ?, ?, ?, ?)`,
-      [task_id, all_day ? 1 : 0, start_date, end_date, start_time, end_time]
+        task_end_time,
+      ]
     );
 
-    //Assign categories to task
+    // 3) Assign categories
     if (Array.isArray(category_ids)) {
       for (const category_id of category_ids) {
         await db
@@ -80,57 +87,57 @@ async function createAssignedTask(req, res) {
   }
 }
 
-//Create waiting task function
+// Create waiting task function
 async function createWaitingTask(req, res) {
   const {
-    title,
-    duration,
-    note,
+    task_title,
+    task_duration,
+    task_note,
     location_id,
-    due_date,
-    due_time,
-    buffer_time,
-    category_ids,
+    task_due_date,
+    task_due_time,
+    buffer_time = 0,
+    category_ids = [],
   } = req.body;
 
   const email = req.session.userEmail;
-  if (!email)
+  if (!email) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
 
-  //Insert input into to the task table
   try {
+    // 1) Insert into `task`
     const [result] = await db.promise().query(
       `INSERT INTO task (
-        task_title,
+         task_title,
+         task_duration,
+         task_note,
+         task_buffertime,
+         location_id,
+         email
+       ) VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        task_title || "Untitled Task",
         task_duration,
         task_note,
-        task_buffertime,
-        location_id,
-        email
-      ) VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        title || "Untitled Task",
-        duration,
-        note,
         buffer_time,
         location_id || null,
         email,
       ]
     );
-
     const task_id = result.insertId;
 
-    //Insert input into to the waiting table
+    // 2) Insert into `waiting_list`
     await db.promise().query(
       `INSERT INTO waiting_list (
-        task_id,
-        task_duedate,
-        task_duetime
-      ) VALUES (?, ?, ?)`,
-      [task_id, due_date, due_time]
+         task_id,
+         task_duedate,
+         task_duetime
+       ) VALUES (?, ?, ?)`,
+      [task_id, task_due_date, task_due_time]
     );
 
-    //Assign categories to task
+    // 3) Assign categories
     if (Array.isArray(category_ids)) {
       for (const category_id of category_ids) {
         await db
@@ -153,14 +160,13 @@ async function createWaitingTask(req, res) {
   }
 }
 
-//Get assigned tasks (calendar view)
+// Get assigned tasks (calendar view)
 async function getAssignedTasks(req, res) {
   const { userEmail } = req.body;
   if (!userEmail) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
-  // Retrieve tasks for this user
   try {
     const taskQuery = `
       SELECT 
@@ -190,14 +196,14 @@ async function getAssignedTasks(req, res) {
 
       const taskMap = {};
       results.forEach((row) => {
-        const taskKey = `${row.task_id}-${row.task_start_date}-${row.task_start_time}`;
-        if (!taskMap[taskKey]) {
-          taskMap[taskKey] = {
+        const key = `${row.task_id}-${row.task_start_date}-${row.task_start_time}`;
+        if (!taskMap[key]) {
+          taskMap[key] = {
             task_id: row.task_id,
             task_title: row.task_title,
             task_note: row.task_note,
             task_buffertime: row.task_buffertime,
-            talk_all_day: row.task_all_day,
+            task_all_day: row.task_all_day,
             task_duration: row.task_duration,
             task_start_date: row.task_start_date,
             task_end_date: row.task_end_date,
@@ -206,9 +212,8 @@ async function getAssignedTasks(req, res) {
             categories: [],
           };
         }
-
         if (row.category_id) {
-          taskMap[taskKey].categories.push({
+          taskMap[key].categories.push({
             category_id: row.category_id,
             category_name: row.category_name,
             color: row.category_color,
@@ -216,8 +221,10 @@ async function getAssignedTasks(req, res) {
         }
       });
 
-      const tasks = Object.values(taskMap);
-      return res.status(200).json({ success: true, data: tasks });
+      return res.status(200).json({
+        success: true,
+        data: Object.values(taskMap),
+      });
     });
   } catch (err) {
     console.error("getAssignedTasks Error:", err.message);
@@ -227,7 +234,7 @@ async function getAssignedTasks(req, res) {
   }
 }
 
-//Update assigned task
+// Update assigned task
 async function updateAssignedTask(req, res) {
   const { task_id } = req.params;
   const {
@@ -244,15 +251,15 @@ async function updateAssignedTask(req, res) {
     category_ids,
   } = req.body;
 
-  // Update the task details
   try {
+    // 1) Update `task`
     await db.promise().query(
       `UPDATE task
-       SET task_title = ?,
-           task_duration = ?,
-           task_note = ?,
-           task_buffertime = ?,
-           location_id = ?
+         SET task_title     = ?,
+             task_duration  = ?,
+             task_note      = ?,
+             task_buffertime= ?,
+             location_id    = ?
        WHERE task_id = ?`,
       [
         title || "Untitled Task",
@@ -264,23 +271,22 @@ async function updateAssignedTask(req, res) {
       ]
     );
 
-    // Update the scheduling info
+    // 2) Update `assigned`
     await db.promise().query(
       `UPDATE assigned
-       SET task_all_day = ?,
-           task_start_date = ?,
-           task_end_date = ?,
-           task_start_time = ?,
-           task_end_time = ?
+         SET task_all_day    = ?,
+             task_start_date = ?,
+             task_end_date   = ?,
+             task_start_time = ?,
+             task_end_time   = ?
        WHERE task_id = ?`,
       [all_day ? 1 : 0, start_date, end_date, start_time, end_time, task_id]
     );
 
-    // Reset and reassign categories
+    // 3) Reassign categories
     await db
       .promise()
       .query(`DELETE FROM task_category WHERE task_id = ?`, [task_id]);
-
     if (Array.isArray(category_ids)) {
       for (const category_id of category_ids) {
         await db
@@ -299,7 +305,7 @@ async function updateAssignedTask(req, res) {
   }
 }
 
-//Edit waiting task
+// Update waiting task
 async function updateWaitingTask(req, res) {
   const { task_id } = req.params;
   const {
@@ -313,15 +319,15 @@ async function updateWaitingTask(req, res) {
     category_ids,
   } = req.body;
 
-  //Update task
   try {
+    // 1) Update `task`
     await db.promise().query(
       `UPDATE task
-       SET task_title = ?,
-           task_duration = ?,
-           task_note = ?,
-           task_buffertime = ?,
-           location_id = ?
+         SET task_title      = ?,
+             task_duration   = ?,
+             task_note       = ?,
+             task_buffertime = ?,
+             location_id     = ?
        WHERE task_id = ?`,
       [
         title || "Untitled Task",
@@ -333,20 +339,19 @@ async function updateWaitingTask(req, res) {
       ]
     );
 
-    //Update waiting list
+    // 2) Update `waiting_list`
     await db.promise().query(
       `UPDATE waiting_list
-       SET task_duedate = ?,
-           task_duetime = ?
+         SET task_duedate = ?,
+             task_duetime = ?
        WHERE task_id = ?`,
       [due_date, due_time, task_id]
     );
 
-    //Reset and reassign categories
+    // 3) Reassign categories
     await db
       .promise()
       .query(`DELETE FROM task_category WHERE task_id = ?`, [task_id]);
-
     if (Array.isArray(category_ids)) {
       for (const category_id of category_ids) {
         await db
@@ -369,7 +374,6 @@ async function updateWaitingTask(req, res) {
 async function deleteTask(req, res) {
   const { task_id } = req.params;
   const email = req.session.userEmail;
-
   if (!email) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
@@ -387,7 +391,6 @@ async function deleteTask(req, res) {
         .status(404)
         .json({ success: false, message: "Task not found or access denied" });
     }
-
     res.json({ success: true, message: "Task deleted successfully" });
   } catch (err) {
     console.error("Delete Task Error:", err.message);
