@@ -112,6 +112,17 @@ export default function TaskPopup({
     return "";
   };
 
+  // === HANDLE FORM SUBMIT ===
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const validationMessage = validate();
+    if (validationMessage) {
+      setError(validationMessage);
+      return;
+    }
+    await handleSave();
+  };
+
   // === CLEAR FORM ===
   const clearFields = () => {
     setTitle("");
@@ -279,156 +290,155 @@ export default function TaskPopup({
     <div className={styles.popupWrapper}>
       <div className={styles.popup}>
         <h2>{selectedTask?.task_id ? "Edit Task" : "Create Task"}</h2>
-
-        <label>
-          Title:
-          <input value={title} onChange={(e) => setTitle(e.target.value)} />
-        </label>
-
-        <label>
-          All Day:
-          <input
-            type="checkbox"
-            checked={allDay}
-            onChange={(e) => setAllDay(e.target.checked)}
-          />
-        </label>
-
-        <label>
-          Start Date:
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-        </label>
-
-        <label>
-          End Date:
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
-        </label>
-
-        {!allDay && (
-          <>
-            <label>
-              Start Time:
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-              />
-            </label>
-
-            <label>
-              End Time:
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-              />
-            </label>
-          </>
-        )}
-
-        <label>
-          Duration:
-          <input
-            type="time"
-            value={duration}
-            onChange={(e) => setDuration(e.target.value)}
-          />
-        </label>
-
-        <label>
-          Due Date:
-          <input
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-          />
-        </label>
-
-        <label>
-          Due Time:
-          <input
-            type="time"
-            value={dueTime}
-            onChange={(e) => setDueTime(e.target.value)}
-          />
-        </label>
-
-        <label>
-          Buffer Time (min):
-          <input
-            type="number"
-            value={bufferTime}
-            onChange={(e) => setBufferTime(e.target.value)}
-          />
-        </label>
-
-        <label>
-          Categories:
-          <select
-            multiple
-            value={selectedCategories}
-            onChange={(e) =>
-              setSelectedCategories(
-                Array.from(e.target.selectedOptions, (opt) => opt.value)
-              )
-            }
-          >
-            {userCategories.map((cat) => (
-              <option key={cat.category_id} value={cat.category_id}>
-                {cat.category_name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          Location:
-          <select
-            value={locationId}
-            onChange={(e) => setLocationId(e.target.value)}
-          >
-            <option value="">Select</option>
-            {userLocations.map((loc) => (
-              <option key={loc.location_id} value={loc.location_id}>
-                {loc.icon} {loc.location_name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          Note:
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            maxLength={160}
-          />
-        </label>
-
-        {error && <p className={styles.error}>{error}</p>}
-
-        <div className={styles.buttons}>
-          <button onClick={onClose}>Cancel</button>
-          {mode !== "view" && <button onClick={handleSave}>Save</button>}
-          {selectedTask?.task_id && (
+        <form onSubmit={handleSubmit} autoComplete="off">
+          <label>
+            Title:
+            <input value={title} onChange={(e) => setTitle(e.target.value)} />
+          </label>
+          <label>
+            All Day:
+            <input
+              type="checkbox"
+              checked={allDay}
+              onChange={(e) => setAllDay(e.target.checked)}
+            />
+          </label>
+          <label>
+            Start Date:
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </label>
+          <label>
+            End Date:
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </label>
+          {!allDay && (
             <>
-              <button className={styles.deleteButton} onClick={handleDelete}>
-                Delete
-              </button>
-              <button className={styles.updateButton} onClick={handleUpdate}>
-                Update
-              </button>
+              <label>
+                Start Time:
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                />
+              </label>
+              <label>
+                End Time:
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                />
+              </label>
             </>
           )}
-        </div>
+          <label>
+            Duration:
+            <input
+              type="time"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+            />
+          </label>
+          <label>
+            Due Date:
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
+          </label>
+          <label>
+            Due Time:
+            <input
+              type="time"
+              value={dueTime}
+              onChange={(e) => setDueTime(e.target.value)}
+            />
+          </label>
+          <label>
+            Buffer Time (min):
+            <input
+              type="number"
+              value={bufferTime}
+              onChange={(e) => setBufferTime(e.target.value)}
+            />
+          </label>
+          <label>
+            Categories:
+            <select
+              multiple
+              value={selectedCategories}
+              onChange={(e) =>
+                setSelectedCategories(
+                  Array.from(e.target.selectedOptions, (opt) => opt.value)
+                )
+              }
+            >
+              {userCategories.map((cat) => (
+                <option key={cat.category_id} value={cat.category_id}>
+                  {cat.category_name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Location:
+            <select
+              value={locationId}
+              onChange={(e) => setLocationId(e.target.value)}
+            >
+              <option value="">Select</option>
+              {userLocations.map((loc) => (
+                <option key={loc.location_id} value={loc.location_id}>
+                  {loc.icon} {loc.location_name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Note:
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={160}
+            />
+          </label>
+
+          {error && <p className={styles.error}>{error}</p>}
+
+          <div className={styles.buttons}>
+            <button type="button" onClick={onClose}>
+              Cancel
+            </button>
+            {mode !== "view" && <button type="submit">Save</button>}
+            {selectedTask?.task_id && (
+              <>
+                <button
+                  type="button"
+                  className={styles.deleteButton}
+                  onClick={handleDelete}
+                >
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  className={styles.updateButton}
+                  onClick={handleUpdate}
+                >
+                  Update
+                </button>
+              </>
+            )}
+          </div>
+        </form>
 
         {statusMessage && (
           <div
