@@ -12,6 +12,8 @@ export default function Sidebar({
   setSelectedDate,
   userEmail,
   setShowPopup,
+  userCategories,
+  fetchCategories,
 }) {
   return (
     <aside className={styles.sidebar}>
@@ -33,7 +35,11 @@ export default function Sidebar({
         <div className={styles.sectionTitle}>
           <span>Categories</span>
         </div>
-        <Categories userEmail={userEmail} />
+        <Categories
+          userCategories={userCategories}
+          fetchCategories={fetchCategories}
+          userEmail={userEmail}
+        />
       </div>
 
       {/* Locations section */}

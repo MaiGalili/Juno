@@ -412,7 +412,7 @@ export default function TaskPopup({
               >
                 {userCategories.map((cat) => (
                   <option key={cat.category_id} value={cat.category_id}>
-                    {cat.category_name}
+                    {cat.name}
                   </option>
                 ))}
               </select>

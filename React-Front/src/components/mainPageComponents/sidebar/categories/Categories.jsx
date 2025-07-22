@@ -3,28 +3,19 @@ import React, { useEffect, useState } from "react";
 import SingleCategory from "./singleCategory/SingleCategory";
 import styles from "./categories.module.css";
 
-export default function Categories({ userEmail }) {
-  const [categories, setCategories] = useState([]);
+export default function Categories({
+  userCategories = [],
+  fetchCategories,
+  userEmail,
+}) {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState("#dddddd");
-
-  useEffect(() => {
-    fetch("http://localhost:8801/api/categories", {
-      credentials: "include",
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Unauthorized");
-        return res.json();
-      })
-      .then((data) => setCategories(data))
-      .catch((err) => console.error("Failed to fetch categories:", err));
-  }, []);
 
   const handleAdd = async () => {
     const trimmed = newCategoryName.trim();
     if (
       !trimmed ||
-      categories.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())
+      userCategories.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())
     )
       return;
 
@@ -34,20 +25,19 @@ export default function Categories({ userEmail }) {
     };
 
     try {
-      console.log(newCategory);
-      const response = await fetch("http://localhost:8801/api/categories", {
+      await fetch("http://localhost:8801/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(newCategory),
       });
 
-      if (response.ok) {
-        const createdCategory = await response.json();
-        setCategories([...categories, createdCategory]);
-        setNewCategoryName("");
-        setNewCategoryColor("#dddddd");
-      }
+      // אין setCategories כאן!
+      // רק:
+      await fetchCategories();
+
+      setNewCategoryName("");
+      setNewCategoryColor("#dddddd");
     } catch (err) {
       console.error("Error adding category:", err);
     }
@@ -59,14 +49,16 @@ export default function Categories({ userEmail }) {
         method: "DELETE",
         credentials: "include",
       });
-      setCategories(categories.filter((c) => c.category_id !== categoryId));
+
+      // אין setCategories!
+      await fetchCategories();
     } catch (err) {
       console.error("Error deleting category:", err);
     }
   };
 
   const handleEdit = async (categoryId) => {
-    const current = categories.find((c) => c.category_id === categoryId);
+    const current = userCategories.find((c) => c.category_id === categoryId);
     const newName = prompt("Enter new name:", current.name);
     if (!newName) return;
 
@@ -83,18 +75,15 @@ export default function Categories({ userEmail }) {
         }),
       });
 
-      setCategories(
-        categories.map((c) =>
-          c.category_id === categoryId ? { ...c, name: newName } : c
-        )
-      );
+      // אין setCategories!
+      await fetchCategories();
     } catch (err) {
       console.error("Error editing category:", err);
     }
   };
 
   const handleColorChange = async (categoryId, newColor) => {
-    const current = categories.find((c) => c.category_id === categoryId);
+    const current = userCategories.find((c) => c.category_id === categoryId);
     if (!current) return;
 
     try {
@@ -110,11 +99,7 @@ export default function Categories({ userEmail }) {
         }),
       });
 
-      setCategories(
-        categories.map((c) =>
-          c.category_id === categoryId ? { ...c, color: newColor } : c
-        )
-      );
+      await fetchCategories();
     } catch (err) {
       console.error("Error changing category color:", err);
     }
@@ -123,7 +108,7 @@ export default function Categories({ userEmail }) {
   return (
     <div className={styles.wrapper}>
       <ul className={styles.labelList}>
-        {categories.map((category) => (
+        {userCategories.map((category) => (
           <SingleCategory
             key={category.category_id}
             id={category.category_id}

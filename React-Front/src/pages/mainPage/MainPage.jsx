@@ -16,6 +16,22 @@ function MainPage({ isLoggin, setIsLoggin }) {
   const [userEmail, setUserEmail] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
   const [tasks, setTasks] = useState([]);
+  const [categories, setCategories] = useState([]);
+
+  // Fetch categories
+  const fetchCategories = async () => {
+    if (!userEmail) return;
+    try {
+      const res = await fetch("http://localhost:8801/api/categories", {
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      setCategories(Array.isArray(data) ? data : data.categories || []);
+    } catch (err) {
+      console.error("Failed to load categories:", err);
+    }
+  };
 
   // Fetch assigned tasks for the current user
   const fetchTasks = async () => {
@@ -87,6 +103,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
   useEffect(() => {
     if (userEmail) {
       fetchTasks();
+      fetchCategories();
     }
   }, [userEmail]);
 
@@ -121,7 +138,12 @@ function MainPage({ isLoggin, setIsLoggin }) {
       {/* Main content layout */}
       <div className={classes.mainContent}>
         <div className={classes.sidebar}>
-          <Sidebar userEmail={userEmail} setShowPopup={setShowPopup} />
+          <Sidebar
+            userEmail={userEmail}
+            setShowPopup={setShowPopup}
+            userCategories={categories}
+            fetchCategories={fetchCategories}
+          />
         </div>
         <div className={classes.calendar}>
           <CalendarMain
@@ -146,6 +168,8 @@ function MainPage({ isLoggin, setIsLoggin }) {
           onSave={onSave}
           fetchTasks={fetchTasks}
           userEmail={userEmail}
+          userCategories={categories}
+          fetchCategories={fetchCategories}
         />
       )}
     </div>
