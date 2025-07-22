@@ -5,30 +5,13 @@ import AddressInput from "./AddressInput";
 import EditLocationModal from "./EditLocationModal";
 import styles from "./locations.module.css";
 
-export default function Locations() {
-  const [locations, setLocations] = useState([]);
+export default function Locations({ userLocations = [], fetchLocations }) {
   const [newLocationName, setNewLocationName] = useState("");
   const [newLocationIcon, setNewLocationIcon] = useState("📍");
   const [newLocationAddress, setNewLocationAddress] = useState("");
   const [editingLocation, setEditingLocation] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => {
-    fetchLocations();
-  }, []);
-
-  const fetchLocations = async () => {
-    try {
-      const res = await fetch("http://localhost:8801/api/locations", {
-        credentials: "include",
-      });
-      const data = await res.json();
-      setLocations(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Failed to fetch locations:", err);
-      setLocations([]);
-    }
-  };
 
   const handleAdd = async () => {
     const trimmedName = newLocationName.trim();
@@ -80,7 +63,8 @@ export default function Locations() {
         return;
       }
 
-      setLocations(locations.filter((loc) => loc.location_id !== locationId));
+      await fetchLocations();
+
     } catch (err) {
       console.error("Error deleting location:", err);
       alert("Error communicating with server.");
@@ -88,21 +72,17 @@ export default function Locations() {
   };
 
   const handleEdit = (locationId) => {
-    const current = locations.find((loc) => loc.location_id === locationId);
+    const current = userLocations.find((loc) => loc.location_id === locationId);
     if (current) {
       setEditingLocation(current);
       setShowModal(true);
     }
   };
 
-  const handleLocationUpdate = (updatedLocation) => {
-    setLocations((prev) =>
-      prev.map((loc) =>
-        loc.location_id === updatedLocation.location_id ? updatedLocation : loc
-      )
-    );
+  const handleLocationUpdate = () => {
     setShowModal(false);
     setEditingLocation(null);
+    fetchLocations();
   };
 
   const handleIconChange = async (locationId, newIcon) => {
@@ -126,11 +106,8 @@ export default function Locations() {
         return;
       }
 
-      setLocations((prev) =>
-        prev.map((loc) =>
-          loc.location_id === locationId ? { ...loc, icon: newIcon } : loc
-        )
-      );
+      await fetchLocations();
+
     } catch (err) {
       console.error("Error updating icon:", err);
       alert("Error communicating with server.");
@@ -158,11 +135,8 @@ export default function Locations() {
         return;
       }
 
-      setLocations((prev) =>
-        prev.map((loc) =>
-          loc.location_id === locationId ? { ...loc, color: newColor } : loc
-        )
-      );
+      await fetchLocations();
+      
     } catch (err) {
       console.error("Error updating color:", err);
       alert("Error communicating with server.");
@@ -172,7 +146,7 @@ export default function Locations() {
   return (
     <div className={styles.wrapper}>
       <ul className={styles.locationList}>
-        {locations.map((loc) => (
+        {userLocations.map((loc) => (
           <SingleLocation
             key={loc.location_id}
             id={loc.location_id}

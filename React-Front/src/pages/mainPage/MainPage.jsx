@@ -17,6 +17,22 @@ function MainPage({ isLoggin, setIsLoggin }) {
   const [showPopup, setShowPopup] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [locations, setLocations] = useState([]);
+
+  // Fetch locations
+  const fetchLocations = async () => {
+    if (!userEmail) return;
+    try {
+      const res = await fetch("http://localhost:8801/api/locations", {
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      setLocations(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to load locations:", err);
+    }
+  };
 
   // Fetch categories
   const fetchCategories = async () => {
@@ -104,6 +120,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
     if (userEmail) {
       fetchTasks();
       fetchCategories();
+      fetchLocations();
     }
   }, [userEmail]);
 
@@ -143,6 +160,8 @@ function MainPage({ isLoggin, setIsLoggin }) {
             setShowPopup={setShowPopup}
             userCategories={categories}
             fetchCategories={fetchCategories}
+            userLocations={locations}
+            fetchLocations={fetchLocations}
           />
         </div>
         <div className={classes.calendar}>
@@ -170,6 +189,8 @@ function MainPage({ isLoggin, setIsLoggin }) {
           userEmail={userEmail}
           userCategories={categories}
           fetchCategories={fetchCategories}
+          userLocations={locations} 
+          fetchLocations={fetchLocations}
         />
       )}
     </div>

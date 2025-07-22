@@ -410,11 +410,15 @@ export default function TaskPopup({
                   )
                 }
               >
-                {userCategories.map((cat) => (
-                  <option key={cat.category_id} value={cat.category_id}>
-                    {cat.name}
-                  </option>
-                ))}
+                {userCategories.length === 0 ? (
+                  <option disabled>No categories available</option>
+                ) : (
+                  userCategories.map((cat) => (
+                    <option key={cat.category_id} value={cat.category_id}>
+                      {cat.name}
+                    </option>
+                  ))
+                )}
               </select>
             </label>
             <label>
@@ -423,14 +427,21 @@ export default function TaskPopup({
                 value={locationId}
                 onChange={(e) => setLocationId(e.target.value)}
               >
-                <option value="">Select</option>
-                {userLocations.map((loc) => (
-                  <option key={loc.location_id} value={loc.location_id}>
-                    {loc.icon} {loc.location_name}
-                  </option>
-                ))}
+                {userLocations.length === 0 ? (
+                  <option disabled>No locations available</option>
+                ) : (
+                  <>
+                    <option value="">Select</option>
+                    {userLocations.map((loc) => (
+                      <option key={loc.location_id} value={loc.location_id}>
+                        {loc.icon} {loc.location_name}
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
             </label>
+
             <label>
               Note:
               <textarea

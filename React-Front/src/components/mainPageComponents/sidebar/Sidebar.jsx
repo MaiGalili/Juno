@@ -14,6 +14,8 @@ export default function Sidebar({
   setShowPopup,
   userCategories,
   fetchCategories,
+  userLocations,
+  fetchLocations,
 }) {
   return (
     <aside className={styles.sidebar}>
@@ -47,8 +49,10 @@ export default function Sidebar({
         <div className={styles.sectionTitle}>
           <span>LOCATIONS</span>
         </div>
-        {/* Renders the list of locations */}
-        <Locations />
+        <Locations
+          userLocations={userLocations}
+          fetchLocations={fetchLocations}
+        />
       </div>
     </aside>
   );
