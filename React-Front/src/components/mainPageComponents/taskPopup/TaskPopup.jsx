@@ -10,23 +10,27 @@ export default function TaskPopup({
   onClose,
   userCategories = [],
   userLocations = [],
-  userStartTime = "08:00",
-  userEndTime = "21:00",
   selectedTask,
   fetchTasks,
 }) {
-  // === State for all task fields ===
+  // --- User settings state ---
+  const [userSettings, setUserSettings] = useState({
+    defult_buffer: "00:10:00",
+    start_day_time: "08:00:00",
+    end_day_time: "21:00:00",
+  });
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  // --- Task fields state ---
   const [title, setTitle] = useState(selectedTask?.task_title || "");
   const [allDay, setAllDay] = useState(selectedTask?.task_all_day || false);
   const [startDate, setStartDate] = useState(
     selectedTask?.task_start_date || ""
   );
   const [endDate, setEndDate] = useState(selectedTask?.task_end_date || "");
-  const [startTime, setStartTime] = useState(
-    selectedTask?.task_start_time || ""
-  );
-  const [endTime, setEndTime] = useState(selectedTask?.task_end_time || "");
-  const [duration, setDuration] = useState(task.duration || "");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [duration, setDuration] = useState("");
   const [note, setNote] = useState(task.note || "");
   const [selectedCategories, setSelectedCategories] = useState(
     task.categories?.map((c) => c.category_id) || []
@@ -34,25 +38,52 @@ export default function TaskPopup({
   const [locationId, setLocationId] = useState(task.location_id || "");
   const [dueDate, setDueDate] = useState(task.due_date || "");
   const [dueTime, setDueTime] = useState(task.due_time || "");
-  const [bufferTime, setBufferTime] = useState(task.buffer_time || 10);
+  const [bufferTime, setBufferTime] = useState(task.buffer_time || "00:10:00");
 
-  // === UI feedback states ===
+  // --- UI feedback states ---
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [statusType, setStatusType] = useState("");
-
-  // === Confirmation modal state ===
   const [confirmAction, setConfirmAction] = useState(null);
   const [confirmMessage, setConfirmMessage] = useState("");
 
-  // === TIME HELPERS convert HH:MM string to minutes ===
+  // --- Fetch user settings from backend ---
+  useEffect(() => {
+    async function fetchSettings() {
+      try {
+        const res = await fetch("/api/users/settings", {
+          credentials: "include",
+        });
+        const data = await res.json();
+        if (data.success) {
+          setUserSettings({
+            defult_buffer: data.defult_buffer || "00:10:00",
+            start_day_time: data.start_day_time || "08:00:00",
+            end_day_time: data.end_day_time || "21:00:00",
+          });
+        }
+        setSettingsLoaded(true);
+      } catch (err) {
+        setSettingsLoaded(true);
+      }
+    }
+    fetchSettings();
+  }, []);
+
+  // --- Initialize fields for NEW task after settings loaded ---
+  useEffect(() => {
+    // new task and settings loaded
+    if (mode === "create" && settingsLoaded && !selectedTask) {
+      setBufferTime(userSettings.defult_buffer);
+    }
+  }, [userSettings, mode, settingsLoaded, selectedTask]);
+
+  // --- Time helpers ---
   const toTime = (str) => {
     if (!str) return 0;
     const [h, m] = str.split(":").map(Number);
     return h * 60 + m;
   };
-
-  // === Helper to convert minutes back to HH:MM ===
   const fromMinutes = (mins) => {
     const h = Math.floor(mins / 60)
       .toString()
@@ -61,40 +92,29 @@ export default function TaskPopup({
     return `${h}:${m}`;
   };
 
-  // === useEffect: Sync and calculate values ===
+  // --- useEffect: Sync and calculate values ---
   useEffect(() => {
-    // Handle all-day toggle
     if (allDay) {
-      setStartTime(userStartTime);
-      setEndTime(userEndTime);
+      setStartTime(userSettings.start_day);
+      setEndTime(userSettings.end_day);
     }
-
-    // Set endDate if not set
-    if (startDate && !endDate) {
-      setEndDate(startDate);
-    }
-
-    // Calculate duration from start and end time
+    if (startDate && !endDate) setEndDate(startDate);
     if (startTime && endTime) {
       const mins = toTime(endTime) - toTime(startTime);
       if (mins >= 0) setDuration(fromMinutes(mins));
     }
-
-    // Calculate end time from start time and duration
     if (startTime && duration && !endTime) {
       const endMins = toTime(startTime) + toTime(duration);
       setEndTime(fromMinutes(endMins));
     }
-
-    // Calculate start time from end time and duration
     if (endTime && duration && !startTime) {
       const startMins = toTime(endTime) - toTime(duration);
       if (startMins >= 0) setStartTime(fromMinutes(startMins));
     }
   }, [
     allDay,
-    userStartTime,
-    userEndTime,
+    userSettings.start_day,
+    userSettings.end_day,
     startDate,
     endDate,
     startTime,
@@ -103,7 +123,7 @@ export default function TaskPopup({
     statusMessage,
   ]);
 
-  // === VALIDATION ===
+  // --- Validation and actions ---
   const validate = () => {
     if (!startDate && !dueDate) return "Please select a date or due date.";
     if (!duration && !(startTime && endTime))
@@ -112,7 +132,7 @@ export default function TaskPopup({
     return "";
   };
 
-  // === HANDLE FORM SUBMIT ===
+  // === handleSubmit ===
   const handleSubmit = async (e) => {
     e.preventDefault();
     const validationMessage = validate();
@@ -290,156 +310,164 @@ export default function TaskPopup({
     <div className={styles.popupWrapper}>
       <div className={styles.popup}>
         <h2>{selectedTask?.task_id ? "Edit Task" : "Create Task"}</h2>
-        <form onSubmit={handleSubmit} autoComplete="off">
-          <label>
-            Title:
-            <input value={title} onChange={(e) => setTitle(e.target.value)} />
-          </label>
-          <label>
-            All Day:
-            <input
-              type="checkbox"
-              checked={allDay}
-              onChange={(e) => setAllDay(e.target.checked)}
-            />
-          </label>
-          <label>
-            Start Date:
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </label>
-          <label>
-            End Date:
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-          </label>
-          {!allDay && (
-            <>
-              <label>
-                Start Time:
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                />
-              </label>
-              <label>
-                End Time:
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                />
-              </label>
-            </>
-          )}
-          <label>
-            Duration:
-            <input
-              type="time"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-            />
-          </label>
-          <label>
-            Due Date:
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
-          </label>
-          <label>
-            Due Time:
-            <input
-              type="time"
-              value={dueTime}
-              onChange={(e) => setDueTime(e.target.value)}
-            />
-          </label>
-          <label>
-            Buffer Time (min):
-            <input
-              type="number"
-              value={bufferTime}
-              onChange={(e) => setBufferTime(e.target.value)}
-            />
-          </label>
-          <label>
-            Categories:
-            <select
-              multiple
-              value={selectedCategories}
-              onChange={(e) =>
-                setSelectedCategories(
-                  Array.from(e.target.selectedOptions, (opt) => opt.value)
-                )
-              }
-            >
-              {userCategories.map((cat) => (
-                <option key={cat.category_id} value={cat.category_id}>
-                  {cat.category_name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Location:
-            <select
-              value={locationId}
-              onChange={(e) => setLocationId(e.target.value)}
-            >
-              <option value="">Select</option>
-              {userLocations.map((loc) => (
-                <option key={loc.location_id} value={loc.location_id}>
-                  {loc.icon} {loc.location_name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Note:
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              maxLength={160}
-            />
-          </label>
-
-          {error && <p className={styles.error}>{error}</p>}
-
-          <div className={styles.buttons}>
-            <button type="button" onClick={onClose}>
-              Cancel
-            </button>
-            {mode !== "view" && <button type="submit">Save</button>}
-            {selectedTask?.task_id && (
+        {!settingsLoaded ? (
+          <div>Loading user settings...</div>
+        ) : (
+          <form onSubmit={handleSubmit} autoComplete="off">
+            <label>
+              Title:
+              <input value={title} onChange={(e) => setTitle(e.target.value)} />
+            </label>
+            <label>
+              All Day:
+              <input
+                type="checkbox"
+                checked={allDay}
+                onChange={(e) => setAllDay(e.target.checked)}
+              />
+            </label>
+            <label>
+              Start Date:
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </label>
+            <label>
+              End Date:
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </label>
+            {!allDay && (
               <>
-                <button
-                  type="button"
-                  className={styles.deleteButton}
-                  onClick={handleDelete}
-                >
-                  Delete
-                </button>
-                <button
-                  type="button"
-                  className={styles.updateButton}
-                  onClick={handleUpdate}
-                >
-                  Update
-                </button>
+                <label>
+                  Start Time:
+                  <input
+                    type="time"
+                    value={startTime}
+                    placeholder="--:--"
+                    onChange={(e) => setStartTime(e.target.value)}
+                  />
+                </label>
+                <label>
+                  End Time:
+                  <input
+                    type="time"
+                    value={endTime}
+                    placeholder="--:--"
+                    onChange={(e) => setEndTime(e.target.value)}
+                  />
+                </label>
               </>
             )}
-          </div>
-        </form>
+            <label>
+              Duration:
+              <input
+                type="time"
+                value={duration}
+                placeholder="--:--"
+                onChange={(e) => setDuration(e.target.value)}
+              />
+            </label>
+            <label>
+              Due Date:
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            </label>
+            <label>
+              Due Time:
+              <input
+                type="time"
+                value={dueTime}
+                onChange={(e) => setDueTime(e.target.value)}
+              />
+            </label>
+            <label>
+              Buffer Time:
+              <input
+                type="time"
+                step="1"
+                value={bufferTime}
+                onChange={(e) => setBufferTime(e.target.value)}
+              />
+            </label>
 
+            <label>
+              Categories:
+              <select
+                multiple
+                value={selectedCategories}
+                onChange={(e) =>
+                  setSelectedCategories(
+                    Array.from(e.target.selectedOptions, (opt) => opt.value)
+                  )
+                }
+              >
+                {userCategories.map((cat) => (
+                  <option key={cat.category_id} value={cat.category_id}>
+                    {cat.category_name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Location:
+              <select
+                value={locationId}
+                onChange={(e) => setLocationId(e.target.value)}
+              >
+                <option value="">Select</option>
+                {userLocations.map((loc) => (
+                  <option key={loc.location_id} value={loc.location_id}>
+                    {loc.icon} {loc.location_name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Note:
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={160}
+              />
+            </label>
+
+            {error && <p className={styles.error}>{error}</p>}
+
+            <div className={styles.buttons}>
+              <button type="button" onClick={onClose}>
+                Cancel
+              </button>
+              {mode !== "view" && <button type="submit">Save</button>}
+              {selectedTask?.task_id && (
+                <>
+                  <button
+                    type="button"
+                    className={styles.deleteButton}
+                    onClick={handleDelete}
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.updateButton}
+                    onClick={handleUpdate}
+                  >
+                    Update
+                  </button>
+                </>
+              )}
+            </div>
+          </form>
+        )}
         {statusMessage && (
           <div
             className={`${styles.statusBox} ${
@@ -450,7 +478,6 @@ export default function TaskPopup({
           </div>
         )}
       </div>
-
       {confirmAction && (
         <ConfirmModal
           message={confirmMessage}
