@@ -5,11 +5,12 @@ import { StandaloneSearchBox } from "@react-google-maps/api";
 export default function AddressInput({
   value,
   onChange,
+  onSelectCoords,
   placeholder = "Enter an address",
 }) {
   const searchBoxRef = useRef(null);
   const [inputValue, setInputValue] = useState(value || "");
-  const [isValid, setIsValid] = useState(true); // 
+  const [isValid, setIsValid] = useState(true); //
 
   const handlePlacesChanged = () => {
     const places = searchBoxRef.current.getPlaces();
@@ -17,6 +18,14 @@ export default function AddressInput({
       const address = places[0].formatted_address || places[0].name;
       setInputValue(address);
       onChange(address);
+
+      if (onSelectCoords && places[0].geometry?.location) {
+        onSelectCoords({
+          lat: places[0].geometry.location.lat(),
+          lng: places[0].geometry.location.lng(),
+        });
+      }
+
       setIsValid(true);
     } else {
       console.warn("No place selected");
@@ -26,8 +35,11 @@ export default function AddressInput({
 
   const handleChange = (e) => {
     setInputValue(e.target.value);
-    onChange(e.target.value); 
-    setIsValid(false); // 
+    onChange(e.target.value);
+    setIsValid(false);
+    if (onSelectCoords) {
+      onSelectCoords({ lat: null, lng: null });
+    }
   };
 
   return (

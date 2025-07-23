@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import styles from "./taskPopup.module.css";
 import ConfirmModal from "../../ConfirmModal";
+import AddressInput from "../sidebar/locations/AddressInput";
 
 export default function TaskPopup({
   mode = "create",
@@ -35,10 +36,12 @@ export default function TaskPopup({
   const [selectedCategories, setSelectedCategories] = useState(
     task.categories?.map((c) => c.category_id) || []
   );
-  const [locationId, setLocationId] = useState(task.location_id || "");
   const [dueDate, setDueDate] = useState(task.due_date || "");
   const [dueTime, setDueTime] = useState(task.due_time || "");
   const [bufferTime, setBufferTime] = useState(task.buffer_time || "00:10:00");
+  const [customAddress, setCustomAddress] = useState("");
+  const [customCoords, setCustomCoords] = useState({ lat: null, lng: null });
+  const [useFavorite, setUseFavorite] = useState(true);
 
   // --- UI feedback states ---
   const [error, setError] = useState("");
@@ -46,6 +49,16 @@ export default function TaskPopup({
   const [statusType, setStatusType] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
   const [confirmMessage, setConfirmMessage] = useState("");
+
+  // --- Reset location fields when using favorite address ---
+  useEffect(() => {
+    if (useFavorite) {
+      setCustomAddress("");
+      setCustomCoords({ lat: null, lng: null });
+    } else {
+      setLocationId("");
+    }
+  }, [useFavorite]);
 
   // --- Fetch user settings from backend ---
   useEffect(() => {
@@ -129,6 +142,14 @@ export default function TaskPopup({
     if (!duration && !(startTime && endTime))
       return "Please provide duration or start and end time.";
     if (note.length > 160) return "Note cannot exceed 160 characters.";
+    // Location validation
+    if (useFavorite) {
+      if (!locationId) return "Please select a favorite location.";
+    } else {
+      if (!customAddress) return "Please enter an address.";
+      if (!customCoords.lat || !customCoords.lng)
+        return "Please select a valid address from the list.";
+    }
     return "";
   };
 
@@ -264,10 +285,13 @@ export default function TaskPopup({
       duration,
       note,
       category_ids: selectedCategories,
-      location_id: locationId || null,
       due_date: dueDate || null,
       due_time: dueTime || null,
       buffer_time: bufferTime,
+      location_id: useFavorite ? locationId || null : null,
+      custom_location_address: !useFavorite ? customAddress : null,
+      custom_location_latitude: !useFavorite ? customCoords.lat : null,
+      custom_location_longitude: !useFavorite ? customCoords.lng : null,
     };
 
     const isWaitingTask = dueDate && !startDate && !startTime && !endTime;
@@ -423,23 +447,42 @@ export default function TaskPopup({
             </label>
             <label>
               Location:
-              <select
-                value={locationId}
-                onChange={(e) => setLocationId(e.target.value)}
-              >
-                {userLocations.length === 0 ? (
-                  <option disabled>No locations available</option>
-                ) : (
-                  <>
-                    <option value="">Select</option>
-                    {userLocations.map((loc) => (
-                      <option key={loc.location_id} value={loc.location_id}>
-                        {loc.icon} {loc.location_name}
-                      </option>
-                    ))}
-                  </>
-                )}
-              </select>
+              <div>
+                <button
+                  type="button"
+                  style={{ background: useFavorite ? "#efefef" : "#fff" }}
+                  onClick={() => setUseFavorite(true)}
+                >
+                  Favorite
+                </button>
+                <button
+                  type="button"
+                  style={{ background: !useFavorite ? "#efefef" : "#fff" }}
+                  onClick={() => setUseFavorite(false)}
+                >
+                  Custom
+                </button>
+              </div>
+              {useFavorite ? (
+                <select
+                  value={locationId}
+                  onChange={(e) => setLocationId(e.target.value)}
+                >
+                  <option value="">Select</option>
+                  {userLocations.map((loc) => (
+                    <option key={loc.location_id} value={loc.location_id}>
+                      {loc.icon} {loc.location_name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <AddressInput
+                  value={customAddress}
+                  onChange={(val) => setCustomAddress(val)}
+                  onSelectCoords={(coords) => setCustomCoords(coords)}
+                  placeholder="Type or select address"
+                />
+              )}
             </label>
 
             <label>
