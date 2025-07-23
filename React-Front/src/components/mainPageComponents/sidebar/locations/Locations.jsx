@@ -11,7 +11,10 @@ export default function Locations({ userLocations = [], fetchLocations }) {
   const [newLocationAddress, setNewLocationAddress] = useState("");
   const [editingLocation, setEditingLocation] = useState(null);
   const [showModal, setShowModal] = useState(false);
-
+  const [newLocationCoords, setNewLocationCoords] = useState({
+    lat: null,
+    lng: null,
+  });
 
   const handleAdd = async () => {
     const trimmedName = newLocationName.trim();
@@ -29,6 +32,8 @@ export default function Locations({ userLocations = [], fetchLocations }) {
             location_name: trimmedName,
             location_address: trimmedAddress,
             icon: newLocationIcon,
+            latitude: newLocationCoords.lat,
+            longitude: newLocationCoords.lng,
           }),
         }
       );
@@ -64,7 +69,6 @@ export default function Locations({ userLocations = [], fetchLocations }) {
       }
 
       await fetchLocations();
-
     } catch (err) {
       console.error("Error deleting location:", err);
       alert("Error communicating with server.");
@@ -107,7 +111,6 @@ export default function Locations({ userLocations = [], fetchLocations }) {
       }
 
       await fetchLocations();
-
     } catch (err) {
       console.error("Error updating icon:", err);
       alert("Error communicating with server.");
@@ -136,7 +139,6 @@ export default function Locations({ userLocations = [], fetchLocations }) {
       }
 
       await fetchLocations();
-      
     } catch (err) {
       console.error("Error updating color:", err);
       alert("Error communicating with server.");
@@ -177,6 +179,7 @@ export default function Locations({ userLocations = [], fetchLocations }) {
           <AddressInput
             value={newLocationAddress}
             onChange={setNewLocationAddress}
+            onSelectCoords={setNewLocationCoords}
             placeholder="e.g. 100 HaTishbi St, Haifa, Israel"
           />
         </label>

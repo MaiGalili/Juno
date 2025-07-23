@@ -20,7 +20,7 @@ export default function TaskPopup({
     start_day_time: "08:00:00",
     end_day_time: "21:00:00",
   });
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settingsLoaded, setSettingsLoadַed] = useState(false);
 
   // --- Task fields state ---
   const [title, setTitle] = useState(selectedTask?.task_title || "");
@@ -39,6 +39,7 @@ export default function TaskPopup({
   const [dueDate, setDueDate] = useState(task.due_date || "");
   const [dueTime, setDueTime] = useState(task.due_time || "");
   const [bufferTime, setBufferTime] = useState(task.buffer_time || "00:10:00");
+  const [locationId, setLocationId] = useState(selectedTask?.location_id || "");
   const [customAddress, setCustomAddress] = useState("");
   const [customCoords, setCustomCoords] = useState({ lat: null, lng: null });
   const [useFavorite, setUseFavorite] = useState(true);
