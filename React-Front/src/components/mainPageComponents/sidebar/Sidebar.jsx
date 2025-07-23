@@ -23,7 +23,6 @@ export default function Sidebar({
       <div className={styles.datePickerWrapper}>
         <DatePicker selected={selectedDate} onChange={setSelectedDate} inline />
       </div>
-
       {/* Buttons for generating reports and creating a new task */}
       <div className={styles.buttons}>
         <button className={styles.report}>Reports</button>
@@ -31,7 +30,6 @@ export default function Sidebar({
           + New Task
         </button>
       </div>
-
       {/* Categories section */}
       <div className={styles.section}>
         <div className={styles.sectionTitle}>
@@ -43,8 +41,7 @@ export default function Sidebar({
           userEmail={userEmail}
         />
       </div>
-
-      {/* Locations section */}
+      Locations section
       <div className={styles.section}>
         <div className={styles.sectionTitle}>
           <span>LOCATIONS</span>

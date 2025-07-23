@@ -10,7 +10,7 @@ export default function AddressInput({
 }) {
   const searchBoxRef = useRef(null);
   const [inputValue, setInputValue] = useState(value || "");
-  const [isValid, setIsValid] = useState(true); //
+  const [isValid, setIsValid] = useState(true);
 
   const handlePlacesChanged = () => {
     const places = searchBoxRef.current.getPlaces();

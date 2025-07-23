@@ -20,7 +20,7 @@ export default function TaskPopup({
     start_day_time: "08:00:00",
     end_day_time: "21:00:00",
   });
-  const [settingsLoaded, setSettingsLoadַed] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   // --- Task fields state ---
   const [title, setTitle] = useState(selectedTask?.task_title || "");
