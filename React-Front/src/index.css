@@ -184,7 +184,7 @@ a {
 }
 /* #endregion: general */
 
-/* Allow the modal wrapper itself to be overflow‑visible, then wrap the form in its own scrollable container */
+/* bump Google’s autocomplete list above even your modal overlay */
 .pac-container {
   z-index: 10000 !important;
 }

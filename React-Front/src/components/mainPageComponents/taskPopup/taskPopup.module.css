@@ -21,7 +21,6 @@
   padding: 32px;
   width: 548px;
   max-height: 90vh;
-  overflow-y: auto;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -120,4 +119,15 @@
 
 .error {
   color: #a50000;
+}
+
+/* Allow pop-ups (autocomplete, tooltips) to escape the modal */
+.popup {
+  overflow: visible;  /* now that the inner wrapper will scroll */
+}
+
+/* Only this inner area scrolls if the content is tall */
+.popupBody {
+  max-height: calc(90vh - 80px); /* leave room for heading/buttons */
+  overflow-y: auto;
 }

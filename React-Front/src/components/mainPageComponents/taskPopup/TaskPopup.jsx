@@ -338,190 +338,195 @@ export default function TaskPopup({
         {!settingsLoaded ? (
           <div>Loading user settings...</div>
         ) : (
-          <form onSubmit={handleSubmit} autoComplete="off">
-            <label>
-              Title:
-              <input value={title} onChange={(e) => setTitle(e.target.value)} />
-            </label>
-            <label>
-              All Day:
-              <input
-                type="checkbox"
-                checked={allDay}
-                onChange={(e) => setAllDay(e.target.checked)}
-              />
-            </label>
-            <label>
-              Start Date:
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </label>
-            <label>
-              End Date:
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </label>
-            {!allDay && (
-              <>
-                <label>
-                  Start Time:
-                  <input
-                    type="time"
-                    value={startTime}
-                    placeholder="--:--"
-                    onChange={(e) => setStartTime(e.target.value)}
-                  />
-                </label>
-                <label>
-                  End Time:
-                  <input
-                    type="time"
-                    value={endTime}
-                    placeholder="--:--"
-                    onChange={(e) => setEndTime(e.target.value)}
-                  />
-                </label>
-              </>
-            )}
-            <label>
-              Duration:
-              <input
-                type="time"
-                value={duration}
-                placeholder="--:--"
-                onChange={(e) => setDuration(e.target.value)}
-              />
-            </label>
-            <label>
-              Due Date:
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-            </label>
-            <label>
-              Due Time:
-              <input
-                type="time"
-                value={dueTime}
-                onChange={(e) => setDueTime(e.target.value)}
-              />
-            </label>
-            <label>
-              Buffer Time:
-              <input
-                type="time"
-                step="1"
-                value={bufferTime}
-                onChange={(e) => setBufferTime(e.target.value)}
-              />
-            </label>
-
-            <label>
-              Categories:
-              <select
-                multiple
-                value={selectedCategories}
-                onChange={(e) =>
-                  setSelectedCategories(
-                    Array.from(e.target.selectedOptions, (opt) => opt.value)
-                  )
-                }
-              >
-                {userCategories.length === 0 ? (
-                  <option disabled>No categories available</option>
-                ) : (
-                  userCategories.map((cat) => (
-                    <option key={cat.category_id} value={cat.category_id}>
-                      {cat.name}
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
-            <label>
-              Location:
-              <div>
-                <button
-                  type="button"
-                  style={{ background: useFavorite ? "#efefef" : "#fff" }}
-                  onClick={() => setUseFavorite(true)}
-                >
-                  Favorite
-                </button>
-                <button
-                  type="button"
-                  style={{ background: !useFavorite ? "#efefef" : "#fff" }}
-                  onClick={() => setUseFavorite(false)}
-                >
-                  Custom
-                </button>
-              </div>
-              {useFavorite ? (
-                <select
-                  value={locationId}
-                  onChange={(e) => setLocationId(e.target.value)}
-                >
-                  <option value="">Select</option>
-                  {userLocations.map((loc) => (
-                    <option key={loc.location_id} value={loc.location_id}>
-                      {loc.icon} {loc.location_name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <AddressInput
-                  value={customAddress}
-                  onChange={(val) => setCustomAddress(val)}
-                  onSelectCoords={(coords) => setCustomCoords(coords)}
-                  placeholder="Type or select address"
+          <div className={styles.popupBody}>
+            <form onSubmit={handleSubmit} autoComplete="off">
+              <label>
+                Title:
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
                 />
-              )}
-            </label>
-
-            <label>
-              Note:
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                maxLength={160}
-              />
-            </label>
-
-            {error && <p className={styles.error}>{error}</p>}
-
-            <div className={styles.buttons}>
-              <button type="button" onClick={onClose}>
-                Cancel
-              </button>
-              {mode !== "view" && <button type="submit">Save</button>}
-              {selectedTask?.task_id && (
+              </label>
+              <label>
+                All Day:
+                <input
+                  type="checkbox"
+                  checked={allDay}
+                  onChange={(e) => setAllDay(e.target.checked)}
+                />
+              </label>
+              <label>
+                Start Date:
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </label>
+              <label>
+                End Date:
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </label>
+              {!allDay && (
                 <>
-                  <button
-                    type="button"
-                    className={styles.deleteButton}
-                    onClick={handleDelete}
-                  >
-                    Delete
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.updateButton}
-                    onClick={handleUpdate}
-                  >
-                    Update
-                  </button>
+                  <label>
+                    Start Time:
+                    <input
+                      type="time"
+                      value={startTime}
+                      placeholder="--:--"
+                      onChange={(e) => setStartTime(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    End Time:
+                    <input
+                      type="time"
+                      value={endTime}
+                      placeholder="--:--"
+                      onChange={(e) => setEndTime(e.target.value)}
+                    />
+                  </label>
                 </>
               )}
-            </div>
-          </form>
+              <label>
+                Duration:
+                <input
+                  type="time"
+                  value={duration}
+                  placeholder="--:--"
+                  onChange={(e) => setDuration(e.target.value)}
+                />
+              </label>
+              <label>
+                Due Date:
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                />
+              </label>
+              <label>
+                Due Time:
+                <input
+                  type="time"
+                  value={dueTime}
+                  onChange={(e) => setDueTime(e.target.value)}
+                />
+              </label>
+              <label>
+                Buffer Time:
+                <input
+                  type="time"
+                  step="1"
+                  value={bufferTime}
+                  onChange={(e) => setBufferTime(e.target.value)}
+                />
+              </label>
+
+              <label>
+                Categories:
+                <select
+                  multiple
+                  value={selectedCategories}
+                  onChange={(e) =>
+                    setSelectedCategories(
+                      Array.from(e.target.selectedOptions, (opt) => opt.value)
+                    )
+                  }
+                >
+                  {userCategories.length === 0 ? (
+                    <option disabled>No categories available</option>
+                  ) : (
+                    userCategories.map((cat) => (
+                      <option key={cat.category_id} value={cat.category_id}>
+                        {cat.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+              <label>
+                Location:
+                <div>
+                  <button
+                    type="button"
+                    style={{ background: useFavorite ? "#efefef" : "#fff" }}
+                    onClick={() => setUseFavorite(true)}
+                  >
+                    Favorite
+                  </button>
+                  <button
+                    type="button"
+                    style={{ background: !useFavorite ? "#efefef" : "#fff" }}
+                    onClick={() => setUseFavorite(false)}
+                  >
+                    Custom
+                  </button>
+                </div>
+                {useFavorite ? (
+                  <select
+                    value={locationId}
+                    onChange={(e) => setLocationId(e.target.value)}
+                  >
+                    <option value="">Select</option>
+                    {userLocations.map((loc) => (
+                      <option key={loc.location_id} value={loc.location_id}>
+                        {loc.icon} {loc.location_name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <AddressInput
+                    value={customAddress}
+                    onChange={(val) => setCustomAddress(val)}
+                    onSelectCoords={(coords) => setCustomCoords(coords)}
+                    placeholder="Type or select address"
+                  />
+                )}
+              </label>
+
+              <label>
+                Note:
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  maxLength={160}
+                />
+              </label>
+
+              {error && <p className={styles.error}>{error}</p>}
+
+              <div className={styles.buttons}>
+                <button type="button" onClick={onClose}>
+                  Cancel
+                </button>
+                {mode !== "view" && <button type="submit">Save</button>}
+                {selectedTask?.task_id && (
+                  <>
+                    <button
+                      type="button"
+                      className={styles.deleteButton}
+                      onClick={handleDelete}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.updateButton}
+                      onClick={handleUpdate}
+                    >
+                      Update
+                    </button>
+                  </>
+                )}
+              </div>
+            </form>
+          </div>
         )}
         {statusMessage && (
           <div
