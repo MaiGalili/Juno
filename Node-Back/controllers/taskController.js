@@ -100,6 +100,9 @@ async function createWaitingTask(req, res) {
     due_time,
     buffer_time,
     category_ids,
+    custom_location_address,
+    custom_location_latitude,
+    custom_location_longitude,
   } = req.body;
 
   const email = req.session.userEmail;
@@ -115,14 +118,20 @@ async function createWaitingTask(req, res) {
         task_note,
         task_buffertime,
         location_id,
+        custom_location_address,
+        custom_location_latitude,
+        custom_location_longitude,
         email
-      ) VALUES (?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title || "Untitled Task",
         duration,
         note,
         buffer_time,
         location_id || null,
+        custom_location_address || null,
+        custom_location_latitude || null,
+        custom_location_longitude || null,
         email,
       ]
     );

@@ -43,6 +43,13 @@ export default function TaskPopup({
   const [customAddress, setCustomAddress] = useState("");
   const [customCoords, setCustomCoords] = useState({ lat: null, lng: null });
   const [useFavorite, setUseFavorite] = useState(true);
+  const [taskRepeat, setTaskRepeat] = useState(
+    selectedTask?.task_repeat || "none"
+  );
+  const [repeatUntil, setRepeatUntil] = useState(
+    selectedTask?.repeat_until || ""
+  );
+
 
   // --- UI feedback states ---
   const [error, setError] = useState("");
@@ -284,6 +291,8 @@ export default function TaskPopup({
       start_time: startTime,
       end_time: endTime,
       duration,
+      task_repeat: taskRepeat,
+      repeat_until: repeatUntil || null,
       note,
       category_ids: selectedCategories,
       due_date: dueDate || null,
@@ -402,6 +411,34 @@ export default function TaskPopup({
                   onChange={(e) => setDuration(e.target.value)}
                 />
               </label>
+
+              <label>
+                Repeat:
+                <select
+                  id="taskRepeat"
+                  value={taskRepeat}
+                  onChange={(e) => setTaskRepeat(e.target.value)}
+                  className={styles.input}
+                >
+                  <option value="none">Do not repeat</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              </label>
+
+              {taskRepeat !== "none" && (
+                <label>
+                  Repeat Until:
+                  <input
+                    type="date"
+                    value={repeatUntil}
+                    onChange={(e) => setRepeatUntil(e.target.value)}
+                  />
+                </label>
+              )}
+
               <label>
                 Due Date:
                 <input
