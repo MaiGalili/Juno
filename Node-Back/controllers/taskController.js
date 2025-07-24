@@ -1,5 +1,35 @@
 // taskController.js
 const db = require("../db");
+const { v4: uuidv4 } = require("uuid");
+
+// Get repeat dates
+function getRepeatDates(startDate, repeatUntil, repeatType) {
+  const dates = [];
+  let curr = new Date(startDate);
+  const until = new Date(repeatUntil);
+
+  while (curr <= until) {
+    dates.push(curr.toISOString().slice(0, 10)); // YYYY-MM-DD
+    switch (repeatType) {
+      case "daily":
+        curr.setDate(curr.getDate() + 1);
+        break;
+      case "weekly":
+        curr.setDate(curr.getDate() + 7);
+        break;
+      case "monthly":
+        curr.setMonth(curr.getMonth() + 1);
+        break;
+      case "yearly":
+        curr.setFullYear(curr.getFullYear() + 1);
+        break;
+      default:
+        // Not supported
+        curr.setDate(until.getDate() + 1);
+    }
+  }
+  return dates;
+}
 
 // Create assigned task function
 async function createAssignedTask(req, res) {
@@ -18,6 +48,8 @@ async function createAssignedTask(req, res) {
     custom_location_address,
     custom_location_latitude,
     custom_location_longitude,
+    task_repeat,
+    repeat_until,
   } = req.body;
 
   const email = req.session.userEmail;
@@ -25,7 +57,7 @@ async function createAssignedTask(req, res) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
 
   try {
-    //Insert input into to the task table
+    //Create task
     const [result] = await db.promise().query(
       `INSERT INTO task (
         task_title,
@@ -36,8 +68,11 @@ async function createAssignedTask(req, res) {
         custom_location_address,
         custom_location_latitude,
         custom_location_longitude,
+        task_all_day,
+        task_repeat,
+        repeat_until,
         email
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title || "Untitled Task",
         duration,
@@ -47,25 +82,45 @@ async function createAssignedTask(req, res) {
         custom_location_address || null,
         custom_location_latitude || null,
         custom_location_longitude || null,
+        all_day ? 1 : 0,
+        task_repeat || "none",
+        repeat_until || null,
         email,
       ]
     );
 
     const task_id = result.insertId;
 
-    //Insert input into to the assigned table
-    await db.promise().query(
-      `INSERT INTO assigned (
-        task_id,
-        task_all_day,
-        task_start_date,
-        task_end_date,
-        task_start_time,
-        task_end_time
-      ) VALUES (?, ?, ?, ?, ?, ?)`,
-      [task_id, all_day ? 1 : 0, start_date, end_date, start_time, end_time]
-    );
-
+    // Create repeat dates tasks
+    if (task_repeat && task_repeat !== "none" && repeat_until) {
+      const series_id = uuidv4();
+      const repeatDates = getRepeatDates(start_date, repeat_until, task_repeat);
+      for (const date of repeatDates) {
+        await db.promise().query(
+          `INSERT INTO assigned (
+            task_id,
+            task_start_date,
+            task_end_date,
+            task_start_time,
+            task_end_time,
+            series_id
+          ) VALUES (?, ?, ?, ?, ?, ?)`,
+          [task_id, date, date, start_time, end_time, series_id]
+        );
+      }
+    } else {
+      // Not repeat task
+      await db.promise().query(
+        `INSERT INTO assigned (
+          task_id,
+          task_start_date,
+          task_end_date,
+          task_start_time,
+          task_end_time
+        ) VALUES (?, ?, ?, ?, ?)`,
+        [task_id, start_date, end_date || start_date, start_time, end_time]
+      );
+    }
     //Assign categories to task
     if (Array.isArray(category_ids)) {
       for (const category_id of category_ids) {
@@ -183,7 +238,8 @@ async function getAssignedTasks(req, res) {
     const taskQuery = `
       SELECT 
         t.task_id, t.task_title, t.task_note, t.task_buffertime,
-        t.task_duration, a.task_all_day,
+        t.task_duration, t.task_all_day, 
+        t.task_repeat, t.repeat_until,
         DATE_FORMAT(a.task_start_date, '%Y-%m-%d') AS task_start_date,
         DATE_FORMAT(a.task_end_date, '%Y-%m-%d') AS task_end_date,
         TIME_FORMAT(a.task_start_time, '%H:%i') AS task_start_time,
@@ -215,7 +271,7 @@ async function getAssignedTasks(req, res) {
             task_title: row.task_title,
             task_note: row.task_note,
             task_buffertime: row.task_buffertime,
-            talk_all_day: row.task_all_day,
+            task_all_day: row.task_all_day,
             task_duration: row.task_duration,
             task_start_date: row.task_start_date,
             task_end_date: row.task_end_date,
@@ -335,6 +391,9 @@ async function updateWaitingTask(req, res) {
     due_time,
     buffer_time,
     category_ids,
+    custom_location_address,
+    custom_location_latitude,
+    custom_location_longitude,
   } = req.body;
 
   //Update task
@@ -345,7 +404,10 @@ async function updateWaitingTask(req, res) {
            task_duration = ?,
            task_note = ?,
            task_buffertime = ?,
-           location_id = ?
+           location_id = ?,
+           custom_location_address = ?,
+           custom_location_latitude = ?,
+           custom_location_longitude = ?
        WHERE task_id = ?`,
       [
         title || "Untitled Task",
@@ -353,15 +415,18 @@ async function updateWaitingTask(req, res) {
         note,
         buffer_time,
         location_id || null,
+        custom_location_address || null,
+        custom_location_latitude || null,
+        custom_location_longitude || null,
         task_id,
       ]
     );
 
-    //Update waiting list
+    // Update only scheduling info in assigned
     await db.promise().query(
       `UPDATE waiting_list
-       SET task_duedate = ?,
-           task_duetime = ?
+         SET task_duedate = ?,
+             task_duetime = ?
        WHERE task_id = ?`,
       [due_date, due_time, task_id]
     );
