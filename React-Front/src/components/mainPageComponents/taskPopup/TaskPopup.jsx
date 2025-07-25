@@ -38,7 +38,9 @@ export default function TaskPopup({
   );
   const [dueDate, setDueDate] = useState(task.due_date || "");
   const [dueTime, setDueTime] = useState(task.due_time || "");
-  const [bufferTime, setBufferTime] = useState(task.buffer_time || "00:10:00");
+  const [bufferTime, setBufferTime] = useState(
+    hhmmFromHHMMSS(task.buffer_time) || "00:10"
+  );
   const [locationId, setLocationId] = useState(selectedTask?.location_id || "");
   const [customAddress, setCustomAddress] = useState("");
   const [customCoords, setCustomCoords] = useState({ lat: null, lng: null });
@@ -49,7 +51,6 @@ export default function TaskPopup({
   const [repeatUntil, setRepeatUntil] = useState(
     selectedTask?.repeat_until || ""
   );
-
 
   // --- UI feedback states ---
   const [error, setError] = useState("");
@@ -78,7 +79,7 @@ export default function TaskPopup({
         const data = await res.json();
         if (data.success) {
           setUserSettings({
-            defult_buffer: data.defult_buffer || "00:10:00",
+            defult_buffer: hhmmFromHHMMSS(data.defult_buffer) || "00:10",
             start_day_time: data.start_day_time || "08:00:00",
             end_day_time: data.end_day_time || "21:00:00",
           });
@@ -90,6 +91,12 @@ export default function TaskPopup({
     }
     fetchSettings();
   }, []);
+
+  useEffect(() => {
+    if (mode === "create" && settingsLoaded && !selectedTask) {
+      setBufferTime(userSettings.defult_buffer); // already in "HH:mm"
+    }
+  }, [userSettings, mode, settingsLoaded, selectedTask]);
 
   // --- Initialize fields for NEW task after settings loaded ---
   useEffect(() => {
@@ -112,6 +119,12 @@ export default function TaskPopup({
     const m = (mins % 60).toString().padStart(2, "0");
     return `${h}:${m}`;
   };
+  function hhmmFromHHMMSS(str) {
+    if (!str) return "";
+    if (/^\d{2}:\d{2}$/.test(str)) return str;
+    if (/^\d{2}:\d{2}:\d{2}$/.test(str)) return str.slice(0, 5);
+    return "";
+  }
 
   // --- useEffect: Sync and calculate values ---
   useEffect(() => {
@@ -150,14 +163,6 @@ export default function TaskPopup({
     if (!duration && !(startTime && endTime))
       return "Please provide duration or start and end time.";
     if (note.length > 160) return "Note cannot exceed 160 characters.";
-    // Location validation
-    if (useFavorite) {
-      if (!locationId) return "Please select a favorite location.";
-    } else {
-      if (!customAddress) return "Please enter an address.";
-      if (!customCoords.lat || !customCoords.lng)
-        return "Please select a valid address from the list.";
-    }
     return "";
   };
 
@@ -186,7 +191,7 @@ export default function TaskPopup({
     setLocationId("");
     setDueDate("");
     setDueTime("");
-    setBufferTime(10);
+    setBufferTime("00:10");
     setError("");
   };
 
@@ -297,7 +302,7 @@ export default function TaskPopup({
       category_ids: selectedCategories,
       due_date: dueDate || null,
       due_time: dueTime || null,
-      buffer_time: bufferTime,
+      buffer_time: bufferTime.length === 5 ? bufferTime + ":00" : bufferTime,
       location_id: useFavorite ? locationId || null : null,
       custom_location_address: !useFavorite ? customAddress : null,
       custom_location_latitude: !useFavorite ? customCoords.lat : null,
@@ -459,7 +464,6 @@ export default function TaskPopup({
                 Buffer Time:
                 <input
                   type="time"
-                  step="1"
                   value={bufferTime}
                   onChange={(e) => setBufferTime(e.target.value)}
                 />

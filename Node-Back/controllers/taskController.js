@@ -57,89 +57,87 @@ async function createAssignedTask(req, res) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
 
   try {
-    //Create task
-    const [result] = await db.promise().query(
-      `INSERT INTO task (
-        task_title,
-        task_duration,
-        task_note,
-        task_buffertime,
-        location_id,
-        custom_location_address,
-        custom_location_latitude,
-        custom_location_longitude,
-        task_all_day,
-        task_repeat,
-        repeat_until,
-        email
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        title || "Untitled Task",
-        duration,
-        note,
-        buffer_time,
-        location_id || null,
-        custom_location_address || null,
-        custom_location_latitude || null,
-        custom_location_longitude || null,
-        all_day ? 1 : 0,
-        task_repeat || "none",
-        repeat_until || null,
-        email,
-      ]
-    );
+    console.log("Try inserting task for date:", date, "with title:", title);
+    let series_id = null;
+    let repeatDates = [start_date];
 
-    const task_id = result.insertId;
-
-    // Create repeat dates tasks
+    //If task is repeatable
     if (task_repeat && task_repeat !== "none" && repeat_until) {
-      const series_id = uuidv4();
-      const repeatDates = getRepeatDates(start_date, repeat_until, task_repeat);
-      for (const date of repeatDates) {
-        await db.promise().query(
-          `INSERT INTO assigned (
-            task_id,
-            task_start_date,
-            task_end_date,
-            task_start_time,
-            task_end_time,
-            series_id
-          ) VALUES (?, ?, ?, ?, ?, ?)`,
-          [task_id, date, date, start_time, end_time, series_id]
-        );
-      }
-    } else {
-      // Not repeat task
+      series_id = uuidv4();
+      repeatDates = getRepeatDates(start_date, repeat_until, task_repeat);
+    }
+
+    const insertedTasks = [];
+
+    // loop over repeat dates
+    for (const date of repeatDates) {
+      console.log("Got result:", result.insertId);
+      const [result] = await db.promise().query(
+        `INSERT INTO task (
+          task_title,
+          task_duration,
+          task_note,
+          task_buffertime,
+          location_id,
+          custom_location_address,
+          custom_location_latitude,
+          custom_location_longitude,
+          task_all_day,
+          task_repeat,
+          repeat_until,
+          email,
+          series_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          title || "Untitled Task",
+          duration,
+          note,
+          buffer_time,
+          location_id || null,
+          custom_location_address || null,
+          custom_location_latitude || null,
+          custom_location_longitude || null,
+          all_day ? 1 : 0,
+          task_repeat || "none",
+          repeat_until || null,
+          email,
+          series_id,
+        ]
+      );
+
+      const task_id = result.insertId;
+      insertedTasks.push(task_id);
+
+      // Insert into assigned
       await db.promise().query(
         `INSERT INTO assigned (
-          task_id,
-          task_start_date,
-          task_end_date,
-          task_start_time,
-          task_end_time
+          task_id, task_start_date, task_end_date, task_start_time, task_end_time
         ) VALUES (?, ?, ?, ?, ?)`,
-        [task_id, start_date, end_date || start_date, start_time, end_time]
+        [task_id, date, date, start_time, end_time]
       );
-    }
-    //Assign categories to task
-    if (Array.isArray(category_ids)) {
-      for (const category_id of category_ids) {
-        await db
-          .promise()
-          .query(
-            `INSERT INTO task_category (task_id, category_id) VALUES (?, ?)`,
-            [task_id, category_id]
-          );
+
+      // Create task categories
+      if (Array.isArray(category_ids)) {
+        for (const category_id of category_ids) {
+          await db
+            .promise()
+            .query(
+              `INSERT INTO task_category (task_id, category_id) VALUES (?, ?)`,
+              [task_id, category_id]
+            );
+        }
       }
     }
 
+    // Send response
     res.status(201).json({
       success: true,
-      message: "Assigned task created",
-      task_id,
+      message: "Assigned task(s) created",
+      series_id,
+      task_ids: insertedTasks,
     });
   } catch (err) {
-    console.error("Create Assigned Task Error:", err.message);
+    console.error("Error inserting task:", err, {values...});
     res.status(500).json({ success: false, message: "Server error" });
   }
 }
