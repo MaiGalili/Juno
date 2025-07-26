@@ -31,7 +31,6 @@ function getRepeatDates(startDate, repeatUntil, repeatType) {
   return dates;
 }
 
-// Create assigned task function
 async function createAssignedTask(req, res) {
   const {
     title,
@@ -57,11 +56,9 @@ async function createAssignedTask(req, res) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
 
   try {
-    console.log("Try inserting task for date:", date, "with title:", title);
     let series_id = null;
     let repeatDates = [start_date];
 
-    //If task is repeatable
     if (task_repeat && task_repeat !== "none" && repeat_until) {
       series_id = uuidv4();
       repeatDates = getRepeatDates(start_date, repeat_until, task_repeat);
@@ -69,67 +66,53 @@ async function createAssignedTask(req, res) {
 
     const insertedTasks = [];
 
-    // loop over repeat dates
     for (const date of repeatDates) {
-      console.log("Got result:", result.insertId);
-      const [result] = await db.promise().query(
-        `INSERT INTO task (
-          task_title,
-          task_duration,
-          task_note,
-          task_buffertime,
-          location_id,
-          custom_location_address,
-          custom_location_latitude,
-          custom_location_longitude,
-          task_all_day,
-          task_repeat,
-          repeat_until,
-          email,
-          series_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          title || "Untitled Task",
-          duration,
-          note,
-          buffer_time,
-          location_id || null,
-          custom_location_address || null,
-          custom_location_latitude || null,
-          custom_location_longitude || null,
-          all_day ? 1 : 0,
-          task_repeat || "none",
-          repeat_until || null,
-          email,
-          series_id,
-        ]
-      );
-
+      const [result] = await db
+        .promise()
+        .query(
+          "INSERT INTO task (" +
+            "task_title, task_duration, task_note, task_buffertime, location_id," +
+            "custom_location_address, custom_location_latitude, custom_location_longitude, task_all_day," +
+            "task_repeat, repeat_until, email, series_id" +
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [
+            title || "Untitled Task",
+            duration,
+            note,
+            buffer_time,
+            location_id || null,
+            custom_location_address || null,
+            custom_location_latitude || null,
+            custom_location_longitude || null,
+            all_day ? 1 : 0,
+            task_repeat || "none",
+            repeat_until || null,
+            email,
+            series_id,
+          ]
+        );
       const task_id = result.insertId;
       insertedTasks.push(task_id);
 
-      // Insert into assigned
-      await db.promise().query(
-        `INSERT INTO assigned (
-          task_id, task_start_date, task_end_date, task_start_time, task_end_time
-        ) VALUES (?, ?, ?, ?, ?)`,
-        [task_id, date, date, start_time, end_time]
-      );
+      await db
+        .promise()
+        .query(
+          "INSERT INTO assigned (task_id, task_start_date, task_end_date, task_start_time, task_end_time) VALUES (?, ?, ?, ?, ?)",
+          [task_id, date, date, start_time, end_time]
+        );
 
-      // Create task categories
       if (Array.isArray(category_ids)) {
         for (const category_id of category_ids) {
           await db
             .promise()
             .query(
-              `INSERT INTO task_category (task_id, category_id) VALUES (?, ?)`,
+              "INSERT INTO task_category (task_id, category_id) VALUES (?, ?)",
               [task_id, category_id]
             );
         }
       }
     }
 
-    // Send response
     res.status(201).json({
       success: true,
       message: "Assigned task(s) created",
@@ -137,7 +120,7 @@ async function createAssignedTask(req, res) {
       task_ids: insertedTasks,
     });
   } catch (err) {
-    console.error("Error inserting task:", err, {values...});
+    console.error("Create Assigned Task Error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 }
