@@ -6,12 +6,11 @@ import AddressInput from "../sidebar/locations/AddressInput";
 
 export default function TaskPopup({
   mode = "create",
-  task = {},
+  task = null,
   onSave,
   onClose,
   userCategories = [],
   userLocations = [],
-  selectedTask,
   fetchTasks,
 }) {
   // --- User settings state ---
@@ -23,34 +22,25 @@ export default function TaskPopup({
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   // --- Task fields state ---
-  const [title, setTitle] = useState(selectedTask?.task_title || "");
-  const [allDay, setAllDay] = useState(selectedTask?.task_all_day || false);
-  const [startDate, setStartDate] = useState(
-    selectedTask?.task_start_date || ""
-  );
-  const [endDate, setEndDate] = useState(selectedTask?.task_end_date || "");
+  const [title, setTitle] = useState("");
+  const [allDay, setAllDay] = useState(false);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [duration, setDuration] = useState("");
-  const [note, setNote] = useState(task.note || "");
-  const [selectedCategories, setSelectedCategories] = useState(
-    task.categories?.map((c) => c.category_id) || []
-  );
-  const [dueDate, setDueDate] = useState(task.due_date || "");
-  const [dueTime, setDueTime] = useState(task.due_time || "");
-  const [bufferTime, setBufferTime] = useState(
-    hhmmFromHHMMSS(task.buffer_time) || "00:10"
-  );
-  const [locationId, setLocationId] = useState(selectedTask?.location_id || "");
+  const [note, setNote] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
+  const [bufferTime, setBufferTime] = useState("00:10");
+  const [locationId, setLocationId] = useState("");
   const [customAddress, setCustomAddress] = useState("");
   const [customCoords, setCustomCoords] = useState({ lat: null, lng: null });
   const [useFavorite, setUseFavorite] = useState(true);
-  const [taskRepeat, setTaskRepeat] = useState(
-    selectedTask?.task_repeat || "none"
-  );
-  const [repeatUntil, setRepeatUntil] = useState(
-    selectedTask?.repeat_until || ""
-  );
+  const [taskRepeat, setTaskRepeat] = useState("none");
+  const [repeatUntil, setRepeatUntil] = useState("");
+  const [selectedLocationId, setSelectedLocationId] = useState(null);
 
   // --- UI feedback states ---
   const [error, setError] = useState("");
@@ -92,19 +82,69 @@ export default function TaskPopup({
     fetchSettings();
   }, []);
 
+  // --- Set task fields based on mode and task data ---
   useEffect(() => {
-    if (mode === "create" && settingsLoaded && !selectedTask) {
-      setBufferTime(userSettings.defult_buffer); // already in "HH:mm"
-    }
-  }, [userSettings, mode, settingsLoaded, selectedTask]);
+    console.log("userLocations in useEffect", userLocations);
+    console.log("locationId in useEffect", locationId, typeof locationId);
 
-  // --- Initialize fields for NEW task after settings loaded ---
-  useEffect(() => {
-    // new task and settings loaded
-    if (mode === "create" && settingsLoaded && !selectedTask) {
-      setBufferTime(userSettings.defult_buffer);
+    if (mode === "create") {
+      // Creation - reset all fields
+      setTitle("");
+      setAllDay(false);
+      setStartDate("");
+      setEndDate("");
+      setStartTime("");
+      setEndTime("");
+      setDuration("");
+      setNote("");
+      setSelectedCategories([]);
+      setDueDate("");
+      setDueTime("");
+      setBufferTime(userSettings.defult_buffer || "00:10");
+      setLocationId("");
+      setCustomAddress("");
+      setCustomCoords({ lat: null, lng: null });
+      setUseFavorite(true);
+      setTaskRepeat("none");
+      setRepeatUntil("");
+      // Edit/View - set task fields
+    } else if (mode === "edit" || mode === "view") {
+      setTitle(task?.task_title || "");
+      setAllDay(task?.task_all_day || false);
+      setStartDate(task?.task_start_date || "");
+      setEndDate(task?.task_end_date || "");
+      setStartTime(task?.task_start_time || "");
+      setEndTime(task?.task_end_time || "");
+      setDuration(task?.task_duration || "");
+      setNote(task?.task_note || "");
+      setSelectedCategories(task?.categories?.map((c) => c.category_id) || []);
+      setDueDate(task?.due_date || "");
+      setDueTime(task?.due_time || "");
+      setBufferTime(hhmmFromHHMMSS(task?.task_buffertime) || "00:10");
+      if (task?.location_id && !task?.custom_location_address) {
+        setUseFavorite(true);
+        setLocationId(String(task.location_id));
+        setCustomAddress("");
+        setCustomCoords({ lat: null, lng: null });
+      } else if (task?.custom_location_address) {
+        setUseFavorite(false);
+        setCustomAddress(task.custom_location_address);
+        setCustomCoords({
+          lat: task?.custom_location_latitude || null,
+          lng: task?.custom_location_longitude || null,
+        });
+        setLocationId("");
+      } else {
+        setUseFavorite(true);
+        setLocationId("");
+        setCustomAddress("");
+        setCustomCoords({ lat: null, lng: null });
+      }
+
+      setTaskRepeat(task?.task_repeat || "none");
+      setRepeatUntil(task?.repeat_until || "");
     }
-  }, [userSettings, mode, settingsLoaded, selectedTask]);
+  }, [task, mode, userSettings]);
 
   // --- Time helpers ---
   const toTime = (str) => {
@@ -112,6 +152,7 @@ export default function TaskPopup({
     const [h, m] = str.split(":").map(Number);
     return h * 60 + m;
   };
+
   const fromMinutes = (mins) => {
     const h = Math.floor(mins / 60)
       .toString()
@@ -257,7 +298,10 @@ export default function TaskPopup({
             duration,
             note,
             category_ids: selectedCategories,
-            location_id: locationId || null,
+            location_id: useFavorite ? locationId || null : null,
+            custom_location_address: !useFavorite ? customAddress : null,
+            custom_location_latitude: !useFavorite ? customCoords.lat : null,
+            custom_location_longitude: !useFavorite ? customCoords.lng : null,
             due_date: dueDate || null,
             due_time: dueTime || null,
             buffer_time: bufferTime,
@@ -348,7 +392,7 @@ export default function TaskPopup({
   return (
     <div className={styles.popupWrapper}>
       <div className={styles.popup}>
-        <h2>{selectedTask?.task_id ? "Edit Task" : "Create Task"}</h2>
+        <h2>{task?.task_id ? "Edit Task" : "Create Task"}</h2>
         {!settingsLoaded ? (
           <div>Loading user settings...</div>
         ) : (
@@ -510,17 +554,22 @@ export default function TaskPopup({
                   </button>
                 </div>
                 {useFavorite ? (
-                  <select
-                    value={locationId}
-                    onChange={(e) => setLocationId(e.target.value)}
-                  >
-                    <option value="">Select</option>
-                    {userLocations.map((loc) => (
-                      <option key={loc.location_id} value={loc.location_id}>
-                        {loc.icon} {loc.location_name}
-                      </option>
-                    ))}
-                  </select>
+                  <>
+                    <select
+                      value={locationId}
+                      onChange={(e) => setLocationId(e.target.value)}
+                    >
+                      <option value="">Select</option>
+                      {userLocations.map((loc) => (
+                        <option
+                          key={loc.location_id}
+                          value={String(loc.location_id)}
+                        >
+                          {loc.icon} {loc.location_name}
+                        </option>
+                      ))}
+                    </select>
+                  </>
                 ) : (
                   <AddressInput
                     value={customAddress}
@@ -547,7 +596,7 @@ export default function TaskPopup({
                   Cancel
                 </button>
                 {mode !== "view" && <button type="submit">Save</button>}
-                {selectedTask?.task_id && (
+                {task?.task_id && (
                   <>
                     <button
                       type="button"
