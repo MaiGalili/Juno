@@ -19,7 +19,13 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-export default function CalendarMain({ userEmail, tasks, fetchTasks }) {
+export default function CalendarMain({
+  userEmail,
+  tasks,
+  fetchTasks,
+  userCategories,
+  userLocations,
+}) {
   //State
   const [selectedTask, setSelectedTask] = useState(null);
   const [popupMode, setPopupMode] = useState("view");
@@ -93,8 +99,12 @@ export default function CalendarMain({ userEmail, tasks, fetchTasks }) {
           task={selectedTask}
           onSave={onSave}
           fetchTasks={fetchTasks}
-          selectedTask={selectedTask}
-          onClose={() => setPopupOpen(false)}
+          userCategories={userCategories} 
+          userLocations={userLocations}
+          onClose={() => {
+            setPopupOpen(false);
+            setSelectedTask(null);
+          }}
         />
       )}
     </div>

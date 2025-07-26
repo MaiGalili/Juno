@@ -219,8 +219,7 @@ async function getAssignedTasks(req, res) {
     const taskQuery = `
       SELECT 
         t.task_id, t.task_title, t.task_note, t.task_buffertime,
-        t.task_duration, t.task_all_day, 
-        t.task_repeat, t.repeat_until,
+        t.task_duration, t.task_all_day, t.task_repeat, t.repeat_until, t.location_id, t.custom_location_address, t.custom_location_latitude, t.custom_location_longitude,
         DATE_FORMAT(a.task_start_date, '%Y-%m-%d') AS task_start_date,
         DATE_FORMAT(a.task_end_date, '%Y-%m-%d') AS task_end_date,
         TIME_FORMAT(a.task_start_time, '%H:%i') AS task_start_time,
@@ -253,6 +252,10 @@ async function getAssignedTasks(req, res) {
             task_note: row.task_note,
             task_buffertime: row.task_buffertime,
             task_all_day: row.task_all_day,
+            location_id: row.location_id,
+            custom_location_address: row.custom_location_address,
+            custom_location_latitude: row.custom_location_latitude,
+            custom_location_longitude: row.custom_location_longitude,
             task_duration: row.task_duration,
             task_start_date: row.task_start_date,
             task_end_date: row.task_end_date,
@@ -297,6 +300,9 @@ async function updateAssignedTask(req, res) {
     location_id,
     buffer_time,
     category_ids,
+    custom_location_address,
+    custom_location_latitude,
+    custom_location_longitude,
   } = req.body;
 
   // Update the task details
@@ -304,6 +310,7 @@ async function updateAssignedTask(req, res) {
     await db.promise().query(
       `UPDATE task
        SET task_title = ?,
+       task_all_day = ?,
            task_duration = ?,
            task_note = ?,
            task_buffertime = ?,
@@ -314,6 +321,7 @@ async function updateAssignedTask(req, res) {
        WHERE task_id = ?`,
       [
         title || "Untitled Task",
+        all_day ? 1 : 0,
         duration,
         note,
         buffer_time,
@@ -328,13 +336,12 @@ async function updateAssignedTask(req, res) {
     // Update the scheduling info
     await db.promise().query(
       `UPDATE assigned
-       SET task_all_day = ?,
-           task_start_date = ?,
+       SET task_start_date = ?,
            task_end_date = ?,
            task_start_time = ?,
            task_end_time = ?
        WHERE task_id = ?`,
-      [all_day ? 1 : 0, start_date, end_date, start_time, end_time, task_id]
+      [start_date, end_date, start_time, end_time, task_id]
     );
 
     // Reset and reassign categories

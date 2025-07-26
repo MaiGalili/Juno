@@ -18,6 +18,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
   const [tasks, setTasks] = useState([]);
   const [categories, setCategories] = useState([]);
   const [locations, setLocations] = useState([]);
+  
 
   // Fetch locations
   const fetchLocations = async () => {
@@ -169,6 +170,8 @@ function MainPage({ isLoggin, setIsLoggin }) {
             userEmail={userEmail}
             tasks={tasks}
             fetchTasks={fetchTasks}
+            userCategories={categories}
+            userLocations={locations}
           />
         </div>
         <div className={classes.taskPanel}>
@@ -189,7 +192,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
           userEmail={userEmail}
           userCategories={categories}
           fetchCategories={fetchCategories}
-          userLocations={locations} 
+          userLocations={locations}
           fetchLocations={fetchLocations}
         />
       )}
