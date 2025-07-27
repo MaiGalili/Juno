@@ -1,0 +1,106 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 30, 0.45);
+  z-index: 1002;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 20px;
+  padding: 2.5rem 2rem 2rem 2rem;
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.22);
+  min-width: 340px;
+  max-width: 95vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.title {
+  color: #222;
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin-bottom: 0.2em;
+}
+
+.text {
+  color: #444;
+  text-align: center;
+  margin-bottom: 1.8em;
+  font-size: 1rem;
+}
+
+.btnGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+  width: 100%;
+  margin-bottom: 1.6em;
+}
+
+.btnGroup button {
+  font-size: 1rem;
+  padding: 0.65em 1em;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+  width: 100%;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.09);
+}
+
+.single {
+  background: #ededed;
+}
+.single:hover,
+.single:focus {
+  background: #dedede;
+}
+
+.future {
+  background: #eef5fc;
+}
+.future:hover,
+.future:focus {
+  background: #d2e3fa;
+}
+
+.all {
+  background: #ffecec;
+  color: #b9322e;
+}
+.all:hover,
+.all:focus {
+  background: #ffd6d6;
+}
+
+.cancel {
+  margin-top: 0.7em;
+  background: transparent;
+  color: #555;
+  border: none;
+  font-size: 0.95rem;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.18s;
+}
+.cancel:hover,
+.cancel:focus {
+  color: #222;
+}
+
+@media (max-width: 500px) {
+  .modal {
+    min-width: unset;
+    width: 95vw;
+    padding: 1.5rem 0.5rem 1.2rem 0.5rem;
+  }
+  .btnGroup button {
+    font-size: 0.98rem;
+    padding: 0.65em 0.5em;
+  }
+}
