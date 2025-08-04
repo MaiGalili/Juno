@@ -10,7 +10,7 @@ router.post("/create/waiting", taskController.createWaitingTask);
 
 //Get tasks
 router.post("/assigned", taskController.getAssignedTasks);
-//missing get for waiting list tasks
+router.get("/waiting", taskController.getWaitingTasks);
 
 //Edit tasks
 router.put("/update/assigned/:task_id", taskController.updateAssignedTask);

@@ -18,7 +18,9 @@ function MainPage({ isLoggin, setIsLoggin }) {
   const [tasks, setTasks] = useState([]);
   const [categories, setCategories] = useState([]);
   const [locations, setLocations] = useState([]);
-  
+  const [waitingTasks, setWaitingTasks] = useState([]);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [popupMode, setPopupMode] = useState("view");
 
   // Fetch locations
   const fetchLocations = async () => {
@@ -97,6 +99,21 @@ function MainPage({ isLoggin, setIsLoggin }) {
     }
   };
 
+  // Fetch waiting tasks
+  const fetchWaitingTasks = async () => {
+    try {
+      const res = await fetch("http://localhost:8801/api/tasks/waiting", {
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setWaitingTasks(data.data);
+      }
+    } catch (err) {
+      console.error("Failed to load waiting tasks:", err);
+    }
+  };
+
   // Check session and get user email on mount
   useEffect(() => {
     const fetchSession = async () => {
@@ -122,6 +139,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
       fetchTasks();
       fetchCategories();
       fetchLocations();
+      fetchWaitingTasks();
     }
   }, [userEmail]);
 
@@ -133,7 +151,12 @@ function MainPage({ isLoggin, setIsLoggin }) {
   // Callback when saving a new task
   const onSave = async (taskData) => {
     await fetchTasks();
-    setShowPopup(false);
+    await fetchWaitingTasks();
+  };
+
+  const handleSelectTask = (task) => {
+    setSelectedTask(task);
+    setShowPopup(true);
   };
 
   return (
@@ -176,16 +199,17 @@ function MainPage({ isLoggin, setIsLoggin }) {
         </div>
         <div className={classes.taskPanel}>
           <TaskPanel
-            userEmail={userEmail}
-            tasks={tasks}
-            fetchTasks={fetchTasks}
+            upcomingTasks={tasks}
+            waitingTasks={waitingTasks}
+            onSelectTask={handleSelectTask}
           />
         </div>
       </div>
       {/* Popup for creating new task */}
       {showPopup && (
         <TaskPopup
-          mode="create"
+          mode={popupMode}
+          task={selectedTask}
           onClose={() => setShowPopup(false)}
           onSave={onSave}
           fetchTasks={fetchTasks}

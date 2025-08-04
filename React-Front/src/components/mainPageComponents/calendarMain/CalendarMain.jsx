@@ -72,7 +72,6 @@ export default function CalendarMain({
 
   //Callback after saving a task
   const onSave = async () => {
-    setPopupOpen(false);
     await fetchTasks();
   };
 

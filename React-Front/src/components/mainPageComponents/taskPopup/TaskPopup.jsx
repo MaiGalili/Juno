@@ -424,11 +424,30 @@ export default function TaskPopup({
       if (result.success) {
         onSave?.(result);
         if (mode === "create") clearFields();
-        setStatusMessage("Task saved successfully.");
+        setStatusMessage(
+          result.waitingListFull
+            ? "Waiting list is now full."
+            : "Task saved successfully."
+        );
+
         setStatusType("success");
+        if (result.waitingListFull) {
+          setTimeout(() => {
+            onClose?.();
+          }, 2000);
+        } else {
+          onClose?.();
+        }
       } else {
-        setStatusMessage(result.message || "Failed to save task");
-        setStatusType("error");
+        if (result.errorType === "WAITING_LIST_FULL") {
+          setStatusMessage(
+            "Waiting list is full. Cannot add new waiting task."
+          );
+          setStatusType("error");
+        } else {
+          setStatusMessage(result.message || "Failed to save task");
+          setStatusType("error");
+        }
       }
     } catch (err) {
       setStatusMessage("Error while saving task");

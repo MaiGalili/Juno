@@ -4,41 +4,83 @@ import TaskCard from "./taskCard/TaskCard";
 import styles from "./taskPanel.module.css";
 
 // A list of tasks that are scheduled for a specific time and location
-export default function TaskPanel() {
-  const upcomingTasks = [
-    {
-      title: "Call with Alex",
-      time: "14:00",
-      location: "Office",
-      priority: "high",
-    },
-    {
-      title: "Buy groceries",
-      time: "17:30",
-      location: "Home",
-      priority: "medium",
-    },
-  ];
+export default function TaskPanel({
+  upcomingTasks = [],
+  waitingTasks = [],
+  onSelectTask,
+}) {
+  // Get the first three upcoming tasks
+  const now = new Date();
+  const threeUpcoming = [...upcomingTasks]
+    .filter((task) => task.start && new Date(task.start) > now)
+    .sort((a, b) => new Date(a.start) - new Date(b.start))
+    .slice(0, 3);
 
-  const unscheduledTasks = [
-    { title: "Plan birthday", location: "Home", priority: "low" },
-    { title: "Fix website bug", priority: "high" },
-  ];
+  // sort waiting tasks
+  const sortedWaiting = [...waitingTasks].sort((a, b) => {
+    if (a.task_duedate < b.task_duedate) return -1;
+    if (a.task_duedate > b.task_duedate) return 1;
+    if ((a.task_duetime || "") < (b.task_duetime || "")) return -1;
+    if ((a.task_duetime || "") > (b.task_duetime || "")) return 1;
+    return 0;
+  });
+  console.log("waitingTasks", waitingTasks);
 
   return (
     <div className={styles.panel}>
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>Upcoming</h3>
-        {upcomingTasks.map((task, index) => (
-          <TaskCard key={index} {...task} />
-        ))}
+        {threeUpcoming.length === 0 ? (
+          <div className={styles.empty}>No upcoming tasks.</div>
+        ) : (
+          threeUpcoming.map((task) => (
+            <div
+              key={task.id || task.task_id}
+              onClick={() => onSelectTask?.(task.raw || task)}
+              style={{ cursor: "pointer" }}
+            >
+              <TaskCard
+                title={task.title || task.task_title}
+                time={
+                  task.start
+                    ? new Date(task.start).toLocaleTimeString("he-IL", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : ""
+                }
+                location={task.raw?.custom_location_address || ""}
+                priority="normal"
+              />
+            </div>
+          ))
+        )}
       </div>
 
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>Unscheduled</h3>
-        {unscheduledTasks.map((task, index) => (
-          <TaskCard key={index} {...task} />
-        ))}
+        {sortedWaiting.length === 0 ? (
+          <div className={styles.empty}>No unscheduled tasks.</div>
+        ) : (
+          sortedWaiting.map((task) => (
+            <div
+              key={task.task_id}
+              onClick={() => onSelectTask?.(task)}
+              style={{ cursor: "pointer" }}
+            >
+              <TaskCard
+                title={task.task_title}
+                time={
+                  task.task_duedate
+                    ? `${task.task_duedate} ${task.task_duetime || ""}`.trim()
+                    : task.task_duetime
+                }
+                location={task.custom_location_address || ""}
+                priority="normal"
+              />
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

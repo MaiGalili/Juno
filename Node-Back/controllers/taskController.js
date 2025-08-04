@@ -145,8 +145,34 @@ async function createWaitingTask(req, res) {
   if (!email)
     return res.status(401).json({ success: false, message: "Unauthorized" });
 
-  //Insert input into to the task table
   try {
+    // get waiting list max
+    const [[userRow]] = await db
+      .promise()
+      .query(`SELECT waiting_list_max FROM users WHERE email = ?`, [email]);
+    const waitingListMax = userRow?.waiting_list_max;
+
+    console.log("waitingListMax from DB:", waitingListMax);
+
+    // count waiting tasks
+    const [[{ waiting_count }]] = await db.promise().query(
+      `SELECT COUNT(*) as waiting_count
+       FROM task
+       JOIN waiting_list ON task.task_id = waiting_list.task_id
+       WHERE task.email = ?`,
+      [email]
+    );
+
+    // check if waiting list is full
+    if (waiting_count >= waitingListMax) {
+      return res.status(400).json({
+        success: false,
+        message: "Waiting list is full. Cannot add new waiting task.",
+        errorType: "WAITING_LIST_FULL",
+      });
+    }
+
+    //Insert input into to the task table
     const [result] = await db.promise().query(
       `INSERT INTO task (
         task_title,
@@ -194,6 +220,16 @@ async function createWaitingTask(req, res) {
             [task_id, category_id]
           );
       }
+    }
+
+    // if waiting list is full
+    if (waiting_count + 1 === waitingListMax) {
+      return res.status(201).json({
+        success: true,
+        message: "Waiting task created. Waiting list is now full.",
+        task_id,
+        waitingListFull: true,
+      });
     }
 
     res.status(201).json({
@@ -645,6 +681,31 @@ async function deleteTask(req, res) {
   }
 }
 
+// getWaitingTasks
+async function getWaitingTasks(req, res) {
+  const email = req.session.userEmail;
+  if (!email)
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+
+  try {
+    const [rows] = await db.promise().query(
+      `SELECT 
+        t.task_id, t.task_title, t.task_note, t.task_duration, t.location_id, 
+        t.custom_location_address, t.custom_location_latitude, t.custom_location_longitude, 
+        w.task_duedate, w.task_duetime
+      FROM task t
+      JOIN waiting_list w ON t.task_id = w.task_id
+      WHERE t.email = ?
+      ORDER BY w.task_duedate ASC, w.task_duetime ASC`,
+      [email]
+    );
+
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+}
+
 module.exports = {
   createAssignedTask,
   createWaitingTask,
@@ -652,4 +713,5 @@ module.exports = {
   updateAssignedTask,
   updateWaitingTask,
   deleteTask,
+  getWaitingTasks,
 };
