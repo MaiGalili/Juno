@@ -58,6 +58,14 @@ export default function TaskPopup({
     task.task_repeat !== "none"
   );
 
+  //delete after fix
+  useEffect(() => {
+    if (task) {
+      console.log("task", task);
+      console.log("dueDate:", dueDate, "dueTime:", dueTime);
+    }
+  }, [task, dueDate, dueTime]);
+
   // --- Reset location fields when using favorite address ---
   useEffect(() => {
     if (useFavorite) {
@@ -93,11 +101,8 @@ export default function TaskPopup({
 
   // --- Set task fields based on mode and task data ---
   useEffect(() => {
-    console.log("userLocations in useEffect", userLocations);
-    console.log("locationId in useEffect", locationId, typeof locationId);
-
     if (mode === "create") {
-      // Creation - reset all fields
+      // איפוס שדות
       setTitle("");
       setAllDay(false);
       setStartDate("");
@@ -116,21 +121,54 @@ export default function TaskPopup({
       setUseFavorite(true);
       setTaskRepeat("none");
       setRepeatUntil("");
-
-      // Edit/View - set task fields
     } else if (mode === "edit" || mode === "view") {
       setTitle(task?.task_title || "");
-      setAllDay(task?.task_all_day || false);
-      setStartDate(task?.task_start_date || "");
-      setEndDate(task?.task_end_date || "");
-      setStartTime(task?.task_start_time || "");
-      setEndTime(task?.task_end_time || "");
-      setDuration(task?.task_duration || "");
       setNote(task?.task_note || "");
-      setSelectedCategories(task?.categories?.map((c) => c.category_id) || []);
-      setDueDate(task?.due_date || "");
-      setDueTime(task?.due_time || "");
-      setBufferTime(hhmmFromHHMMSS(task?.task_buffertime) || "00:10");
+      setDuration(task?.task_duration || "");
+      setTaskRepeat(task?.task_repeat || "none");
+      setRepeatUntil(task?.repeat_until || "");
+
+      // קטגוריות: תומך בכל המבנים
+      if (Array.isArray(task?.categories)) {
+        setSelectedCategories(
+          task.categories.map((c) => String(c.category_id))
+        );
+      } else if (Array.isArray(task?.category_ids)) {
+        setSelectedCategories(task.category_ids.map(String));
+      } else if (task?.category_id) {
+        setSelectedCategories([String(task.category_id)]);
+      } else {
+        setSelectedCategories([]);
+      }
+
+      // Buffer time: תומך בכל פורמט
+      const bufferRaw = task?.buffer_time || task?.task_buffertime || "";
+      setBufferTime(hhmmFromHHMMSS(bufferRaw) || "00:10");
+
+      if (
+        task?.task_duedate !== undefined &&
+        task?.task_duedate !== null &&
+        task?.task_duedate !== ""
+      ) {
+        // משימת המתנה
+        setDueDate(task.task_duedate || "");
+        setDueTime((task.task_duetime || "").slice(0, 5));
+        setStartDate("");
+        setEndDate("");
+        setStartTime("");
+        setEndTime("");
+        setAllDay(false);
+      } else {
+        // משימה רגילה
+        setDueDate("");
+        setDueTime("");
+        setStartDate(task?.task_start_date || "");
+        setEndDate(task?.task_end_date || "");
+        setStartTime(task?.task_start_time || "");
+        setEndTime(task?.task_end_time || "");
+        setAllDay(task?.task_all_day || false);
+      }
+      // לוקיישנים
       if (task?.location_id && !task?.custom_location_address) {
         setUseFavorite(true);
         setLocationId(String(task.location_id));
@@ -150,9 +188,6 @@ export default function TaskPopup({
         setCustomAddress("");
         setCustomCoords({ lat: null, lng: null });
       }
-
-      setTaskRepeat(task?.task_repeat || "none");
-      setRepeatUntil(task?.repeat_until || "");
     }
   }, [task, mode, userSettings]);
 
@@ -172,7 +207,7 @@ export default function TaskPopup({
   };
   function hhmmFromHHMMSS(str) {
     if (!str) return "";
-    if (/^\d{2}:\d{2}$/.test(str)) return str;
+    if (/^\d{1,2}:\d{2}$/.test(str)) return str.padStart(5, "0"); // "0:30" -> "00:30"
     if (/^\d{2}:\d{2}:\d{2}$/.test(str)) return str.slice(0, 5);
     return "";
   }
@@ -329,13 +364,28 @@ export default function TaskPopup({
   const handleUpdateConfirmed = async (scope = "ONE") => {
     setConfirmAction(null);
     try {
-      const res = await fetch(
-        `http://localhost:8801/api/tasks/update/assigned/${task.task_id}?scope=${scope}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
+      // is this a waiting task?
+      const isWaitingTask = task?.task_duedate !== undefined;
+
+      const endpoint = isWaitingTask
+        ? `http://localhost:8801/api/tasks/update/waiting/${task.task_id}`
+        : `http://localhost:8801/api/tasks/update/assigned/${task.task_id}?scope=${scope}`;
+
+      const payload = isWaitingTask
+        ? {
+            title,
+            duration,
+            note,
+            category_ids: selectedCategories,
+            location_id: useFavorite ? locationId || null : null,
+            custom_location_address: !useFavorite ? customAddress : null,
+            custom_location_latitude: !useFavorite ? customCoords.lat : null,
+            custom_location_longitude: !useFavorite ? customCoords.lng : null,
+            due_date: dueDate || null,
+            due_time: dueTime || null,
+            buffer_time: bufferTime,
+          }
+        : {
             title,
             all_day: allDay,
             start_date: startDate,
@@ -349,12 +399,15 @@ export default function TaskPopup({
             custom_location_address: !useFavorite ? customAddress : null,
             custom_location_latitude: !useFavorite ? customCoords.lat : null,
             custom_location_longitude: !useFavorite ? customCoords.lng : null,
-            due_date: dueDate || null,
-            due_time: dueTime || null,
             buffer_time: bufferTime,
-          }),
-        }
-      );
+          };
+
+      const res = await fetch(endpoint, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
       const result = await res.json();
 
       if (result.success) {

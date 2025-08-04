@@ -724,18 +724,51 @@ async function getWaitingTasks(req, res) {
   try {
     const [rows] = await db.promise().query(
       `SELECT 
-        t.task_id, t.task_title, t.task_note, t.task_duration, t.location_id, 
-        t.custom_location_address, t.custom_location_latitude, t.custom_location_longitude, 
-        w.task_duedate, w.task_duetime
+        t.task_id, t.task_title, t.task_note, t.task_buffertime,
+        t.task_duration, t.location_id, t.custom_location_address, 
+        t.custom_location_latitude, t.custom_location_longitude,
+        w.task_duedate, w.task_duetime,
+        c.category_id, c.category_name, c.category_color
       FROM task t
       JOIN waiting_list w ON t.task_id = w.task_id
+      LEFT JOIN task_category tc ON tc.task_id = t.task_id
+      LEFT JOIN category c ON tc.category_id = c.category_id
       WHERE t.email = ?
       ORDER BY w.task_duedate ASC, w.task_duetime ASC`,
       [email]
     );
+    const taskMap = {};
+    rows.forEach((row) => {
+      if (!taskMap[row.task_id]) {
+        taskMap[row.task_id] = {
+          task_id: row.task_id,
+          task_title: row.task_title,
+          task_note: row.task_note,
+          task_buffertime: row.task_buffertime,
+          task_duration: row.task_duration,
+          location_id: row.location_id,
+          custom_location_address: row.custom_location_address,
+          custom_location_latitude: row.custom_location_latitude,
+          custom_location_longitude: row.custom_location_longitude,
+          task_duedate: row.task_duedate,
+          task_duetime: row.task_duetime,
+          categories: [],
+        };
+      }
+      // קטגוריות
+      if (row.category_id) {
+        taskMap[row.task_id].categories.push({
+          category_id: row.category_id,
+          category_name: row.category_name,
+          color: row.category_color,
+        });
+      }
+    });
 
-    res.json({ success: true, data: rows });
+    const tasks = Object.values(taskMap);
+    return res.json({ success: true, data: tasks });
   } catch (err) {
+    console.error("getWaitingTasks Error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 }
