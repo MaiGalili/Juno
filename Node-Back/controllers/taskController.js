@@ -610,24 +610,84 @@ async function deleteTask(req, res) {
   }
 
   try {
-    // Get the task info to check for series_id, task_repeat, and task's start date
-    const [taskRows] = await db.promise().query(
+    // if task is assigned and is part of a series
+    const [assignedRows] = await db.promise().query(
       `SELECT t.series_id, t.task_repeat, a.task_start_date
        FROM task t
        JOIN assigned a ON t.task_id = a.task_id
        WHERE t.task_id = ? AND t.email = ?`,
       [task_id, email]
     );
-    if (!taskRows.length) {
+
+    if (assignedRows.length) {
+      //if task is assigned and is part of a series
+      const { series_id, task_repeat, task_start_date } = assignedRows[0];
+
+      // 1. DELETE ONLY THIS
+      if (!series_id || task_repeat === "none" || scope === "ONE") {
+        const [result] = await db
+          .promise()
+          .query(`DELETE FROM task WHERE task_id = ? AND email = ?`, [
+            task_id,
+            email,
+          ]);
+        if (result.affectedRows === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "Task not found or access denied",
+          });
+        }
+        return res.json({
+          success: true,
+          message: "Task deleted successfully",
+        });
+      }
+
+      // 2. FUTURE (including this)
+      if (scope === "FUTURE") {
+        const [delResult] = await db.promise().query(
+          `DELETE t FROM task t
+           JOIN assigned a ON t.task_id = a.task_id
+           WHERE t.series_id = ? AND a.task_start_date >= ? AND t.email = ?`,
+          [series_id, task_start_date, email]
+        );
+        return res.json({
+          success: true,
+          message: "Future tasks deleted",
+          affectedRows: delResult.affectedRows,
+        });
+      }
+
+      // 3. ALL
+      if (scope === "ALL") {
+        const [delResult] = await db
+          .promise()
+          .query(`DELETE FROM task WHERE series_id = ? AND email = ?`, [
+            series_id,
+            email,
+          ]);
+        return res.json({
+          success: true,
+          message: "All tasks in series deleted",
+          affectedRows: delResult.affectedRows,
+        });
+      }
+
       return res
-        .status(404)
-        .json({ success: false, message: "Task not found or access denied" });
+        .status(400)
+        .json({ success: false, message: "Invalid delete scope" });
     }
 
-    const { series_id, task_repeat, task_start_date } = taskRows[0];
+    // if not assigned task - check if waiting
+    const [waitingRows] = await db.promise().query(
+      `SELECT t.task_id FROM task t
+       JOIN waiting_list w ON t.task_id = w.task_id
+       WHERE t.task_id = ? AND t.email = ?`,
+      [task_id, email]
+    );
 
-    // 1. DELETE ONLY THIS
-    if (!series_id || task_repeat === "none" || scope === "ONE") {
+    if (waitingRows.length) {
+      // if waiting list task - just delete
       const [result] = await db
         .promise()
         .query(`DELETE FROM task WHERE task_id = ? AND email = ?`, [
@@ -639,42 +699,16 @@ async function deleteTask(req, res) {
           .status(404)
           .json({ success: false, message: "Task not found or access denied" });
       }
-      return res.json({ success: true, message: "Task deleted successfully" });
-    }
-
-    // 2. DELETE FUTURE TASKS (including this one)
-    if (scope === "FUTURE") {
-      // Delete all tasks in this series with start_date >= this task's date
-      const [delResult] = await db.promise().query(
-        `DELETE t FROM task t
-         JOIN assigned a ON t.task_id = a.task_id
-         WHERE t.series_id = ? AND a.task_start_date >= ? AND t.email = ?`,
-        [series_id, task_start_date, email]
-      );
       return res.json({
         success: true,
-        message: "Future tasks deleted",
-        affectedRows: delResult.affectedRows,
+        message: "Waiting task deleted successfully",
       });
     }
 
-    // 3. DELETE ALL IN SERIES
-    if (scope === "ALL") {
-      const [delResult] = await db
-        .promise()
-        .query(`DELETE FROM task WHERE series_id = ? AND email = ?`, [
-          series_id,
-          email,
-        ]);
-      return res.json({
-        success: true,
-        message: "All tasks in series deleted",
-        affectedRows: delResult.affectedRows,
-      });
-    }
-
-    // Fallback error
-    res.status(400).json({ success: false, message: "Invalid delete scope" });
+    // if not found
+    return res
+      .status(404)
+      .json({ success: false, message: "Task not found or access denied" });
   } catch (err) {
     console.error("Delete Task Error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });

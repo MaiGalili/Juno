@@ -42,11 +42,14 @@ export default function TaskPanel({
               <TaskCard
                 title={task.title || task.task_title}
                 time={
-                  task.start
-                    ? new Date(task.start).toLocaleTimeString("he-IL", {
+                  task.start && task.end
+                    ? `${new Date(task.start).toLocaleTimeString("he-IL", {
                         hour: "2-digit",
                         minute: "2-digit",
-                      })
+                      })}–${new Date(task.end).toLocaleTimeString("he-IL", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`
                     : ""
                 }
                 location={task.raw?.custom_location_address || ""}
@@ -72,10 +75,17 @@ export default function TaskPanel({
                 title={task.task_title}
                 time={
                   task.task_duedate
-                    ? `${task.task_duedate} ${task.task_duetime || ""}`.trim()
-                    : task.task_duetime
+                    ? `${new Date(task.task_duedate).toLocaleDateString(
+                        "he-IL",
+                        { year: "numeric", month: "2-digit", day: "2-digit" }
+                      )}${
+                        task.task_duetime
+                          ? " " + task.task_duetime.slice(0, 5)
+                          : ""
+                      }`
+                    : ""
                 }
-                location={task.custom_location_address || ""}
+                location={""}
                 priority="normal"
               />
             </div>
