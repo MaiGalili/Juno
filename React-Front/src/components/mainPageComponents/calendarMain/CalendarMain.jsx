@@ -52,6 +52,8 @@ export default function CalendarMain({
 
   //When an existing task is selected from the calendar
   const handleSelectEvent = (event) => {
+    console.log("event on select:", event);
+    console.log("event.raw:", event.raw);
     setSelectedTask(event.raw);
     setPopupMode("view");
     setPopupOpen(true);
@@ -99,7 +101,7 @@ export default function CalendarMain({
           task={selectedTask}
           onSave={onSave}
           fetchTasks={fetchTasks}
-          userCategories={userCategories} 
+          userCategories={userCategories}
           userLocations={userLocations}
           onClose={() => {
             setPopupOpen(false);

@@ -219,7 +219,7 @@ async function getAssignedTasks(req, res) {
     const taskQuery = `
       SELECT 
         t.task_id, t.task_title, t.task_note, t.task_buffertime,
-        t.task_duration, t.task_all_day, t.task_repeat, t.repeat_until, t.location_id, t.custom_location_address, t.custom_location_latitude, t.custom_location_longitude,
+        t.task_duration, t.task_all_day, t.task_repeat,  t.series_id, t.repeat_until, t.location_id, t.custom_location_address, t.custom_location_latitude, t.custom_location_longitude,
         DATE_FORMAT(a.task_start_date, '%Y-%m-%d') AS task_start_date,
         DATE_FORMAT(a.task_end_date, '%Y-%m-%d') AS task_end_date,
         TIME_FORMAT(a.task_start_time, '%H:%i') AS task_start_time,
@@ -261,6 +261,9 @@ async function getAssignedTasks(req, res) {
             task_end_date: row.task_end_date,
             task_start_time: row.task_start_time,
             task_end_time: row.task_end_time,
+            series_id: row.series_id,
+            task_repeat: row.task_repeat,
+            repeat_until: row.repeat_until,
             categories: [],
           };
         }
@@ -286,8 +289,10 @@ async function getAssignedTasks(req, res) {
 }
 
 //Update assigned task
+// Update assigned task(s) with scope support
 async function updateAssignedTask(req, res) {
   const { task_id } = req.params;
+  const scope = req.query.scope || "ONE";
   const {
     title,
     all_day,
@@ -305,62 +310,177 @@ async function updateAssignedTask(req, res) {
     custom_location_longitude,
   } = req.body;
 
-  // Update the task details
   try {
-    await db.promise().query(
-      `UPDATE task
-       SET task_title = ?,
-       task_all_day = ?,
-           task_duration = ?,
-           task_note = ?,
-           task_buffertime = ?,
-           location_id = ?,
-           custom_location_address = ?,
-           custom_location_latitude = ?,
-           custom_location_longitude = ?
-       WHERE task_id = ?`,
-      [
-        title || "Untitled Task",
-        all_day ? 1 : 0,
-        duration,
-        note,
-        buffer_time,
-        location_id || null,
-        custom_location_address || null,
-        custom_location_latitude || null,
-        custom_location_longitude || null,
-        task_id,
-      ]
+    // Get current task info
+    const [taskRows] = await db.promise().query(
+      `SELECT t.series_id, t.task_repeat, a.task_start_date, t.email
+       FROM task t
+       JOIN assigned a ON t.task_id = a.task_id
+       WHERE t.task_id = ?`,
+      [task_id]
     );
+    if (!taskRows.length) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Task not found" });
+    }
 
-    // Update the scheduling info
-    await db.promise().query(
-      `UPDATE assigned
-       SET task_start_date = ?,
-           task_end_date = ?,
-           task_start_time = ?,
-           task_end_time = ?
-       WHERE task_id = ?`,
-      [start_date, end_date, start_time, end_time, task_id]
-    );
+    const { series_id, task_repeat, task_start_date, email } = taskRows[0];
 
-    // Reset and reassign categories
-    await db
-      .promise()
-      .query(`DELETE FROM task_category WHERE task_id = ?`, [task_id]);
+    // Prepare update sets
+    const updateTaskSql = `UPDATE task SET
+      task_title = ?,
+      task_all_day = ?,
+      task_duration = ?,
+      task_note = ?,
+      task_buffertime = ?,
+      location_id = ?,
+      custom_location_address = ?,
+      custom_location_latitude = ?,
+      custom_location_longitude = ?
+    `;
+    const updateAssignedSql = `UPDATE assigned SET
+      task_start_date = ?,
+      task_end_date = ?,
+      task_start_time = ?,
+      task_end_time = ?
+    `;
 
-    if (Array.isArray(category_ids)) {
-      for (const category_id of category_ids) {
+    // Helper for updating categories
+    async function updateCategories(taskIds) {
+      for (const tid of taskIds) {
         await db
           .promise()
-          .query(
-            `INSERT INTO task_category (task_id, category_id) VALUES (?, ?)`,
-            [task_id, category_id]
-          );
+          .query(`DELETE FROM task_category WHERE task_id = ?`, [tid]);
+        if (Array.isArray(category_ids)) {
+          for (const category_id of category_ids) {
+            await db
+              .promise()
+              .query(
+                `INSERT INTO task_category (task_id, category_id) VALUES (?, ?)`,
+                [tid, category_id]
+              );
+          }
+        }
       }
     }
 
-    res.json({ success: true, message: "Assigned task updated" });
+    // 1. ONLY THIS
+    if (!series_id || task_repeat === "none" || scope === "ONE") {
+      await db
+        .promise()
+        .query(updateTaskSql + ` WHERE task_id = ?`, [
+          title || "Untitled Task",
+          all_day ? 1 : 0,
+          duration,
+          note,
+          buffer_time,
+          location_id || null,
+          custom_location_address || null,
+          custom_location_latitude || null,
+          custom_location_longitude || null,
+          task_id,
+        ]);
+      await db
+        .promise()
+        .query(updateAssignedSql + ` WHERE task_id = ?`, [
+          start_date,
+          end_date,
+          start_time,
+          end_time,
+          task_id,
+        ]);
+      await updateCategories([task_id]);
+      return res.json({ success: true, message: "Assigned task updated" });
+    }
+
+    // 2. FUTURE (including this)
+    if (scope === "FUTURE") {
+      // Find all future task IDs in series
+      const [futureRows] = await db.promise().query(
+        `SELECT t.task_id FROM task t
+         JOIN assigned a ON t.task_id = a.task_id
+         WHERE t.series_id = ? AND a.task_start_date >= ? AND t.email = ?`,
+        [series_id, task_start_date, email]
+      );
+      const futureTaskIds = futureRows.map((r) => r.task_id);
+
+      for (const tid of futureTaskIds) {
+        await db
+          .promise()
+          .query(updateTaskSql + ` WHERE task_id = ?`, [
+            title || "Untitled Task",
+            all_day ? 1 : 0,
+            duration,
+            note,
+            buffer_time,
+            location_id || null,
+            custom_location_address || null,
+            custom_location_latitude || null,
+            custom_location_longitude || null,
+            tid,
+          ]);
+        await db
+          .promise()
+          .query(updateAssignedSql + ` WHERE task_id = ?`, [
+            start_date,
+            end_date,
+            start_time,
+            end_time,
+            tid,
+          ]);
+      }
+      await updateCategories(futureTaskIds);
+      return res.json({
+        success: true,
+        message: "Future assigned tasks updated",
+      });
+    }
+
+    // 3. ALL
+    if (scope === "ALL") {
+      // Find all task IDs in series
+      const [allRows] = await db
+        .promise()
+        .query(`SELECT task_id FROM task WHERE series_id = ? AND email = ?`, [
+          series_id,
+          email,
+        ]);
+      const allTaskIds = allRows.map((r) => r.task_id);
+
+      for (const tid of allTaskIds) {
+        await db
+          .promise()
+          .query(updateTaskSql + ` WHERE task_id = ?`, [
+            title || "Untitled Task",
+            all_day ? 1 : 0,
+            duration,
+            note,
+            buffer_time,
+            location_id || null,
+            custom_location_address || null,
+            custom_location_latitude || null,
+            custom_location_longitude || null,
+            tid,
+          ]);
+        await db
+          .promise()
+          .query(updateAssignedSql + ` WHERE task_id = ?`, [
+            start_date,
+            end_date,
+            start_time,
+            end_time,
+            tid,
+          ]);
+      }
+      await updateCategories(allTaskIds);
+      return res.json({
+        success: true,
+        message: "All assigned tasks in series updated",
+      });
+    }
+
+    res.status(400).json({ success: false, message: "Invalid update scope" });
   } catch (err) {
     console.error("Update Assigned Task Error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
@@ -443,8 +563,10 @@ async function updateWaitingTask(req, res) {
 }
 
 // Delete Task (and all related entries via CASCADE)
+// Handles scope: "ONE" (default), "FUTURE", "ALL"
 async function deleteTask(req, res) {
   const { task_id } = req.params;
+  const scope = req.query.scope || "ONE";
   const email = req.session.userEmail;
 
   if (!email) {
@@ -452,20 +574,71 @@ async function deleteTask(req, res) {
   }
 
   try {
-    const [result] = await db
-      .promise()
-      .query(`DELETE FROM task WHERE task_id = ? AND email = ?`, [
-        task_id,
-        email,
-      ]);
-
-    if (result.affectedRows === 0) {
+    // Get the task info to check for series_id, task_repeat, and task's start date
+    const [taskRows] = await db.promise().query(
+      `SELECT t.series_id, t.task_repeat, a.task_start_date
+       FROM task t
+       JOIN assigned a ON t.task_id = a.task_id
+       WHERE t.task_id = ? AND t.email = ?`,
+      [task_id, email]
+    );
+    if (!taskRows.length) {
       return res
         .status(404)
         .json({ success: false, message: "Task not found or access denied" });
     }
 
-    res.json({ success: true, message: "Task deleted successfully" });
+    const { series_id, task_repeat, task_start_date } = taskRows[0];
+
+    // 1. DELETE ONLY THIS
+    if (!series_id || task_repeat === "none" || scope === "ONE") {
+      const [result] = await db
+        .promise()
+        .query(`DELETE FROM task WHERE task_id = ? AND email = ?`, [
+          task_id,
+          email,
+        ]);
+      if (result.affectedRows === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Task not found or access denied" });
+      }
+      return res.json({ success: true, message: "Task deleted successfully" });
+    }
+
+    // 2. DELETE FUTURE TASKS (including this one)
+    if (scope === "FUTURE") {
+      // Delete all tasks in this series with start_date >= this task's date
+      const [delResult] = await db.promise().query(
+        `DELETE t FROM task t
+         JOIN assigned a ON t.task_id = a.task_id
+         WHERE t.series_id = ? AND a.task_start_date >= ? AND t.email = ?`,
+        [series_id, task_start_date, email]
+      );
+      return res.json({
+        success: true,
+        message: "Future tasks deleted",
+        affectedRows: delResult.affectedRows,
+      });
+    }
+
+    // 3. DELETE ALL IN SERIES
+    if (scope === "ALL") {
+      const [delResult] = await db
+        .promise()
+        .query(`DELETE FROM task WHERE series_id = ? AND email = ?`, [
+          series_id,
+          email,
+        ]);
+      return res.json({
+        success: true,
+        message: "All tasks in series deleted",
+        affectedRows: delResult.affectedRows,
+      });
+    }
+
+    // Fallback error
+    res.status(400).json({ success: false, message: "Invalid delete scope" });
   } catch (err) {
     console.error("Delete Task Error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });

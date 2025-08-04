@@ -49,6 +49,14 @@ export default function TaskPopup({
   const [statusType, setStatusType] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
   const [confirmMessage, setConfirmMessage] = useState("");
+  const [showRepeatPopup, setShowRepeatPopup] = useState(false);
+  const [repeatPopupAction, setRepeatPopupAction] = useState(""); // "delete" or "edit"
+
+  const isRepeatingTask = !!(
+    task?.series_id &&
+    task?.task_repeat &&
+    task.task_repeat !== "none"
+  );
 
   // --- Reset location fields when using favorite address ---
   useEffect(() => {
@@ -108,6 +116,7 @@ export default function TaskPopup({
       setUseFavorite(true);
       setTaskRepeat("none");
       setRepeatUntil("");
+
       // Edit/View - set task fields
     } else if (mode === "edit" || mode === "view") {
       setTitle(task?.task_title || "");
@@ -165,6 +174,21 @@ export default function TaskPopup({
     if (!str) return "";
     if (/^\d{2}:\d{2}$/.test(str)) return str;
     if (/^\d{2}:\d{2}:\d{2}$/.test(str)) return str.slice(0, 5);
+    return "";
+  }
+
+  function toInputDateString(date) {
+    if (!date) return "";
+    // If already in correct format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+    // Try to parse if it's an ISO string
+    const d = new Date(date);
+    if (!isNaN(d.getTime())) {
+      // pad month and day
+      const month = (d.getMonth() + 1).toString().padStart(2, "0");
+      const day = d.getDate().toString().padStart(2, "0");
+      return `${d.getFullYear()}-${month}-${day}`;
+    }
     return "";
   }
 
@@ -240,24 +264,46 @@ export default function TaskPopup({
   // === ACTIONS ===
   //Show confirmation modal for delete
   const handleDelete = () => {
-    if (!task.task_id) return;
-    setConfirmMessage("Are you sure you want to delete this task?");
-    setConfirmAction(() => handleDeleteConfirmed);
+    console.log("task in popup", task);
+    console.log("isRepeatingTask?", isRepeatingTask);
+
+    if (!task?.task_id) return;
+    if (isRepeatingTask) {
+      setRepeatPopupAction("delete");
+      setShowRepeatPopup(true);
+    } else {
+      setConfirmMessage("Are you sure you want to delete this task?");
+      setConfirmAction(() => handleDeleteConfirmed);
+    }
   };
 
   //Show confirmation modal for update
   const handleUpdate = () => {
-    if (!task.task_id) return;
-    setConfirmMessage("Are you sure you want to save changes?");
-    setConfirmAction(() => handleUpdateConfirmed);
+    if (!task?.task_id) return;
+    if (isRepeatingTask) {
+      setRepeatPopupAction("edit");
+      setShowRepeatPopup(true);
+    } else {
+      setConfirmMessage("Are you sure you want to save changes?");
+      setConfirmAction(() => handleUpdateConfirmed);
+    }
+  };
+
+  const handleRepeatPopupSelect = (scope) => {
+    setShowRepeatPopup(false);
+    if (repeatPopupAction === "delete") {
+      handleDeleteConfirmed(scope); // Pass the scope to your delete logic
+    } else if (repeatPopupAction === "edit") {
+      handleUpdateConfirmed(scope); // Pass the scope to your update logic
+    }
   };
 
   //Execute delete operation
-  const handleDeleteConfirmed = async () => {
+  const handleDeleteConfirmed = async (scope = "ONE") => {
     setConfirmAction(null);
     try {
       const res = await fetch(
-        `http://localhost:8801/api/tasks/delete/${task.task_id}`,
+        `http://localhost:8801/api/tasks/delete/${task.task_id}?scope=${scope}`,
         {
           method: "DELETE",
           credentials: "include",
@@ -280,11 +326,11 @@ export default function TaskPopup({
   };
 
   //Execute update operation
-  const handleUpdateConfirmed = async () => {
+  const handleUpdateConfirmed = async (scope = "ONE") => {
     setConfirmAction(null);
     try {
       const res = await fetch(
-        `http://localhost:8801/api/tasks/update/assigned/${task.task_id}`,
+        `http://localhost:8801/api/tasks/update/assigned/${task.task_id}?scope=${scope}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -418,7 +464,7 @@ export default function TaskPopup({
                 Start Date:
                 <input
                   type="date"
-                  value={startDate}
+                  value={toInputDateString(startDate)}
                   onChange={(e) => setStartDate(e.target.value)}
                 />
               </label>
@@ -426,7 +472,7 @@ export default function TaskPopup({
                 End Date:
                 <input
                   type="date"
-                  value={endDate}
+                  value={toInputDateString(endDate)}
                   onChange={(e) => setEndDate(e.target.value)}
                 />
               </label>
@@ -483,7 +529,7 @@ export default function TaskPopup({
                   Repeat Until:
                   <input
                     type="date"
-                    value={repeatUntil}
+                    value={toInputDateString(repeatUntil)}
                     onChange={(e) => setRepeatUntil(e.target.value)}
                   />
                 </label>
@@ -493,7 +539,7 @@ export default function TaskPopup({
                 Due Date:
                 <input
                   type="date"
-                  value={dueDate}
+                  value={toInputDateString(dueDate)}
                   onChange={(e) => setDueDate(e.target.value)}
                 />
               </label>
@@ -636,6 +682,13 @@ export default function TaskPopup({
           onCancel={() => setConfirmAction(null)}
         />
       )}
+      <RepeatActionPopup
+        open={showRepeatPopup}
+        onClose={() => setShowRepeatPopup(false)}
+        onSelect={handleRepeatPopupSelect}
+        actionType={repeatPopupAction}
+        taskTitle={title}
+      />
     </div>
   );
 }
