@@ -23,6 +23,13 @@ function MainPage({ isLoggin, setIsLoggin }) {
   const [popupMode, setPopupMode] = useState("view");
   const [userSettings, setUserSettings] = useState({});
 
+  // Functions to open and close the popup
+  const handleCreateTask = () => {
+    setPopupMode("create");
+    setSelectedTask(null); // Clear the selected task when creating
+    setShowPopup(true);
+  };
+
   // Fetch locations
   const fetchLocations = async () => {
     if (!userEmail) return;
@@ -174,6 +181,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
   };
 
   const handleSelectTask = (task) => {
+    setPopupMode("view");
     setSelectedTask(task);
     setShowPopup(true);
   };
@@ -205,6 +213,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
             fetchCategories={fetchCategories}
             userLocations={locations}
             fetchLocations={fetchLocations}
+            onCreateTask={handleCreateTask}
           />
         </div>
         <div className={classes.calendar}>
@@ -214,6 +223,12 @@ function MainPage({ isLoggin, setIsLoggin }) {
             fetchTasks={fetchTasks}
             userCategories={categories}
             userLocations={locations}
+            onSelectTask={handleSelectTask}
+            onCreateTask={(slotTask) => {
+              setPopupMode("create");
+              setSelectedTask(slotTask);
+              setShowPopup(true);
+            }}
           />
         </div>
         <div className={classes.taskPanel}>
@@ -238,6 +253,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
           userLocations={locations}
           fetchLocations={fetchLocations}
           userSettings={userSettings}
+          tasks={tasks}
         />
       )}
     </div>

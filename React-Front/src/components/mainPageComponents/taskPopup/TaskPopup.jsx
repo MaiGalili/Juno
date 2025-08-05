@@ -4,6 +4,7 @@ import styles from "./taskPopup.module.css";
 import ConfirmModal from "../../ConfirmModal";
 import AddressInput from "../sidebar/locations/AddressInput";
 import RepeatActionPopup from "./RepeatActionPopup/RepeatActionPopup";
+import TaskSuggestionsPanel from "./taskSuggestionsPanel/TaskSuggestionsPanel";
 
 export default function TaskPopup({
   mode = "create",
@@ -13,6 +14,7 @@ export default function TaskPopup({
   userCategories = [],
   userLocations = [],
   fetchTasks,
+  tasks = [],
 }) {
   // --- User settings state ---
   const [userSettings, setUserSettings] = useState({
@@ -128,7 +130,7 @@ export default function TaskPopup({
       setTaskRepeat(task?.task_repeat || "none");
       setRepeatUntil(task?.repeat_until || "");
 
-      // קטגוריות: תומך בכל המבנים
+      // categories
       if (Array.isArray(task?.categories)) {
         setSelectedCategories(
           task.categories.map((c) => String(c.category_id))
@@ -707,6 +709,25 @@ export default function TaskPopup({
                   maxLength={160}
                 />
               </label>
+              {!startDate && dueDate && duration && (
+                <TaskSuggestionsPanel
+                  dueDate={dueDate}
+                  dueTime={dueTime}
+                  duration={duration}
+                  userSettings={userSettings}
+                  tasks={tasks}
+                  locationId={useFavorite ? locationId : null}
+                  customAddress={!useFavorite ? customAddress : null}
+                  bufferTime={bufferTime}
+                  onSelectSuggestion={(suggestion) => {
+                    // set values from suggestion
+                    setStartDate(suggestion.start_date);
+                    setStartTime(suggestion.start_time);
+                    setEndDate(suggestion.end_date);
+                    setEndTime(suggestion.end_time);
+                  }}
+                />
+              )}
 
               {error && <p className={styles.error}>{error}</p>}
 

@@ -25,11 +25,11 @@ export default function CalendarMain({
   fetchTasks,
   userCategories,
   userLocations,
+  onSelectTask,
+  onCreateTask,
 }) {
+
   //State
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [popupMode, setPopupMode] = useState("view");
-  const [popupOpen, setPopupOpen] = useState(false);
   const [currentView, setCurrentView] = useState("week");
 
   //Style customizer for events
@@ -50,24 +50,19 @@ export default function CalendarMain({
     };
   };
 
+  
   //When an existing task is selected from the calendar
   const handleSelectEvent = (event) => {
-    console.log("event on select:", event);
-    console.log("event.raw:", event.raw);
-    setSelectedTask(event.raw);
-    setPopupMode("view");
-    setPopupOpen(true);
+    onSelectTask?.(event.raw || event);
   };
 
   //When a time slot is selected (for creating a new task)
   const handleSelectSlot = (slotInfo) => {
-    setSelectedTask({
+    onCreateTask?.({
       task_start_date: format(slotInfo.start, "yyyy-MM-dd"),
       task_end_date: format(slotInfo.end, "yyyy-MM-dd"),
       task_all_day: true,
     });
-    setPopupMode("create"); // Open popup in create mode
-    setPopupOpen(true);
   };
 
   //Callback after saving a task
@@ -79,7 +74,7 @@ export default function CalendarMain({
     <div style={{ height: "calc(100vh - 100px)", padding: "20px" }}>
       <Calendar
         view={currentView}
-        onView={(view) => setCurrentView(view)}
+        onView={setCurrentView}
         localizer={localizer}
         events={tasks}
         startAccessor="start"
@@ -92,22 +87,6 @@ export default function CalendarMain({
         onSelectEvent={handleSelectEvent}
         onSelectSlot={handleSelectSlot}
       />
-
-      {/* Conditionally render the popup when a task is selected or created */}
-      {popupOpen && (
-        <TaskPopup
-          mode={popupMode}
-          task={selectedTask}
-          onSave={onSave}
-          fetchTasks={fetchTasks}
-          userCategories={userCategories}
-          userLocations={userLocations}
-          onClose={() => {
-            setPopupOpen(false);
-            setSelectedTask(null);
-          }}
-        />
-      )}
     </div>
   );
 }

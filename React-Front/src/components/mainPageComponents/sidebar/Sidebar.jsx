@@ -16,6 +16,7 @@ export default function Sidebar({
   fetchCategories,
   userLocations,
   fetchLocations,
+  onCreateTask,
 }) {
   return (
     <aside className={styles.sidebar}>
@@ -26,7 +27,7 @@ export default function Sidebar({
       {/* Buttons for generating reports and creating a new task */}
       <div className={styles.buttons}>
         <button className={styles.report}>Reports</button>
-        <button className={styles.newTask} onClick={() => setShowPopup(true)}>
+        <button className={styles.newTask} onClick={onCreateTask}>
           + New Task
         </button>
       </div>

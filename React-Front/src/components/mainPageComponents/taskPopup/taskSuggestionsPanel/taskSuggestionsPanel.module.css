@@ -1,0 +1,14 @@
+/* taskSuggestionsPanel.module.css */
+.panel {
+  border-top: 1px solid #ccc;
+  margin-top: 18px;
+  padding-top: 10px;
+  background: #fafaff;
+  min-height: 48px;
+  border-radius: 0 0 16px 16px;
+}
+.empty {
+  color: #aaa;
+  font-size: 15px;
+  padding: 10px 0;
+}
