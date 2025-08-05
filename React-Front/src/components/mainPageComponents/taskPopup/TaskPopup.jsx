@@ -102,7 +102,7 @@ export default function TaskPopup({
   // --- Set task fields based on mode and task data ---
   useEffect(() => {
     if (mode === "create") {
-      // איפוס שדות
+      // Reset task fields
       setTitle("");
       setAllDay(false);
       setStartDate("");
@@ -115,7 +115,7 @@ export default function TaskPopup({
       setDueDate("");
       setDueTime("");
       setBufferTime(userSettings.defult_buffer || "00:10");
-      setLocationId("");
+      setLocationId(userSettings.default_location_id || "");
       setCustomAddress("");
       setCustomCoords({ lat: null, lng: null });
       setUseFavorite(true);

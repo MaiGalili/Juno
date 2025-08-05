@@ -13,7 +13,7 @@ exports.getUserSettings = async (req, res) => {
     const [rows] = await db
       .promise()
       .query(
-        "SELECT defult_buffer, start_day_time, end_day_time FROM users WHERE email = ?",
+        "SELECT defult_buffer, start_day_time, end_day_time, default_location_id FROM users WHERE email = ?",
         [email]
       );
 
@@ -28,6 +28,7 @@ exports.getUserSettings = async (req, res) => {
       defult_buffer: rows[0].defult_buffer,
       start_day_time: rows[0].start_day_time,
       end_day_time: rows[0].end_day_time,
+      default_location_id: rows[0].default_location_id,
     });
   } catch (err) {
     console.error("Error in getUserSettings:", err);

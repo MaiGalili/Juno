@@ -2,6 +2,16 @@
 const db = require("../db");
 const { v4: uuidv4 } = require("uuid");
 
+// Helper: Get default_location_id if needed
+async function getLocationIdOrDefault(location_id, email) {
+  if (location_id) return location_id; // if location_id is provided, use it
+  // if not, get default_location_id
+  const [[userRow]] = await db
+    .promise()
+    .query(`SELECT default_location_id FROM users WHERE email = ?`, [email]);
+  return userRow?.default_location_id || null;
+}
+
 // Get repeat dates
 function getRepeatDates(startDate, repeatUntil, repeatType) {
   const dates = [];
@@ -64,6 +74,8 @@ async function createAssignedTask(req, res) {
       repeatDates = getRepeatDates(start_date, repeat_until, task_repeat);
     }
 
+    const final_location_id = await getLocationIdOrDefault(location_id, email);
+
     const insertedTasks = [];
 
     for (const date of repeatDates) {
@@ -80,7 +92,7 @@ async function createAssignedTask(req, res) {
             duration,
             note,
             buffer_time,
-            location_id || null,
+            final_location_id,
             custom_location_address || null,
             custom_location_latitude || null,
             custom_location_longitude || null,
@@ -172,6 +184,8 @@ async function createWaitingTask(req, res) {
       });
     }
 
+    const final_location_id = await getLocationIdOrDefault(location_id, email);
+
     //Insert input into to the task table
     const [result] = await db.promise().query(
       `INSERT INTO task (
@@ -190,7 +204,7 @@ async function createWaitingTask(req, res) {
         duration,
         note,
         buffer_time,
-        location_id || null,
+        final_location_id,
         custom_location_address || null,
         custom_location_latitude || null,
         custom_location_longitude || null,

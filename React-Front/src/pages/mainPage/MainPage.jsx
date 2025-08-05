@@ -21,6 +21,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
   const [waitingTasks, setWaitingTasks] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
   const [popupMode, setPopupMode] = useState("view");
+  const [userSettings, setUserSettings] = useState({});
 
   // Fetch locations
   const fetchLocations = async () => {
@@ -143,6 +144,24 @@ function MainPage({ isLoggin, setIsLoggin }) {
     }
   }, [userEmail]);
 
+  // Fetch user settings
+  useEffect(() => {
+    if (!userEmail) return;
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch(`http://localhost:8801/api/users/settings`, {
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+        const data = await res.json();
+        if (data.success) setUserSettings(data);
+      } catch (err) {
+        console.error("Failed to load user settings:", err);
+      }
+    };
+    fetchSettings();
+  }, [userEmail]);
+
   // Show loading screen while session is being resolved
   if (!userEmail) {
     return <div>Loading...</div>;
@@ -218,6 +237,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
           fetchCategories={fetchCategories}
           userLocations={locations}
           fetchLocations={fetchLocations}
+          userSettings={userSettings}
         />
       )}
     </div>
