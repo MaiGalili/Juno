@@ -2,19 +2,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import styles from "./taskSuggestionsPanel.module.css";
 
-/**
- * Props:
- * - duration (hh:mm) [Required]
- * - dueDate (YYYY-MM-DD) | startDate (YYYY-MM-DD) [לפחות אחד]
- * - dueTime (hh:mm) [Optional]
- * - bufferTime (hh:mm or hh:mm:ss) [Optional]
- * - locationId | customAddress [Optional]
- * - onSelectSuggestion(sug) => void
- *
- * שרת: POST /api/tasks/suggestions
- * body: { duration, dueDate?, dueTime?, startDate?, bufferTime?, locationId?, customAddress?, offset, limit }
- * returns: { success, data: [{ startDate, endDate, startTime, endTime }] }
- */
 export default function TaskSuggestionsPanel({
   duration,
   dueDate, // <-- נצטרך להעביר מהפופאפ (ראה סעיף 2)
