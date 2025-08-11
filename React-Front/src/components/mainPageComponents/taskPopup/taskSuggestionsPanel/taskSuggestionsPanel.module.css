@@ -1,14 +1,71 @@
 /* taskSuggestionsPanel.module.css */
 .panel {
-  border-top: 1px solid #ccc;
-  margin-top: 18px;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 16px;
   padding-top: 10px;
   background: #fafaff;
-  min-height: 48px;
   border-radius: 0 0 16px 16px;
 }
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.loading {
+  font-size: 12px;
+  color: #666;
+}
 .empty {
-  color: #aaa;
-  font-size: 15px;
-  padding: 10px 0;
+  color: #888;
+  font-size: 14px;
+  padding: 8px 0;
+}
+.error {
+  color: #b00020;
+  font-size: 14px;
+  padding: 8px 0;
+}
+.list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+.itemWhen {
+  font-weight: 500;
+}
+.itemMeta {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}
+.pickBtn,
+.moreBtn {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: #6f5cc4;
+  color: #fff;
+  font-weight: 600;
+}
+.moreRow {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
 }

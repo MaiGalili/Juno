@@ -232,8 +232,8 @@ export default function TaskPopup({
   // --- useEffect: Sync and calculate values ---
   useEffect(() => {
     if (allDay) {
-      setStartTime(userSettings.start_day);
-      setEndTime(userSettings.end_day);
+      setStartTime(userSettings.start_day_time);
+      setEndTime(userSettings.end_day_time);
     }
     if (startDate && !endDate) setEndDate(startDate);
     if (startTime && endTime) {
@@ -709,22 +709,22 @@ export default function TaskPopup({
                   maxLength={160}
                 />
               </label>
-              {!startDate && dueDate && duration && (
+              {duration && (dueDate || startDate) && (
                 <TaskSuggestionsPanel
-                  dueDate={dueDate}
-                  dueTime={dueTime}
                   duration={duration}
-                  userSettings={userSettings}
-                  tasks={tasks}
+                  // נסי קודם לפי dueDate (לא משובץ), אחרת לפי startDate (משובץ ליום ספציפי)
+                  dueDate={dueDate || undefined}
+                  dueTime={dueTime || undefined}
+                  startDate={!dueDate ? startDate : undefined}
+                  bufferTime={bufferTime}
                   locationId={useFavorite ? locationId : null}
                   customAddress={!useFavorite ? customAddress : null}
-                  bufferTime={bufferTime}
-                  onSelectSuggestion={(suggestion) => {
-                    // set values from suggestion
-                    setStartDate(suggestion.start_date);
-                    setStartTime(suggestion.start_time);
-                    setEndDate(suggestion.end_date);
-                    setEndTime(suggestion.end_time);
+                  onSelectSuggestion={(sug) => {
+                    // ממלאים את שדות הפופאפ
+                    setStartDate(sug.startDate);
+                    setEndDate(sug.endDate);
+                    setStartTime(sug.startTime || "");
+                    setEndTime(sug.endTime || "");
                   }}
                 />
               )}
