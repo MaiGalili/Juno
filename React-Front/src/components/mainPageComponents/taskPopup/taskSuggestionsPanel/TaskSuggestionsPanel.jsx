@@ -94,8 +94,12 @@ export default function TaskSuggestionsPanel({
   ]);
 
   const handlePick = (sug) => {
-    setStartTime((sug.startTime || "").slice(0, 5));
-    setEndTime((sug.endTime || "").slice(0, 5));
+    onSelectSuggestion?.({
+      startDate: sug.startDate,
+      endDate: sug.endDate ?? sug.startDate,
+      startTime: (sug.startTime || "").slice(0, 5),
+      endTime: (sug.endTime || "").slice(0, 5),
+    });
   };
 
   const showMore = () => setOffset((o) => o + 3);
