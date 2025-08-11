@@ -1,6 +1,6 @@
 //suggestionController.js
-const taskService = require("../services/taskService");
-const userService = require("../services/userService");
+const taskRepo = require("../repositories/taskRepo");
+const userRepo = require("../repositories/userRepo");
 
 function parseHHMM(s) {
   if (!s) return 0;
@@ -63,10 +63,9 @@ function buildFreeIntervalsForDay(
 // Get suggestions for a task
 exports.getSuggestions = async (req, res) => {
   try {
-    const userEmail = req.user?.email || req.session?.user?.email; // תלוי אצלך בזיהוי
-    if (!userEmail) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
+   const userEmail = req.user?.email || req.session?.user?.email;
+   if (!userEmail)
+     return res.status(401).json({ success: false, message: "Unauthorized" });
 
     const {
       duration,
@@ -81,10 +80,12 @@ exports.getSuggestions = async (req, res) => {
     } = req.body || {};
 
     if (!duration || (!dueDate && !startDate)) {
-      return res.status(400).json({
-        success: false,
-        message: "duration and (dueDate OR startDate) are required",
-      });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "duration and (dueDate OR startDate) are required",
+        });
     }
 
     // user settings
