@@ -4,7 +4,7 @@ const userRepo = require("../repositories/userRepo");
 
 function parseHHMM(s) {
   if (!s) return 0;
-  const [h, m] = s.split(":").map(Number);
+  const [h, m] = s.slice(0, 5).split(":").map(Number);
   return h * 60 + m;
 }
 function toHHMM(mins) {
@@ -63,9 +63,9 @@ function buildFreeIntervalsForDay(
 // Get suggestions for a task
 exports.getSuggestions = async (req, res) => {
   try {
-   const userEmail = req.user?.email || req.session?.user?.email;
-   if (!userEmail)
-     return res.status(401).json({ success: false, message: "Unauthorized" });
+    const userEmail = req.session?.user?.email;
+    if (!userEmail)
+      return res.status(401).json({ success: false, message: "Unauthorized" });
 
     const {
       duration,
@@ -80,22 +80,20 @@ exports.getSuggestions = async (req, res) => {
     } = req.body || {};
 
     if (!duration || (!dueDate && !startDate)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "duration and (dueDate OR startDate) are required",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "duration and (dueDate OR startDate) are required",
+      });
     }
 
     // user settings
-    const user = await userService.getSettings(userEmail);
+    const user = await userRepo.getSettings(userEmail);
     const dayStart = user.start_day_time || "08:00:00";
     const dayEnd = user.end_day_time || "21:00:00";
     const defaultBuffer = user.defult_buffer || "00:10:00";
 
     const needMin = parseHHMM(duration);
-    const bufMin = parseHHMM((bufferTime || defaultBuffer).slice(0, 5));
+    const bufMin = parseHHMM(bufferTime || defaultBuffer);
 
     // define search window
     let searchStartDate,
@@ -118,7 +116,7 @@ exports.getSuggestions = async (req, res) => {
     }
 
     // get assigned tasks in the search window
-    const assigned = await taskService.getAssignedBetween(
+    const assigned = await taskRepo.getAssignedBetween(
       userEmail,
       fmtDate(searchStartDate),
       fmtDate(searchEndDate)
@@ -128,8 +126,8 @@ exports.getSuggestions = async (req, res) => {
     for (const t of assigned) {
       // expected format
       const dStr = t.task_start_date; // only single day
-      const sMin = parseHHMM((t.task_start_time || "").slice(0, 5));
-      const eMin = parseHHMM((t.task_end_time || "").slice(0, 5));
+      const sMin = parseHHMM(t.task_start_time || "");
+      const eMin = parseHHMM(t.task_end_time || "");
       if (!busyByDay.has(dStr)) busyByDay.set(dStr, []);
       busyByDay.get(dStr).push([sMin, eMin]);
     }

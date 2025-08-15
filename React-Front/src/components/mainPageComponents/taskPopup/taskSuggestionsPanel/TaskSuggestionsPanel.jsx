@@ -33,7 +33,7 @@ export default function TaskSuggestionsPanel({
         setLoading(true);
         setError("");
 
-        const res = await fetch("/api/tasks/suggestions", {
+        const res = await fetch("http://localhost:8801/api/tasks/suggestions", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -50,6 +50,12 @@ export default function TaskSuggestionsPanel({
             limit: 3,
           }),
         });
+
+        if (!res.ok) {
+          if (res.status === 401) throw new Error("Unauthorized");
+          const msg = await res.text();
+          throw new Error(msg || "Request failed");
+        }
 
         const data = await res.json();
         if (!data?.success) {
