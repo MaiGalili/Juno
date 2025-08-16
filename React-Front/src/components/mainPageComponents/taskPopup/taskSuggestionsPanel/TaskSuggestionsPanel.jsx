@@ -18,10 +18,11 @@ export default function TaskSuggestionsPanel({
   const [error, setError] = useState("");
   const [suggestions, setSuggestions] = useState([]);
 
-  const canQuery = useMemo(() => {
-    //for minimal validation
-    return Boolean(duration && (dueDate || startDate));
-  }, [duration, dueDate, startDate]);
+  // require duration + dueDate (waiting task)
+  const canQuery = useMemo(
+    () => Boolean(duration && dueDate),
+    [duration, dueDate]
+  );
 
   useEffect(() => {
     if (!canQuery) {
@@ -44,7 +45,6 @@ export default function TaskSuggestionsPanel({
             duration,
             dueDate,
             dueTime,
-            startDate,
             bufferTime,
             locationId: locationId || null,
             customAddress: customAddress || null,

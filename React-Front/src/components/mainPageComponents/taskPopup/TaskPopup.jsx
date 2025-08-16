@@ -25,6 +25,15 @@ export default function TaskPopup({
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
+  // Is this popup in "waiting task" context?
+  const isWaitingUI =
+    // editing/viewing an existing waiting task
+    (!!task?.task_duedate &&
+      !task?.task_start_date &&
+      !task?.task_start_time) ||
+    // creating a new task that currently looks like a waiting task
+    (mode === "create" && !!dueDate && !startDate && !startTime && !endTime);
+
   // --- Task fields state ---
   const [title, setTitle] = useState("");
   const [allDay, setAllDay] = useState(false);
@@ -710,22 +719,18 @@ export default function TaskPopup({
                   maxLength={160}
                 />
               </label>
-              {duration && (dueDate || startDate) && (
+              {isWaitingUI && duration && dueDate && (
                 <TaskSuggestionsPanel
                   userEmail={userEmail}
                   duration={duration}
-                  dueDate={toInputDateString(dueDate) || undefined}
+                  dueDate={dueDate}
                   dueTime={dueTime || undefined}
-                  startDate={
-                    !dueDate
-                      ? toInputDateString(startDate) || undefined
-                      : undefined
-                  }
+                  startDate={undefined}
                   bufferTime={bufferTime}
                   locationId={useFavorite ? locationId : null}
                   customAddress={!useFavorite ? customAddress : null}
                   onSelectSuggestion={(sug) => {
-                    // ממלאים את שדות הפופאפ
+                    // when the user picks a suggestion, update the form
                     setStartDate(sug.startDate);
                     setEndDate(sug.endDate);
                     setStartTime(sug.startTime || "");
