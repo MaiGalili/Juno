@@ -5,9 +5,8 @@ import styles from "./taskSuggestionsPanel.module.css";
 export default function TaskSuggestionsPanel({
   userEmail,
   duration,
-  dueDate, // <-- נצטרך להעביר מהפופאפ (ראה סעיף 2)
+  dueDate,
   dueTime,
-  startDate, // אופציונלי — אם את רוצה להגביל ליום מסוים
   bufferTime,
   locationId,
   customAddress,
@@ -81,7 +80,6 @@ export default function TaskSuggestionsPanel({
     duration,
     dueDate,
     dueTime,
-    startDate,
     bufferTime,
     locationId,
     customAddress,
@@ -108,7 +106,6 @@ export default function TaskSuggestionsPanel({
     duration,
     dueDate,
     dueTime,
-    startDate,
     bufferTime,
     locationId,
     customAddress,
@@ -155,8 +152,7 @@ export default function TaskSuggestionsPanel({
 
       {!canQuery && (
         <div className={styles.empty}>
-          Fill in <b>duration</b> and <b>due date</b> (or a specific start date)
-          to see suggestions.
+          Fill in <b>duration</b> and <b>due date</b> to see suggestions.
         </div>
       )}
 

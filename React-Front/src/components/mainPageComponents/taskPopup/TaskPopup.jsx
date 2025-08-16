@@ -25,15 +25,6 @@ export default function TaskPopup({
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
-  // Is this popup in "waiting task" context?
-  const isWaitingUI =
-    // editing/viewing an existing waiting task
-    (!!task?.task_duedate &&
-      !task?.task_start_date &&
-      !task?.task_start_time) ||
-    // creating a new task that currently looks like a waiting task
-    (mode === "create" && !!dueDate && !startDate && !startTime && !endTime);
-
   // --- Task fields state ---
   const [title, setTitle] = useState("");
   const [allDay, setAllDay] = useState(false);
@@ -269,6 +260,19 @@ export default function TaskPopup({
     duration,
     statusMessage,
   ]);
+
+  // Is this popup in "waiting task" context?
+  const isWaitingUI = React.useMemo(() => {
+    // Existing waiting task (has due date, but no assigned start)
+    const isExistingWaiting =
+      !!task?.task_duedate && !task?.task_start_date && !task?.task_start_time;
+
+    // New task that looks like waiting (has due date, but no start/end)
+    const isNewWaiting =
+      mode === "create" && !!dueDate && !startDate && !startTime && !endTime;
+
+    return isExistingWaiting || isNewWaiting;
+  }, [mode, task, dueDate, startDate, startTime, endTime]);
 
   // --- Validation and actions ---
   const validate = () => {
@@ -725,12 +729,10 @@ export default function TaskPopup({
                   duration={duration}
                   dueDate={dueDate}
                   dueTime={dueTime || undefined}
-                  startDate={undefined}
                   bufferTime={bufferTime}
                   locationId={useFavorite ? locationId : null}
                   customAddress={!useFavorite ? customAddress : null}
                   onSelectSuggestion={(sug) => {
-                    // when the user picks a suggestion, update the form
                     setStartDate(sug.startDate);
                     setEndDate(sug.endDate);
                     setStartTime(sug.startTime || "");
