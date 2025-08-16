@@ -114,18 +114,33 @@ export default function TaskSuggestionsPanel({
     customAddress,
   ]);
 
+  const LOCALE = "en-US"; // or: navigator.language || "en-US"
+  const HOUR12 = true; // set false for 24h clock
+
+  const formatTime = (dateStr, timeStr) => {
+    if (!timeStr) return "";
+    const d = new Date(`${dateStr}T${timeStr}:00`);
+    return d.toLocaleTimeString(LOCALE, {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: HOUR12,
+    });
+  };
+
   const formatLabel = (sug) => {
-    // מציגים: יום, תאריך ושעות
     try {
       const d = new Date(`${sug.startDate}T${sug.startTime || "00:00"}:00`);
-      const dayName = d.toLocaleDateString("he-IL", { weekday: "long" });
-      const dateStr = d.toLocaleDateString("he-IL", {
-        day: "2-digit",
+      const dayName = d.toLocaleDateString(LOCALE, { weekday: "long" });
+      const dateStr = d.toLocaleDateString(LOCALE, {
         month: "2-digit",
+        day: "2-digit",
         year: "numeric",
       });
-      const hours = `${sug.startTime || ""}–${sug.endTime || ""}`;
-      return `${dayName}, ${dateStr} | ${hours}`;
+      const start = formatTime(sug.startDate, sug.startTime);
+      const end = formatTime(sug.startDate, sug.endTime);
+      return `${dayName}, ${dateStr} | ${start}${
+        start && end ? "–" : ""
+      }${end}`;
     } catch {
       return `${sug.startDate} ${sug.startTime || ""}–${sug.endTime || ""}`;
     }

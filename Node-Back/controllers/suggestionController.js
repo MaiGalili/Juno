@@ -39,41 +39,47 @@ function toYMD(input) {
   return null;
 }
 
-
 // Build free slots for a single day given busy intervals and day bounds
 function buildFreeIntervalsForDay(
   busy,
   dayStartMin,
   dayEndMin,
   neededMin,
-  bufferMin
+  bufferMin,
+  stepMin = Math.max(15, bufferMin) // 15 min or buffer, whichever is larger
 ) {
-  // busy: array of [startMin, endMin] sorted non-overlapping
   const res = [];
   let cursor = dayStartMin;
 
-  for (const [bStart, bEnd] of busy) {
-    // check gap [cursor, bStart)
-    const gap = bStart - cursor;
-    if (gap >= neededMin + bufferMin) {
-      res.push([cursor, cursor + neededMin]); // we return just one slot per gap start
-      // NOTE: we could also push multiple “sliding” options within the gap; נשאיר MVP
+  // one definition is enough
+  const pushSliding = (start, end) => {
+    let s = Math.ceil(start / stepMin) * stepMin; // align to step grid
+    while (s + neededMin <= end) {
+      res.push([s, s + neededMin]);
+      s += stepMin;
     }
-    cursor = Math.max(cursor, bEnd + bufferMin); // hop after busy + buffer
-    if (cursor > dayEndMin) break;
+  };
+
+  for (const [bStart, bEnd] of busy) {
+    // free gap until next busy block, leave buffer BEFORE the busy block
+    const gapStart = cursor;
+    const gapEnd = Math.max(gapStart, bStart - bufferMin);
+    pushSliding(gapStart, gapEnd);
+
+    // hop after the busy block (+buffer after)
+    cursor = Math.max(cursor, bEnd + bufferMin);
+    if (cursor >= dayEndMin) return res;
   }
 
-  // tail gap
-  if (dayEndMin - cursor >= neededMin) {
-    res.push([cursor, cursor + neededMin]);
-  }
+  // tail gap to end of day
+  pushSliding(cursor, dayEndMin);
   return res;
 }
 
 // Get suggestions for a task
 exports.getSuggestions = async (req, res) => {
   try {
-    const userEmail = req.session?.userEmail || req.body?.userEmail;
+    const userEmail = req.session?.userEmail;
     if (!userEmail)
       return res.status(401).json({ success: false, message: "Unauthorized" });
 
@@ -96,6 +102,10 @@ exports.getSuggestions = async (req, res) => {
       });
     }
 
+    // Normalize dates once
+    const dueDateYMD = toYMD(dueDate);
+    const startDateYMD = toYMD(startDate);
+
     // user settings
     const user = await userRepo.getSettings(userEmail);
     const dayStart = user.start_day_time || "08:00:00";
@@ -110,18 +120,13 @@ exports.getSuggestions = async (req, res) => {
       searchEndDate,
       endTimeLimitMin = null;
 
-    if (startDate) {
-      //Search in the same day
-      searchStartDate = dayKey(startDate);
-      searchEndDate = dayKey(startDate);
+    if (startDateYMD) {
+      searchStartDate = dayKey(startDateYMD);
+      searchEndDate = dayKey(startDateYMD);
     } else {
-      //not include due date
-      searchStartDate = new Date(); // from today
-      // Zero hours for search
+      searchStartDate = new Date();
       searchStartDate.setHours(0, 0, 0, 0);
-
-      searchEndDate = dayKey(dueDate);
-      //dosent search after due time
+      searchEndDate = dayKey(dueDateYMD);
       if (dueTime) endTimeLimitMin = parseHHMM(dueTime);
     }
 
@@ -171,11 +176,11 @@ exports.getSuggestions = async (req, res) => {
       let dayEndMin = parseHHMM(dayEnd.slice(0, 5));
 
       // אם זה dueDate עם dueTime – גבול עליון לשעות
-      if (dueDate && dateStr === dueDate && endTimeLimitMin != null) {
+      if (dueDateYMD && dateStr === dueDateYMD && endTimeLimitMin != null) {
         dayEndMin = Math.min(dayEndMin, endTimeLimitMin);
       }
 
-      // אל תציע שליליות
+      // dont show tasks that start after dayEnd
       if (dayEndMin > dayStartMin) {
         const busy = busyByDay.get(dateStr) || [];
         const free = buildFreeIntervalsForDay(
