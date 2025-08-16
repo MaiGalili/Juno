@@ -43,6 +43,15 @@ app.use(
   })
 );
 
+app.get("/api/debug/ping-session", (req, res) => {
+  res.json({
+    ok: true,
+    hasSession: !!req.session?.user,
+    user: req.session?.user || null,
+  });
+});
+
+
 // Parse incoming requests with JSON payloads
 app.use(express.json());
 

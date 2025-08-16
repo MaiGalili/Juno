@@ -15,6 +15,7 @@ export default function TaskPopup({
   userLocations = [],
   fetchTasks,
   tasks = [],
+  userEmail,
 }) {
   // --- User settings state ---
   const [userSettings, setUserSettings] = useState({
@@ -711,11 +712,15 @@ export default function TaskPopup({
               </label>
               {duration && (dueDate || startDate) && (
                 <TaskSuggestionsPanel
+                  userEmail={userEmail}
                   duration={duration}
-                  // נסי קודם לפי dueDate (לא משובץ), אחרת לפי startDate (משובץ ליום ספציפי)
-                  dueDate={dueDate || undefined}
+                  dueDate={toInputDateString(dueDate) || undefined}
                   dueTime={dueTime || undefined}
-                  startDate={!dueDate ? startDate : undefined}
+                  startDate={
+                    !dueDate
+                      ? toInputDateString(startDate) || undefined
+                      : undefined
+                  }
                   bufferTime={bufferTime}
                   locationId={useFavorite ? locationId : null}
                   customAddress={!useFavorite ? customAddress : null}

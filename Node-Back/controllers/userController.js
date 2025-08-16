@@ -1,3 +1,4 @@
+//userController.js
 const db = require("../db");
 
 // Get user settings

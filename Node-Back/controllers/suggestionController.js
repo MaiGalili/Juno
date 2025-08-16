@@ -30,6 +30,16 @@ function fmtDate(d) {
   return `${y}-${m}-${day}`;
 }
 
+// suggestionController.js – add helper:
+function toYMD(input) {
+  if (!input) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input; // already Y-M-D
+  const d = new Date(input);
+  if (!isNaN(d.getTime())) return fmtDate(d); // fmtDate => YYYY-MM-DD
+  return null;
+}
+
+
 // Build free slots for a single day given busy intervals and day bounds
 function buildFreeIntervalsForDay(
   busy,
@@ -63,7 +73,7 @@ function buildFreeIntervalsForDay(
 // Get suggestions for a task
 exports.getSuggestions = async (req, res) => {
   try {
-    const userEmail = req.session?.user?.email;
+    const userEmail = req.session?.userEmail || req.body?.userEmail;
     if (!userEmail)
       return res.status(401).json({ success: false, message: "Unauthorized" });
 

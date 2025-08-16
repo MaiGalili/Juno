@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import styles from "./taskSuggestionsPanel.module.css";
 
 export default function TaskSuggestionsPanel({
+  userEmail,
   duration,
   dueDate, // <-- נצטרך להעביר מהפופאפ (ראה סעיף 2)
   dueTime,
@@ -33,20 +34,21 @@ export default function TaskSuggestionsPanel({
         setLoading(true);
         setError("");
 
-        const res = await fetch("http://localhost:8801/api/tasks/suggestions", {
+        const res = await fetch("/api/tasks/suggestions", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           signal: abort.signal,
           body: JSON.stringify({
-            duration, // "01:30"
-            dueDate, // "2025-08-07" (לא חובה אם יש startDate)
-            dueTime, // "15:00" (אופציונלי)
-            startDate, // אם עורכים/יוצרים לשיבוץ ביום מסוים
-            bufferTime, // "00:10" או "00:10:00"
+            userEmail,
+            duration,
+            dueDate,
+            dueTime,
+            startDate,
+            bufferTime,
             locationId: locationId || null,
             customAddress: customAddress || null,
-            offset, // דפדוף הצעות
+            offset,
             limit: 3,
           }),
         });
