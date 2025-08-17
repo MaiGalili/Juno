@@ -1,4 +1,4 @@
-// TaskSuggestionsPanel.jsx
+// TaskPopup/TaskSuggestionsPanel/TaskSuggestionsPanel.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import styles from "./taskSuggestionsPanel.module.css";
 
@@ -102,14 +102,7 @@ export default function TaskSuggestionsPanel({
   useEffect(() => {
     resetPaging();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    duration,
-    dueDate,
-    dueTime,
-    bufferTime,
-    locationId,
-    customAddress,
-  ]);
+  }, [duration, dueDate, dueTime, bufferTime, locationId, customAddress]);
 
   const LOCALE = "en-US"; // or: navigator.language || "en-US"
   const HOUR12 = true; // set false for 24h clock

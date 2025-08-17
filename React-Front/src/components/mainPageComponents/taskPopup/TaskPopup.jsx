@@ -58,8 +58,6 @@ export default function TaskPopup({
   const [showRepeatPopup, setShowRepeatPopup] = useState(false);
   const [repeatPopupAction, setRepeatPopupAction] = useState(""); // "delete" or "edit"
 
-  const normBuf = bufferTime.length === 5 ? bufferTime + ":00" : bufferTime;
-
   const isRepeatingTask = !!(
     task?.series_id &&
     task?.task_repeat &&
@@ -220,6 +218,10 @@ export default function TaskPopup({
     return "";
   }
 
+  const toHHMMSS = (t) => (t ? (t.length === 5 ? `${t}:00` : t) : null);
+  const toIntArray = (arr) =>
+    Array.isArray(arr) ? arr.map((x) => Number(x)) : [];
+
   function toInputDateString(date) {
     if (!date) return "";
     // If already in correct format
@@ -238,8 +240,8 @@ export default function TaskPopup({
   // --- useEffect: Sync and calculate values ---
   useEffect(() => {
     if (allDay) {
-      setStartTime(userSettings.start_day_time);
-      setEndTime(userSettings.end_day_time);
+      setStartTime((userSettings.start_day_time || "").slice(0, 5));
+      setEndTime((userSettings.end_day_time || "").slice(0, 5));
     }
     if (startDate && !endDate) setEndDate(startDate);
     if (startTime && endTime) {
@@ -385,7 +387,8 @@ export default function TaskPopup({
   const handleUpdateConfirmed = async (scope = "ONE") => {
     setConfirmAction(null);
     try {
-      const isWaitingTask = task?.task_duedate !== undefined;
+      const isWaitingTask =
+        task?.task_duedate != null && task.task_duedate !== "";
       const hasStartFields = !!(startDate && startTime && endTime);
 
       if (isWaitingTask && hasStartFields) {
@@ -394,17 +397,18 @@ export default function TaskPopup({
           end_date: endDate || startDate,
           start_time: startTime,
           end_time: endTime,
-          duration,
-          buffer_time: normBuf,
+          duration: toHHMMSS(duration),
+          buffer_time: toHHMMSS(bufferTime),
           title,
           note,
-          category_ids: selectedCategories,
+          category_ids: toIntArray(selectedCategories),
           location_id: useFavorite ? locationId || null : null,
           custom_location_address: !useFavorite ? customAddress : null,
           custom_location_latitude: !useFavorite ? customCoords.lat : null,
           custom_location_longitude: !useFavorite ? customCoords.lng : null,
         };
 
+        // ניסיון A: לקדם משימת המתנה בצד השרת
         const res = await fetch(
           `http://localhost:8801/api/tasks/waiting/${task.task_id}/assign`,
           {
@@ -414,17 +418,54 @@ export default function TaskPopup({
             body: JSON.stringify(promoteBody),
           }
         );
-        const result = await res.json();
-        if (result.success) {
+
+        let result;
+        try {
+          result = await res.json();
+        } catch (_) {
+          result = { success: false };
+        }
+
+        if (res.ok && result?.success) {
           await fetchTasks();
           onSave?.(result);
           onClose?.();
-          return; // <-- IMPORTANT: stop here, don't fall through
-        } else {
-          setStatusMessage(result.message || "Failed to assign waiting task");
-          setStatusType("error");
           return;
         }
+
+        // Plan-B: ליצור משימה משובצת חדשה ולמחוק את ההמתנה הישנה
+        const createRes = await fetch(
+          "http://localhost:8801/api/tasks/create/assigned",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(promoteBody),
+          }
+        );
+        const createJson = await createRes.json();
+
+        if (createRes.ok && createJson?.success) {
+          await fetch(
+            `http://localhost:8801/api/tasks/delete/${task.task_id}`,
+            {
+              method: "DELETE",
+              credentials: "include",
+            }
+          );
+          await fetchTasks();
+          onSave?.(createJson);
+          onClose?.();
+          return;
+        }
+
+        setStatusMessage(
+          (result && result.message) ||
+            createJson.message ||
+            "Failed to assign waiting task"
+        );
+        setStatusType("error");
+        return;
       }
 
       const endpoint = isWaitingTask
@@ -434,16 +475,16 @@ export default function TaskPopup({
       const payload = isWaitingTask
         ? {
             title,
-            duration,
+            duration: toHHMMSS(duration),
             note,
-            category_ids: selectedCategories,
+            category_ids: toIntArray(selectedCategories),
             location_id: useFavorite ? locationId || null : null,
             custom_location_address: !useFavorite ? customAddress : null,
             custom_location_latitude: !useFavorite ? customCoords.lat : null,
             custom_location_longitude: !useFavorite ? customCoords.lng : null,
             due_date: dueDate || null,
             due_time: dueTime || null,
-            buffer_time: normBuf,
+            buffer_time: toHHMMSS(bufferTime),
           }
         : {
             title,
@@ -452,14 +493,14 @@ export default function TaskPopup({
             end_date: endDate,
             start_time: startTime,
             end_time: endTime,
-            duration,
+            duration: toHHMMSS(duration),
             note,
-            category_ids: selectedCategories,
+            category_ids: toIntArray(selectedCategories),
             location_id: useFavorite ? locationId || null : null,
             custom_location_address: !useFavorite ? customAddress : null,
             custom_location_latitude: !useFavorite ? customCoords.lat : null,
             custom_location_longitude: !useFavorite ? customCoords.lng : null,
-            buffer_time: normBuf,
+            buffer_time: toHHMMSS(bufferTime),
           };
 
       const res = await fetch(endpoint, {
@@ -499,14 +540,14 @@ export default function TaskPopup({
       end_date: endDate || startDate,
       start_time: startTime,
       end_time: endTime,
-      duration,
+      duration: toHHMMSS(duration),
       task_repeat: taskRepeat,
       repeat_until: repeatUntil || null,
       note,
-      category_ids: selectedCategories,
+      category_ids: toIntArray(selectedCategories),
       due_date: dueDate || null,
       due_time: dueTime || null,
-      buffer_time: normBuf,
+      buffer_time: toHHMMSS(bufferTime),
       location_id: useFavorite ? locationId || null : null,
       custom_location_address: !useFavorite ? customAddress : null,
       custom_location_latitude: !useFavorite ? customCoords.lat : null,
