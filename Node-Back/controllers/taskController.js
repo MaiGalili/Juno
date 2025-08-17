@@ -1,6 +1,15 @@
 // taskController.js
 const db = require("../db");
 const { v4: uuidv4 } = require("uuid");
+const taskRepo = require("../repositories/taskRepo");
+
+// Normilize HH:MM:SS
+function toHHMMSS(s) {
+  if (!s) return null;
+  if (/^\d{2}:\d{2}:\d{2}$/.test(s)) return s;
+  if (/^\d{1,2}:\d{2}$/.test(s)) return s.padStart(5, "0") + ":00";
+  return null; // unknown format → let DB default/null handle or validate earlier
+}
 
 // Helper: Get default_location_id if needed
 async function getLocationIdOrDefault(location_id, email) {
@@ -34,8 +43,8 @@ function getRepeatDates(startDate, repeatUntil, repeatType) {
         curr.setFullYear(curr.getFullYear() + 1);
         break;
       default:
-        // Not supported
-        curr.setDate(until.getDate() + 1);
+        curr = new Date(until.getTime() + 86400000); // +1 day in ms
+        break;
     }
   }
   return dates;
@@ -91,7 +100,7 @@ async function createAssignedTask(req, res) {
             title || "Untitled Task",
             duration,
             note,
-            buffer_time,
+            toHHMMSS(buffer_time),
             final_location_id,
             custom_location_address || null,
             custom_location_latitude || null,
@@ -203,7 +212,7 @@ async function createWaitingTask(req, res) {
         title || "Untitled Task",
         duration,
         note,
-        buffer_time,
+        toHHMMSS(buffer_time),
         final_location_id,
         custom_location_address || null,
         custom_location_latitude || null,
@@ -259,7 +268,7 @@ async function createWaitingTask(req, res) {
 
 //Get assigned tasks (calendar view)
 async function getAssignedTasks(req, res) {
-  const { userEmail } = req.body;
+  const userEmail = req.session.userEmail;
   if (!userEmail) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
@@ -424,7 +433,7 @@ async function updateAssignedTask(req, res) {
           all_day ? 1 : 0,
           duration,
           note,
-          buffer_time,
+          toHHMMSS(buffer_time),
           location_id || null,
           custom_location_address || null,
           custom_location_latitude || null,
@@ -571,7 +580,7 @@ async function updateWaitingTask(req, res) {
         title || "Untitled Task",
         duration,
         note,
-        buffer_time,
+        toHHMMSS(buffer_time),
         location_id || null,
         custom_location_address || null,
         custom_location_latitude || null,
@@ -580,7 +589,7 @@ async function updateWaitingTask(req, res) {
       ]
     );
 
-    // Update only scheduling info in assigned
+    // Update
     await db.promise().query(
       `UPDATE waiting_list
          SET task_duedate = ?,
@@ -787,6 +796,77 @@ async function getWaitingTasks(req, res) {
   }
 }
 
+// Waiting task -> assigned task
+async function assignFromWaiting(req, res) {
+  try {
+    const userEmail = req.session?.userEmail;
+    if (!userEmail) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const waitingId = req.params.id;
+
+    const {
+      start_date,
+      end_date,
+      start_time,
+      end_time,
+      duration,
+      buffer_time,
+      title,
+      note,
+      category_ids,
+      location_id,
+      custom_location_address,
+      custom_location_latitude,
+      custom_location_longitude,
+    } = req.body || {};
+
+    // 1) Load waiting task & check ownership
+    const wt = await taskRepo.getWaitingById(waitingId, userEmail);
+    if (!wt) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Waiting task not found" });
+    }
+
+    // 2) Build assigned payload (inherit + overrides)
+    const assignedPayload = {
+      title: title ?? wt.task_title,
+      note: note ?? wt.task_note ?? "",
+      start_date,
+      end_date: end_date || start_date,
+      start_time,
+      end_time,
+      duration: duration || wt.task_duration,
+      buffer_time: toHHMMSS(buffer_time || wt.task_buffertime || "00:10:00"),
+      category_ids:
+        category_ids ??
+        wt.category_ids ??
+        (wt.category_id ? [wt.category_id] : []),
+      location_id: location_id ?? wt.location_id ?? null,
+      custom_location_address:
+        custom_location_address ?? wt.custom_location_address ?? null,
+      custom_location_latitude:
+        custom_location_latitude ?? wt.custom_location_latitude ?? null,
+      custom_location_longitude:
+        custom_location_longitude ?? wt.custom_location_longitude ?? null,
+      user_email: userEmail,
+    };
+
+    // 3) Promote in a transaction
+    const created = await taskRepo.promoteWaitingToAssigned(
+      waitingId,
+      assignedPayload
+    );
+
+    return res.json({ success: true, data: created });
+  } catch (err) {
+    console.error("assignFromWaiting error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+}
+
 module.exports = {
   createAssignedTask,
   createWaitingTask,
@@ -795,4 +875,5 @@ module.exports = {
   updateWaitingTask,
   deleteTask,
   getWaitingTasks,
+  assignFromWaiting,
 };

@@ -3,6 +3,7 @@
 const express = require("express");
 const router = express.Router();
 const taskController = require("../controllers/taskController");
+const { requireAuth } = require("../middleware/auth");
 
 //Create task
 router.post("/create/assigned", taskController.createAssignedTask);
@@ -18,5 +19,12 @@ router.put("/update/waiting/:task_id", taskController.updateWaitingTask);
 
 // Delete task
 router.delete("/delete/:task_id", taskController.deleteTask);
+
+// Promote waiting -> assigned
+router.post(
+  "/waiting/:id/assign", 
+  requireAuth,
+  taskController.assignFromWaiting
+);
 
 module.exports = router;

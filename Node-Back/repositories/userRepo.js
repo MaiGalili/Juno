@@ -1,5 +1,7 @@
 // repositories/userRepo.js
 const db = require("../db");
+
+
 exports.getSettings = async (email) => {
   const [rows] = await db.promise().query(
     `

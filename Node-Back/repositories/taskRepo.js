@@ -1,6 +1,15 @@
 // repositories/taskRepo.js
 const db = require("../db");
-exports.getAssignedBetween = async (email, startDate, endDate) => {
+
+function toHHMMSS(s) {
+  if (!s) return null;
+  if (/^\d{2}:\d{2}:\d{2}$/.test(s)) return s;
+  if (/^\d{1,2}:\d{2}$/.test(s)) return s.padStart(5, "0") + ":00";
+  return null;
+}
+
+//async function assignFromWaiting(req, res) {}
+async function getAssignedBetween(email, startDate, endDate) {
   const [rows] = await db.promise().query(
     `
     SELECT t.task_id, a.task_start_date, a.task_end_date,
@@ -15,4 +24,89 @@ exports.getAssignedBetween = async (email, startDate, endDate) => {
     [email, startDate, endDate]
   );
   return rows;
+}
+
+async function getWaitingById(waitingId, email) {
+  const [rows] = await db.promise().query(
+    `SELECT t.*, w.task_duedate, w.task_duetime
+     FROM task t
+     JOIN waiting_list w ON w.task_id = t.task_id
+     WHERE t.task_id = ? AND t.email = ?`,
+    [waitingId, email]
+  );
+  return rows[0] || null;
+}
+
+async function createAssignedTaskTx(t, payload) {
+  const [insTask] = await t.query(
+    `INSERT INTO task
+      (task_title, task_duration, task_note, task_buffertime, location_id,
+       custom_location_address, custom_location_latitude, custom_location_longitude,
+       task_all_day, task_repeat, repeat_until, email, series_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'none', NULL, ?, NULL)`,
+    [
+      payload.title,
+      payload.duration,
+      payload.note,
+      toHHMMSS(payload.buffer_time),
+      payload.location_id,
+      payload.custom_location_address,
+      payload.custom_location_latitude,
+      payload.custom_location_longitude,
+      payload.user_email,
+    ]
+  );
+  const newTaskId = insTask.insertId;
+
+  await t.query(
+    `INSERT INTO assigned
+       (task_id, task_start_date, task_end_date, task_start_time, task_end_time)
+     VALUES (?, ?, ?, ?, ?)`,
+    [
+      newTaskId,
+      payload.start_date,
+      payload.end_date,
+      payload.start_time,
+      payload.end_time,
+    ]
+  );
+
+  if (Array.isArray(payload.category_ids)) {
+    for (const cid of payload.category_ids) {
+      await t.query(
+        `INSERT INTO task_category (task_id, category_id) VALUES (?, ?)`,
+        [newTaskId, cid]
+      );
+    }
+  }
+
+  return { task_id: newTaskId };
+}
+
+async function promoteWaitingToAssigned(waitingId, payload) {
+  const conn = await db.promise().getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const created = await createAssignedTaskTx(conn, payload);
+
+    await conn.query(`DELETE FROM task WHERE task_id = ? AND email = ?`, [
+      waitingId,
+      payload.user_email,
+    ]);
+
+    await conn.commit();
+    return created;
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
+  }
+}
+
+module.exports = {
+  getAssignedBetween,
+  getWaitingById,
+  promoteWaitingToAssigned,
 };

@@ -17,6 +17,8 @@ export default function TaskPopup({
   tasks = [],
   userEmail,
 }) {
+  const isEdit = mode === "edit" || !!task?.task_id;
+
   // --- User settings state ---
   const [userSettings, setUserSettings] = useState({
     defult_buffer: "00:10:00",
@@ -45,6 +47,7 @@ export default function TaskPopup({
   const [taskRepeat, setTaskRepeat] = useState("none");
   const [repeatUntil, setRepeatUntil] = useState("");
   const [selectedLocationId, setSelectedLocationId] = useState(null);
+  const [pickedSuggestion, setPickedSuggestion] = useState(false);
 
   // --- UI feedback states ---
   const [error, setError] = useState("");
@@ -54,6 +57,8 @@ export default function TaskPopup({
   const [confirmMessage, setConfirmMessage] = useState("");
   const [showRepeatPopup, setShowRepeatPopup] = useState(false);
   const [repeatPopupAction, setRepeatPopupAction] = useState(""); // "delete" or "edit"
+
+  const normBuf = bufferTime.length === 5 ? bufferTime + ":00" : bufferTime;
 
   const isRepeatingTask = !!(
     task?.series_id &&
@@ -104,7 +109,7 @@ export default function TaskPopup({
 
   // --- Set task fields based on mode and task data ---
   useEffect(() => {
-    if (mode === "create") {
+    if (!isEdit) {
       // Reset task fields
       setTitle("");
       setAllDay(false);
@@ -124,7 +129,7 @@ export default function TaskPopup({
       setUseFavorite(true);
       setTaskRepeat("none");
       setRepeatUntil("");
-    } else if (mode === "edit" || mode === "view") {
+    } else {
       setTitle(task?.task_title || "");
       setNote(task?.task_note || "");
       setDuration(task?.task_duration || "");
@@ -192,7 +197,7 @@ export default function TaskPopup({
         setCustomCoords({ lat: null, lng: null });
       }
     }
-  }, [task, mode, userSettings]);
+  }, [task, isEdit, userSettings]);
 
   // --- Time helpers ---
   const toTime = (str) => {
@@ -251,8 +256,8 @@ export default function TaskPopup({
     }
   }, [
     allDay,
-    userSettings.start_day,
-    userSettings.end_day,
+    userSettings.start_day_time,
+    userSettings.end_day_time,
     startDate,
     endDate,
     startTime,
@@ -269,10 +274,10 @@ export default function TaskPopup({
 
     // New task that looks like waiting (has due date, but no start/end)
     const isNewWaiting =
-      mode === "create" && !!dueDate && !startDate && !startTime && !endTime;
+      !isEdit && !!dueDate && !startDate && !startTime && !endTime;
 
     return isExistingWaiting || isNewWaiting;
-  }, [mode, task, dueDate, startDate, startTime, endTime]);
+  }, [isEdit, task, dueDate, startDate, startTime, endTime]);
 
   // --- Validation and actions ---
   const validate = () => {
@@ -380,8 +385,47 @@ export default function TaskPopup({
   const handleUpdateConfirmed = async (scope = "ONE") => {
     setConfirmAction(null);
     try {
-      // is this a waiting task?
       const isWaitingTask = task?.task_duedate !== undefined;
+      const hasStartFields = !!(startDate && startTime && endTime);
+
+      if (isWaitingTask && hasStartFields) {
+        const promoteBody = {
+          start_date: startDate,
+          end_date: endDate || startDate,
+          start_time: startTime,
+          end_time: endTime,
+          duration,
+          buffer_time: normBuf,
+          title,
+          note,
+          category_ids: selectedCategories,
+          location_id: useFavorite ? locationId || null : null,
+          custom_location_address: !useFavorite ? customAddress : null,
+          custom_location_latitude: !useFavorite ? customCoords.lat : null,
+          custom_location_longitude: !useFavorite ? customCoords.lng : null,
+        };
+
+        const res = await fetch(
+          `http://localhost:8801/api/tasks/waiting/${task.task_id}/assign`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(promoteBody),
+          }
+        );
+        const result = await res.json();
+        if (result.success) {
+          await fetchTasks();
+          onSave?.(result);
+          onClose?.();
+          return; // <-- IMPORTANT: stop here, don't fall through
+        } else {
+          setStatusMessage(result.message || "Failed to assign waiting task");
+          setStatusType("error");
+          return;
+        }
+      }
 
       const endpoint = isWaitingTask
         ? `http://localhost:8801/api/tasks/update/waiting/${task.task_id}`
@@ -399,7 +443,7 @@ export default function TaskPopup({
             custom_location_longitude: !useFavorite ? customCoords.lng : null,
             due_date: dueDate || null,
             due_time: dueTime || null,
-            buffer_time: bufferTime,
+            buffer_time: normBuf,
           }
         : {
             title,
@@ -415,7 +459,7 @@ export default function TaskPopup({
             custom_location_address: !useFavorite ? customAddress : null,
             custom_location_latitude: !useFavorite ? customCoords.lat : null,
             custom_location_longitude: !useFavorite ? customCoords.lng : null,
-            buffer_time: bufferTime,
+            buffer_time: normBuf,
           };
 
       const res = await fetch(endpoint, {
@@ -462,7 +506,7 @@ export default function TaskPopup({
       category_ids: selectedCategories,
       due_date: dueDate || null,
       due_time: dueTime || null,
-      buffer_time: bufferTime.length === 5 ? bufferTime + ":00" : bufferTime,
+      buffer_time: normBuf,
       location_id: useFavorite ? locationId || null : null,
       custom_location_address: !useFavorite ? customAddress : null,
       custom_location_latitude: !useFavorite ? customCoords.lat : null,
@@ -470,14 +514,13 @@ export default function TaskPopup({
     };
 
     const isWaitingTask = dueDate && !startDate && !startTime && !endTime;
-    const endpoint =
-      mode === "edit"
-        ? `http://localhost:8801/api/tasks/${task.task_id}`
-        : isWaitingTask
-        ? "http://localhost:8801/api/tasks/create/waiting"
-        : "http://localhost:8801/api/tasks/create/assigned";
+    const endpoint = isEdit
+      ? `http://localhost:8801/api/tasks/${task.task_id}`
+      : isWaitingTask
+      ? "http://localhost:8801/api/tasks/create/waiting"
+      : "http://localhost:8801/api/tasks/create/assigned";
 
-    const method = mode === "edit" ? "PUT" : "POST";
+    const method = isEdit ? "PUT" : "POST";
 
     try {
       const res = await fetch(endpoint, {
@@ -527,12 +570,15 @@ export default function TaskPopup({
   return (
     <div className={styles.popupWrapper}>
       <div className={styles.popup}>
-        <h2>{task?.task_id ? "Edit Task" : "Create Task"}</h2>
+        <h2>{isEdit ? "Edit Task" : "Create Task"}</h2>
         {!settingsLoaded ? (
           <div>Loading user settings...</div>
         ) : (
           <div className={styles.popupBody}>
-            <form onSubmit={handleSubmit} autoComplete="off">
+            <form
+              onSubmit={isEdit ? (e) => e.preventDefault() : handleSubmit}
+              autoComplete="off"
+            >
               <label>
                 Title:
                 <input
@@ -737,6 +783,7 @@ export default function TaskPopup({
                     setEndDate(sug.endDate);
                     setStartTime(sug.startTime || "");
                     setEndTime(sug.endTime || "");
+                    setPickedSuggestion(true);
                   }}
                 />
               )}
@@ -747,8 +794,10 @@ export default function TaskPopup({
                 <button type="button" onClick={onClose}>
                   Cancel
                 </button>
-                {mode !== "view" && <button type="submit">Save</button>}
-                {task?.task_id && (
+
+                {!isEdit && <button type="submit">Save</button>}
+
+                {isEdit && (
                   <>
                     <button
                       type="button"

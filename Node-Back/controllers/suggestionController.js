@@ -113,21 +113,55 @@ exports.getSuggestions = async (req, res) => {
     const defaultBuffer = user.defult_buffer || "00:10:00";
 
     const needMin = parseHHMM(duration);
+    if (needMin <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "duration must be greater than 00:00",
+      });
+    }
+
     const bufMin = parseHHMM(bufferTime || defaultBuffer);
+
+    // lead time before first suggestion "today"
+    const minLeadMin = Math.max(bufMin, 30); // 30 minutes my choice
+
+    const stepMin = Math.max(15, bufMin); // keep grid pretty
+    const now = new Date();
+    const todayStr = fmtDate(now);
+    const nowMin = now.getHours() * 60 + now.getMinutes();
 
     // define search window
     let searchStartDate,
       searchEndDate,
       endTimeLimitMin = null;
 
+    // start from *today* at midnight (local)
+    searchStartDate = new Date();
+    searchStartDate.setHours(0, 0, 0, 0);
+
     if (startDateYMD) {
+      // explicit one-day search
       searchStartDate = dayKey(startDateYMD);
       searchEndDate = dayKey(startDateYMD);
+    } else if (dueDateYMD) {
+      if (dueTime) {
+        // include due day, but cap that day's end by dueTime
+        searchEndDate = dayKey(dueDateYMD);
+        endTimeLimitMin = parseHHMM(dueTime);
+      } else {
+        // no due time ⇒ finish by the end of the *previous* day
+        searchEndDate = addDays(dayKey(dueDateYMD), -1);
+      }
     } else {
-      searchStartDate = new Date();
-      searchStartDate.setHours(0, 0, 0, 0);
-      searchEndDate = dayKey(dueDateYMD);
-      if (dueTime) endTimeLimitMin = parseHHMM(dueTime);
+      // should not happen because we validate, but be safe
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing dueDate/startDate" });
+    }
+
+    // if the window is already in the past, nothing to offer
+    if (fmtDate(searchEndDate) < fmtDate(searchStartDate)) {
+      return res.json({ success: true, data: [] });
     }
 
     // get assigned tasks in the search window
@@ -175,20 +209,31 @@ exports.getSuggestions = async (req, res) => {
       let dayStartMin = parseHHMM(dayStart.slice(0, 5));
       let dayEndMin = parseHHMM(dayEnd.slice(0, 5));
 
-      // אם זה dueDate עם dueTime – גבול עליון לשעות
+      // clamp end-of-day by due time if same day
       if (dueDateYMD && dateStr === dueDateYMD && endTimeLimitMin != null) {
         dayEndMin = Math.min(dayEndMin, endTimeLimitMin);
       }
 
-      // dont show tasks that start after dayEnd
-      if (dayEndMin > dayStartMin) {
+      // if this is *today*, don't offer past times
+      if (dateStr === todayStr) {
+        dayStartMin = Math.max(dayStartMin, nowMin + minLeadMin);
+        dayStartMin = Math.ceil(dayStartMin / stepMin) * stepMin; // snap to grid
+        if (dayStartMin >= dayEndMin) {
+          d = addDays(d, 1);
+          continue;
+        } // nothing today
+      }
+
+      // nothing to offer if the window is too small
+      if (dayEndMin - dayStartMin >= needMin) {
         const busy = busyByDay.get(dateStr) || [];
         const free = buildFreeIntervalsForDay(
           busy,
           dayStartMin,
           dayEndMin,
           needMin,
-          bufMin
+          bufMin,
+          stepMin
         );
 
         for (const [s, e] of free) {
