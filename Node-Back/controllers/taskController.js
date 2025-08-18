@@ -5,10 +5,16 @@ const taskRepo = require("../repositories/taskRepo");
 
 // Normilize HH:MM:SS
 function toHHMMSS(s) {
-  if (!s) return null;
-  if (/^\d{2}:\d{2}:\d{2}$/.test(s)) return s;
-  if (/^\d{1,2}:\d{2}$/.test(s)) return s.padStart(5, "0") + ":00";
-  return null; // unknown format → let DB default/null handle or validate earlier
+  if (s == null || s === "") return null;
+  const parts = String(s).split(":");
+  if (parts.length === 2) parts.push("00"); // HH:MM -> HH:MM:00
+  if (parts.length !== 3) return null;
+  let [h, m, sec] = parts;
+  if (!/^\d+$/.test(h) || !/^\d+$/.test(m) || !/^\d+$/.test(sec)) return null;
+  h = h.padStart(2, "0");
+  m = m.padStart(2, "0");
+  sec = sec.padStart(2, "0"); // HH:MM:SS
+  return `${h}:${m}:${sec}`;
 }
 
 // Helper: Get default_location_id if needed
@@ -472,7 +478,7 @@ async function updateAssignedTask(req, res) {
             all_day ? 1 : 0,
             duration,
             note,
-            buffer_time,
+            toHHMMSS(buffer_time),
             location_id || null,
             custom_location_address || null,
             custom_location_latitude || null,
@@ -515,7 +521,7 @@ async function updateAssignedTask(req, res) {
             all_day ? 1 : 0,
             duration,
             note,
-            buffer_time,
+            toHHMMSS(buffer_time),
             location_id || null,
             custom_location_address || null,
             custom_location_latitude || null,
@@ -822,6 +828,17 @@ async function assignFromWaiting(req, res) {
       custom_location_longitude,
     } = req.body || {};
 
+    console.log("assignFromWaiting.body:", req.body);
+
+    // Guard: these fields are required to promote a waiting task to an assigned task
+    if (!start_date || !start_time || !end_time) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "start_date, start_time and end_time are required to assign a waiting task",
+      });
+    }
+
     // 1) Load waiting task & check ownership
     const wt = await taskRepo.getWaitingById(waitingId, userEmail);
     if (!wt) {
@@ -854,7 +871,7 @@ async function assignFromWaiting(req, res) {
       user_email: userEmail,
     };
 
-    // 3) Promote in a transaction
+    // 3) Promote in a single transaction
     const created = await taskRepo.promoteWaitingToAssigned(
       waitingId,
       assignedPayload
@@ -862,8 +879,14 @@ async function assignFromWaiting(req, res) {
 
     return res.json({ success: true, data: created });
   } catch (err) {
-    console.error("assignFromWaiting error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error(
+      "assignFromWaiting error:",
+      err?.sqlMessage || err?.message,
+      err
+    );
+    return res
+      .status(500)
+      .json({ success: false, message: err?.sqlMessage || "Server error" });
   }
 }
 

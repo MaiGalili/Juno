@@ -406,6 +406,8 @@ export default function TaskPopup({
           custom_location_address: !useFavorite ? customAddress : null,
           custom_location_latitude: !useFavorite ? customCoords.lat : null,
           custom_location_longitude: !useFavorite ? customCoords.lng : null,
+          due_date: dueDate || null,
+          due_time: dueTime || null,
         };
 
         // ניסיון A: לקדם משימת המתנה בצד השרת
