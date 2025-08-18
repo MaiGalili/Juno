@@ -22,9 +22,15 @@ router.delete("/delete/:task_id", taskController.deleteTask);
 
 // Promote waiting -> assigned
 router.post(
-  "/waiting/:id/assign", 
+  "/waiting/:id/assign",
   requireAuth,
   taskController.assignFromWaiting
+);
+
+// Assigned -> Waiting
+router.post(
+  "/api/tasks/assigned/:id/move-to-waiting",
+  taskController.moveAssignedToWaiting
 );
 
 module.exports = router;

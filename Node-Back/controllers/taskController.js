@@ -890,6 +890,89 @@ async function assignFromWaiting(req, res) {
   }
 }
 
+// Assigned task -> waiting task
+async function moveAssignedToWaiting(req, res) {
+  try {
+    const userEmail = req.session?.userEmail;
+    if (!userEmail) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const assignedId = req.params.id;
+
+    const {
+      // only waiting fields + shared fields (do NOT use start/end here)
+      title,
+      duration,
+      note,
+      category_ids,
+      location_id,
+      custom_location_address,
+      custom_location_latitude,
+      custom_location_longitude,
+      buffer_time,
+      due_date,
+      due_time,
+    } = req.body || {};
+
+    // 1) Verify the task exists and belongs to this user
+    const at = await taskRepo.getAssignedById(assignedId, userEmail);
+    if (!at) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Assigned task not found" });
+    }
+
+    // 2) Build waiting payload (inherit original values, allow client overrides)
+    const waitingPayload = {
+      title: title ?? at.task_title,
+      note: note ?? at.task_note ?? "",
+      duration: duration ?? at.task_duration,
+      buffer_time: buffer_time ?? at.task_buffertime ?? "00:10:00",
+      category_ids:
+        category_ids ??
+        at.category_ids ??
+        (at.category_id ? [at.category_id] : []),
+      location_id: location_id ?? at.location_id ?? null,
+      custom_location_address:
+        custom_location_address ?? at.custom_location_address ?? null,
+      custom_location_latitude:
+        custom_location_latitude ?? at.custom_location_latitude ?? null,
+      custom_location_longitude:
+        custom_location_longitude ?? at.custom_location_longitude ?? null,
+      due_date: due_date || null,
+      due_time: due_time || null,
+      user_email: userEmail,
+    };
+
+    // Guard: due_date is required for waiting tasks
+    if (!waitingPayload.due_date) {
+      return res.status(400).json({
+        success: false,
+        message: "due_date is required to convert an assigned task to waiting",
+      });
+    }
+
+    // 3) Demote in a single transaction
+    const created = await taskRepo.demoteAssignedToWaiting(
+      assignedId,
+      waitingPayload
+    );
+
+    return res.json({ success: true, data: created });
+  } catch (err) {
+    console.error(
+      "moveAssignedToWaiting error:",
+      err?.sqlMessage || err?.message,
+      err
+    );
+    return res
+      .status(500)
+      .json({ success: false, message: err?.sqlMessage || "Server error" });
+  }
+}
+
+
 module.exports = {
   createAssignedTask,
   createWaitingTask,
@@ -899,4 +982,5 @@ module.exports = {
   deleteTask,
   getWaitingTasks,
   assignFromWaiting,
+  moveAssignedToWaiting,
 };
