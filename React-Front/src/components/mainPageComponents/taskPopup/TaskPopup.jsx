@@ -281,6 +281,15 @@ export default function TaskPopup({
     return isExistingWaiting || isNewWaiting;
   }, [isEdit, task, dueDate, startDate, startTime, endTime]);
 
+  // Is this popup in "assigned task" context (has start fields in 'task')?
+  const isAssignedContext = React.useMemo(() => {
+    return !!(
+      task?.task_start_date ||
+      task?.task_start_time ||
+      task?.task_end_time
+    );
+  }, [task]);
+
   // --- Validation and actions ---
   const validate = () => {
     if (!startDate && !dueDate) return "Please select a date or due date.";
@@ -390,6 +399,83 @@ export default function TaskPopup({
       const isWaitingTask =
         task?.task_duedate != null && task.task_duedate !== "";
       const hasStartFields = !!(startDate && startTime && endTime);
+
+      const isAssignedToWaiting =
+        isAssignedContext && !startDate && !startTime && !endTime && !!dueDate;
+
+      if (isAssignedToWaiting) {
+        const convertBody = {
+          title,
+          duration: toHHMMSS(duration),
+          note,
+          category_ids: toIntArray(selectedCategories),
+          location_id: useFavorite ? locationId || null : null,
+          custom_location_address: !useFavorite ? customAddress : null,
+          custom_location_latitude: !useFavorite ? customCoords.lat : null,
+          custom_location_longitude: !useFavorite ? customCoords.lng : null,
+          buffer_time: toHHMMSS(bufferTime),
+          due_date: dueDate || null,
+          due_time: dueTime || null,
+        };
+
+        // Plan-A: server-side convert endpoint
+        const res = await fetch(
+          `http://localhost:8801/api/tasks/assigned/${task.task_id}/move-to-waiting`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(convertBody),
+          }
+        );
+
+        let resultA;
+        try {
+          resultA = await res.json();
+        } catch (_) {
+          resultA = { success: false };
+        }
+
+        if (res.ok && resultA?.success) {
+          await fetchTasks();
+          onSave?.(resultA);
+          onClose?.();
+          return;
+        }
+        // Plan-B: create a new waiting task, then delete the old assigned task
+        const createRes = await fetch(
+          "http://localhost:8801/api/tasks/create/waiting",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(convertBody),
+          }
+        );
+        const createJson = await createRes.json();
+
+        if (createRes.ok && createJson?.success) {
+          await fetch(
+            `http://localhost:8801/api/tasks/delete/${task.task_id}`,
+            {
+              method: "DELETE",
+              credentials: "include",
+            }
+          );
+          await fetchTasks();
+          onSave?.(createJson);
+          onClose?.();
+          return;
+        }
+
+        setStatusMessage(
+          (resultA && resultA.message) ||
+            createJson?.message ||
+            "Failed to convert assigned task to waiting task"
+        );
+        setStatusType("error");
+        return;
+      }
 
       if (isWaitingTask && hasStartFields) {
         const promoteBody = {
