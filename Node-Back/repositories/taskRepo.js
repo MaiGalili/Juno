@@ -1,19 +1,6 @@
 // repositories/taskRepo.js
 const db = require("../db");
 
-function toHHMMSS(s) {
-  if (s == null || s === "") return null;
-  const parts = String(s).split(":");
-  if (parts.length === 2) parts.push("00"); // HH:MM -> HH:MM:00
-  if (parts.length !== 3) return null;
-  let [h, m, sec] = parts;
-  if (!/^\d+$/.test(h) || !/^\d+$/.test(m) || !/^\d+$/.test(sec)) return null;
-  h = h.padStart(2, "0");
-  m = m.padStart(2, "0");
-  sec = sec.padStart(2, "0"); // HH:MM:SS
-  return `${h}:${m}:${sec}`;
-}
-
 //async function assignFromWaiting(req, res) {}
 async function getAssignedBetween(email, startDate, endDate) {
   const [rows] = await db.promise().query(
@@ -53,8 +40,8 @@ async function getWaitingById(waitingId, email) {
   return row;
 }
 
-async function createAssignedTaskTx(t, payload) {
-  const [insTask] = await t.query(
+async function createAssignedTaskTx(conn, payload) {
+  const [insTask] = await conn.query(
     `INSERT INTO task
       (task_title, task_duration, task_note, task_buffertime, location_id,
        custom_location_address, custom_location_latitude, custom_location_longitude,
@@ -64,7 +51,7 @@ async function createAssignedTaskTx(t, payload) {
       payload.title,
       payload.duration,
       payload.note,
-      toHHMMSS(payload.buffer_time),
+      payload.buffer_time,
       payload.location_id,
       payload.custom_location_address,
       payload.custom_location_latitude,
@@ -74,7 +61,7 @@ async function createAssignedTaskTx(t, payload) {
   );
   const newTaskId = insTask.insertId;
 
-  await t.query(
+  await conn.query(
     `INSERT INTO assigned
        (task_id, task_start_date, task_end_date, task_start_time, task_end_time)
      VALUES (?, ?, ?, ?, ?)`,
@@ -89,7 +76,7 @@ async function createAssignedTaskTx(t, payload) {
 
   if (Array.isArray(payload.category_ids)) {
     for (const cid of payload.category_ids) {
-      await t.query(
+      await conn.query(
         `INSERT INTO task_category (task_id, category_id) VALUES (?, ?)`,
         [newTaskId, cid]
       );
