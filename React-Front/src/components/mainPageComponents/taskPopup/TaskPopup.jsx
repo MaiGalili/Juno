@@ -197,6 +197,61 @@ export default function TaskPopup({
     }
   }, [task, isEdit, userSettings]);
 
+  // --- useEffect: Sync and calculate values ---
+  useEffect(() => {
+    if (allDay) {
+      setStartTime((userSettings.start_day_time || "").slice(0, 5));
+      setEndTime((userSettings.end_day_time || "").slice(0, 5));
+    }
+    if (startDate && !endDate) setEndDate(startDate);
+    if (startTime && endTime) {
+      const mins = toTime(endTime) - toTime(startTime);
+      if (mins >= 0) setDuration(fromMinutes(mins));
+    }
+    if (startTime && duration && !endTime) {
+      const endMins = toTime(startTime) + toTime(duration);
+      setEndTime(fromMinutes(endMins));
+    }
+    if (endTime && duration && !startTime) {
+      const startMins = toTime(endTime) - toTime(duration);
+      if (startMins >= 0) setStartTime(fromMinutes(startMins));
+    }
+  }, [
+    allDay,
+    userSettings.start_day_time,
+    userSettings.end_day_time,
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+    duration,
+    statusMessage,
+  ]);
+
+  // When user chooses a due date, clear all start fields (becomes a waiting task)
+  useEffect(() => {
+    if (dueDate) {
+      // only clear if user actually switched to a waiting task
+      setAllDay(false);
+      setStartDate("");
+      setEndDate("");
+      setStartTime("");
+      setEndTime("");
+      setTaskRepeat("none");
+      setRepeatUntil("");
+    }
+  }, [dueDate]);
+
+  // When user edits any start fields, clear due date/time (becomes an assigned task)
+  useEffect(() => {
+    if (startDate || startTime || endTime) {
+      if (dueDate || dueTime) {
+        setDueDate("");
+        setDueTime("");
+      }
+    }
+  }, [startDate, startTime, endTime]);
+
   // --- Time helpers ---
   const toTime = (str) => {
     if (!str) return 0;
@@ -237,52 +292,17 @@ export default function TaskPopup({
     return "";
   }
 
-  // --- useEffect: Sync and calculate values ---
-  useEffect(() => {
-    if (allDay) {
-      setStartTime((userSettings.start_day_time || "").slice(0, 5));
-      setEndTime((userSettings.end_day_time || "").slice(0, 5));
-    }
-    if (startDate && !endDate) setEndDate(startDate);
-    if (startTime && endTime) {
-      const mins = toTime(endTime) - toTime(startTime);
-      if (mins >= 0) setDuration(fromMinutes(mins));
-    }
-    if (startTime && duration && !endTime) {
-      const endMins = toTime(startTime) + toTime(duration);
-      setEndTime(fromMinutes(endMins));
-    }
-    if (endTime && duration && !startTime) {
-      const startMins = toTime(endTime) - toTime(duration);
-      if (startMins >= 0) setStartTime(fromMinutes(startMins));
-    }
-  }, [
-    allDay,
-    userSettings.start_day_time,
-    userSettings.end_day_time,
-    startDate,
-    endDate,
-    startTime,
-    endTime,
-    duration,
-    statusMessage,
-  ]);
-
   // Is this popup in "waiting task" context?
   const isWaitingUI = React.useMemo(() => {
-    // Existing waiting task (has due date, but no assigned start)
     const isExistingWaiting =
       !!task?.task_duedate && !task?.task_start_date && !task?.task_start_time;
-
-    // New task that looks like waiting (has due date, but no start/end)
     const isNewWaiting =
       !isEdit && !!dueDate && !startDate && !startTime && !endTime;
-
     return isExistingWaiting || isNewWaiting;
   }, [isEdit, task, dueDate, startDate, startTime, endTime]);
 
-  // Is this popup in "assigned task" context (has start fields in 'task')?
-  const isAssignedContext = React.useMemo(() => {
+  // Is this popup showing an assigned task initially?
+  const isAssignedUI = React.useMemo(() => {
     return !!(
       task?.task_start_date ||
       task?.task_start_time ||
@@ -400,10 +420,16 @@ export default function TaskPopup({
         task?.task_duedate != null && task.task_duedate !== "";
       const hasStartFields = !!(startDate && startTime && endTime);
 
-      const isAssignedToWaiting =
-        isAssignedContext && !startDate && !startTime && !endTime && !!dueDate;
+      // Compute conversion intent locally (avoid shadowing)
+      const wantsConvertToWaiting =
+        isEdit &&
+        isAssignedUI &&
+        !!dueDate &&
+        !startDate &&
+        !startTime &&
+        !endTime;
 
-      if (isAssignedToWaiting) {
+      if (wantsConvertToWaiting) {
         const convertBody = {
           title,
           duration: toHHMMSS(duration),
@@ -418,31 +444,8 @@ export default function TaskPopup({
           due_time: dueTime || null,
         };
 
-        // Plan-A: server-side convert endpoint
-        const res = await fetch(
-          `http://localhost:8801/api/tasks/assigned/${task.task_id}/move-to-waiting`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify(convertBody),
-          }
-        );
-
-        let resultA;
-        try {
-          resultA = await res.json();
-        } catch (_) {
-          resultA = { success: false };
-        }
-
-        if (res.ok && resultA?.success) {
-          await fetchTasks();
-          onSave?.(resultA);
-          onClose?.();
-          return;
-        }
-        // Plan-B: create a new waiting task, then delete the old assigned task
+        // Try server-side convert if you add it later
+        // Create a new waiting task, then delete the old assigned task
         const createRes = await fetch(
           "http://localhost:8801/api/tasks/create/waiting",
           {
@@ -469,8 +472,7 @@ export default function TaskPopup({
         }
 
         setStatusMessage(
-          (resultA && resultA.message) ||
-            createJson?.message ||
+          createJson?.message ||
             "Failed to convert assigned task to waiting task"
         );
         setStatusType("error");
