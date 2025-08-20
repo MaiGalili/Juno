@@ -1,0 +1,42 @@
+.wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+}
+.input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+.dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #eee;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  margin-top: 6px;
+  max-height: 320px;
+  overflow: auto;
+  z-index: 10;
+}
+.item {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.itemActive {
+  padding: 8px 12px;
+  cursor: pointer;
+  background: #f5f7ff;
+}
+.title {
+  font-weight: 600;
+}
+.meta {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}

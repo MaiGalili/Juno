@@ -3,14 +3,11 @@ import React, { useEffect, useState } from "react";
 import classes from "./mainPage.module.css";
 
 // Components
+import TopBar from "../../components/mainPageComponents/topbar/Topbar";
 import Sidebar from "../../components/mainPageComponents/sidebar/Sidebar";
 import TaskPanel from "../../components/mainPageComponents/taskPanel/TaskPanel";
-import LogoutButton from "../../components/mainPageComponents/logoutButton/LogoutButton";
 import CalendarMain from "../../components/mainPageComponents/calendarMain/CalendarMain";
 import TaskPopup from "../../components/mainPageComponents/taskPopup/TaskPopup";
-
-//icon Settings
-import { FaCog } from "react-icons/fa";
 
 function MainPage({ isLoggin, setIsLoggin }) {
   const [userEmail, setUserEmail] = useState(null);
@@ -186,22 +183,38 @@ function MainPage({ isLoggin, setIsLoggin }) {
     setShowPopup(true);
   };
 
+  // Open TaskPopup in edit mode from the search result
+  const handleTaskSelectFromSearch = (item) => {
+    // item comes from /api/tasks/search -> { id, type, title, ... }
+    if (!item) return;
+
+    if (item.type === "assigned") {
+      // we already have assigned tasks in state (with .raw as the original db row)
+      const hit = tasks.find((t) => t.id === item.id);
+      const taskToEdit = hit?.raw || null;
+      if (taskToEdit) {
+        setSelectedTask(taskToEdit);
+        setPopupMode("edit");
+        setShowPopup(true);
+      }
+    } else if (item.type === "waiting") {
+      // waitingTasks are in a separate list
+      const w = waitingTasks.find((x) => x.task_id === item.id);
+      if (w) {
+        setSelectedTask(w);
+        setPopupMode("edit");
+        setShowPopup(true);
+      }
+    }
+  };
+
   return (
     <div className={classes.pageWrapper}>
       {/* Top bar with search, settings, logout */}
-      <header className={classes.topBar}>
-        <div className={classes.searchContainer}>
-          <input
-            type="text"
-            placeholder="Search Task"
-            className={classes.searchInput}
-          />
-        </div>
-        <div className={classes.topBarButtons}>
-          <FaCog className={classes.settingsIcon} />
-          <LogoutButton setIsLoggin={setIsLoggin} />
-        </div>
-      </header>
+      <TopBar
+        onTaskSelect={handleTaskSelectFromSearch}
+        setIsLoggin={setIsLoggin}
+      />
 
       {/* Main content layout */}
       <div className={classes.mainContent}>

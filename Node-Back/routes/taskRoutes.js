@@ -33,4 +33,6 @@ router.post(
   taskController.moveAssignedToWaiting
 );
 
+router.get("/tasks/search", searchController.searchTasks);
+
 module.exports = router;

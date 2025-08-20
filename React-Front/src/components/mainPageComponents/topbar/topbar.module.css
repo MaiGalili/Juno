@@ -1,0 +1,38 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background-color: white;
+  border-bottom: 1px solid #ddd;
+}
+
+.logo {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.searchWrapper {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  margin: 0 20px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settingsBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #333;
+}
+
+.settingsBtn:hover {
+  color: #666;
+}
