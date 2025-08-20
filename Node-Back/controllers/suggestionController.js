@@ -159,9 +159,10 @@ exports.getSuggestions = async (req, res) => {
     const bufMin = parseHHMM(bufferTime || defaultBuffer);
     const stepMin = Math.max(15, bufMin);
 
-    const todayStr = nowYMD || fmtDate(new Date());
-    const nowMin = Number.isFinite(nowMinOfDay)
-      ? Number(nowMinOfDay)
+    const todayStr = toYMD(nowYMD) || fmtDate(new Date());
+    const parsedNow = Number(nowMinOfDay);
+    const nowMin = Number.isFinite(parsedNow)
+      ? parsedNow
       : new Date().getHours() * 60 + new Date().getMinutes();
     const minLeadMin = Math.max(bufMin, 30);
 
@@ -170,7 +171,9 @@ exports.getSuggestions = async (req, res) => {
       endTimeLimitMin = null;
 
     if (startDateYMD) {
-      searchStartDate = dayKey(startDateYMD);
+      const start = dayKey(startDateYMD);
+      const today = dayKey(todayStr);
+      searchStartDate = start < today ? today : start;
       searchEndDate = dayKey(startDateYMD);
     } else if (dueDateYMD) {
       if (dueTime) {
@@ -225,6 +228,8 @@ exports.getSuggestions = async (req, res) => {
 
       const sMin = parseHHMM(startHHMM);
       const eMin = parseHHMM(endHHMM);
+      //avoid empty range
+      if (!(eMin > sMin)) continue;
 
       // --- location (if any)
       let loc = null;
@@ -280,15 +285,24 @@ exports.getSuggestions = async (req, res) => {
     let d = new Date(searchStartDate);
     const last = addDays(searchEndDate, 1);
 
+    console.log("[suggestions]", { todayStr, nowMin, minLeadMin, stepMin });
+
+    // compute a robust "today cutoff" in minutes from midnight, aligned to stepMin
+    const todayCutoff = Math.ceil((nowMin + minLeadMin) / stepMin) * stepMin;
+
     while (d < last && results.length < offset + limit + 6) {
       const dateStr = fmtDate(d);
+
+      // day bounds from user settings
       let dayStartMin = parseHHMM(dayStart.slice(0, 5));
       let dayEndMin = parseHHMM(dayEnd.slice(0, 5));
 
+      // if there is a dueTime on the dueDate, cap the day end
       if (dueDateYMD && dateStr === dueDateYMD && endTimeLimitMin != null) {
         dayEndMin = Math.min(dayEndMin, endTimeLimitMin);
       }
 
+      // if today, don’t allow anything before (now + lead), snapped to step
       if (dateStr === todayStr) {
         dayStartMin = Math.max(dayStartMin, nowMin + minLeadMin);
         dayStartMin = Math.ceil(dayStartMin / stepMin) * stepMin;
@@ -300,7 +314,9 @@ exports.getSuggestions = async (req, res) => {
 
       if (dayEndMin - dayStartMin >= needMin) {
         const busyWithLoc = busyByDay.get(dateStr) || [];
-        const free = buildFreeWithTravel(
+
+        // NOTE: 'let' (not 'const') because we filter it for "today"
+        let free = buildFreeWithTravel(
           busyWithLoc,
           dayStartMin,
           dayEndMin,
@@ -310,6 +326,12 @@ exports.getSuggestions = async (req, res) => {
           stepMin,
           3
         );
+
+        // Drop any option that starts before the "today cutoff"
+        if (dateStr === todayStr) {
+          free = free.filter((f) => f.start >= todayCutoff);
+        }
+
         for (const f of free) {
           results.push({
             startDate: dateStr,
