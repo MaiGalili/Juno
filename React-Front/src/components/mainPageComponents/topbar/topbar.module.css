@@ -1,23 +1,36 @@
 .topbar {
+  position: sticky; /* <-- sticks within the scrolling container */
+  top: 0; /* <-- stick to the very top */
+  z-index: 100; /* <-- stays above calendar/sidebars */
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
   padding: 10px 20px;
-  background-color: white;
-  border-bottom: 1px solid #ddd;
+  background: #fff;
+  border-bottom: 1px solid #e5e5e5;
+
+  /* optional nicety */
+  backdrop-filter: saturate(120%) blur(4px);
 }
 
 .logo {
   font-size: 1.4rem;
-  font-weight: bold;
+  font-weight: 700;
   color: #333;
 }
 
 .searchWrapper {
-  flex: 1;
+  flex: 1; /* center section grows */
   display: flex;
-  justify-content: center;
-  margin: 0 20px;
+  justify-content: center; /* centers the SearchBar */
+  min-width: 240px;
+}
+
+/* If your SearchBar input isn’t already constrained, add: */
+.searchWrapper :global(input) {
+  max-width: 640px; /* keeps it nice and centered */
+  width: 100%;
 }
 
 .actions {
@@ -31,8 +44,11 @@
   border: none;
   cursor: pointer;
   color: #333;
+  padding: 6px 8px;
+  border-radius: 8px;
 }
 
 .settingsBtn:hover {
-  color: #666;
+  background: #f3f3f3;
+  color: #555;
 }
