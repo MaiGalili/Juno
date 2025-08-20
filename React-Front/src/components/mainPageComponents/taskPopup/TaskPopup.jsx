@@ -909,6 +909,7 @@ export default function TaskPopup({
                   bufferTime={bufferTime}
                   locationId={useFavorite ? locationId : null}
                   customAddress={!useFavorite ? customAddress : null}
+                  customCoords={!useFavorite ? customCoords : null}
                   onSelectSuggestion={(sug) => {
                     setStartDate(sug.startDate);
                     setEndDate(sug.endDate);

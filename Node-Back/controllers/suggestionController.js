@@ -2,6 +2,74 @@
 const taskRepo = require("../repositories/taskRepo");
 const userRepo = require("../repositories/userRepo");
 
+// Haversine helper: minutes at ~30 km/h city average (tweak as you like)
+function travelMinutes(from, to, kmh = 30) {
+  if (!from || !to || from.lat == null || to.lat == null) return 0;
+  const R = 6371,
+    toRad = (x) => (x * Math.PI) / 180;
+  const dLat = toRad(to.lat - from.lat);
+  const dLon = toRad(to.lng - from.lng);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(from.lat)) *
+      Math.cos(toRad(to.lat)) *
+      Math.sin(dLon / 2) ** 2;
+  const d = 2 * R * Math.asin(Math.sqrt(a)); // km
+  return Math.ceil((d / kmh) * 60); // minutes
+}
+
+// Build suggestions inside gaps, respecting:
+// prevTask → travelToCandidate + candidate + buffer + travelCandidateToNext ← nextTask
+function buildFreeWithTravel(
+  busyWithLoc, // [{start,end,loc}] sorted & merged
+  dayStartMin,
+  dayEndMin,
+  neededMin,
+  bufferMin,
+  candidateLoc, // {lat,lng} or null
+  stepMin = Math.max(15, bufferMin),
+  maxPerGap = 3
+) {
+  const res = [];
+  const guards = [
+    { start: dayStartMin, end: dayStartMin, loc: null }, // "start of day"
+    ...busyWithLoc,
+    { start: dayEndMin, end: dayEndMin, loc: null }, // "end of day"
+  ];
+
+  for (let i = 0; i < guards.length - 1; i++) {
+    const A = guards[i]; // previous busy block (or day start)
+    const B = guards[i + 1]; // next busy block (or day end)
+
+    const tFromA = travelMinutes(A.loc, candidateLoc); // A -> candidate
+    const tToB = travelMinutes(candidateLoc, B.loc); // candidate -> B
+
+    // Earliest we can start after A finishes (including travel)
+    let earliest = A.end + tFromA;
+    // Latest we must finish before B starts (leave buffer + travel to B)
+    const latestFinish = B.start - bufferMin - tToB;
+
+    // No room for the candidate?
+    if (latestFinish - earliest < neededMin) continue;
+
+    // Snap earliest to the step grid
+    earliest = Math.ceil(earliest / stepMin) * stepMin;
+
+    // Generate up to maxPerGap stepped options inside this gap
+    let count = 0;
+    for (let s = earliest; s + neededMin <= latestFinish; s += stepMin) {
+      res.push({
+        start: s,
+        end: s + neededMin,
+        meta: `+${tFromA}m travel / +${tToB}m next`,
+      });
+      if (++count >= maxPerGap) break;
+    }
+  }
+
+  return res;
+}
+
 function parseHHMM(s) {
   if (!s) return 0;
   const [h, m] = s.slice(0, 5).split(":").map(Number);
@@ -12,16 +80,19 @@ function toHHMM(mins) {
   const m = String(mins % 60).padStart(2, "0");
   return `${h}:${m}`;
 }
+
 function dayKey(dateStr) {
   // YYYY-MM-DD -> Date (local)
   const [y, m, d] = dateStr.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
+
 function addDays(date, n) {
   const d = new Date(date);
   d.setDate(d.getDate() + n);
   return d;
 }
+
 function fmtDate(d) {
   // -> YYYY-MM-DD (local)
   const y = d.getFullYear();
@@ -39,43 +110,6 @@ function toYMD(input) {
   return null;
 }
 
-// Build free slots for a single day given busy intervals and day bounds
-function buildFreeIntervalsForDay(
-  busy,
-  dayStartMin,
-  dayEndMin,
-  neededMin,
-  bufferMin,
-  stepMin = Math.max(15, bufferMin) // 15 min or buffer, whichever is larger
-) {
-  const res = [];
-  let cursor = dayStartMin;
-
-  // one definition is enough
-  const pushSliding = (start, end) => {
-    let s = Math.ceil(start / stepMin) * stepMin; // align to step grid
-    while (s + neededMin <= end) {
-      res.push([s, s + neededMin]);
-      s += stepMin;
-    }
-  };
-
-  for (const [bStart, bEnd] of busy) {
-    // free gap until next busy block, leave buffer BEFORE the busy block
-    const gapStart = cursor;
-    const gapEnd = Math.max(gapStart, bStart - bufferMin);
-    pushSliding(gapStart, gapEnd);
-
-    // hop after the busy block (+buffer after)
-    cursor = Math.max(cursor, bEnd + bufferMin);
-    if (cursor >= dayEndMin) return res;
-  }
-
-  // tail gap to end of day
-  pushSliding(cursor, dayEndMin);
-  return res;
-}
-
 // Get suggestions for a task
 exports.getSuggestions = async (req, res) => {
   try {
@@ -90,7 +124,10 @@ exports.getSuggestions = async (req, res) => {
       startDate,
       bufferTime,
       locationId,
-      customAddress,
+      customAddress, // still allowed (string)
+      customLat,
+      customLng,
+      customCoords, // NEW (any of these ok)
       offset = 0,
       limit = 3,
     } = req.body || {};
@@ -102,11 +139,9 @@ exports.getSuggestions = async (req, res) => {
       });
     }
 
-    // Normalize dates once
     const dueDateYMD = toYMD(dueDate);
     const startDateYMD = toYMD(startDate);
 
-    // user settings
     const user = await userRepo.getSettings(userEmail);
     const dayStart = user.start_day_time || "08:00:00";
     const dayEnd = user.end_day_time || "21:00:00";
@@ -119,131 +154,167 @@ exports.getSuggestions = async (req, res) => {
         message: "duration must be greater than 00:00",
       });
     }
-
     const bufMin = parseHHMM(bufferTime || defaultBuffer);
+    const stepMin = Math.max(15, bufMin);
 
-    // lead time before first suggestion "today"
-    const minLeadMin = Math.max(bufMin, 30); // 30 minutes my choice
-
-    const stepMin = Math.max(15, bufMin); // keep grid pretty
     const now = new Date();
     const todayStr = fmtDate(now);
     const nowMin = now.getHours() * 60 + now.getMinutes();
+    const minLeadMin = Math.max(bufMin, 30);
 
-    // define search window
-    let searchStartDate,
-      searchEndDate,
+    let searchStartDate = new Date();
+    searchStartDate.setHours(0, 0, 0, 0);
+    let searchEndDate,
       endTimeLimitMin = null;
 
-    // start from *today* at midnight (local)
-    searchStartDate = new Date();
-    searchStartDate.setHours(0, 0, 0, 0);
-
     if (startDateYMD) {
-      // explicit one-day search
       searchStartDate = dayKey(startDateYMD);
       searchEndDate = dayKey(startDateYMD);
     } else if (dueDateYMD) {
       if (dueTime) {
-        // include due day, but cap that day's end by dueTime
         searchEndDate = dayKey(dueDateYMD);
         endTimeLimitMin = parseHHMM(dueTime);
       } else {
-        // no due time ⇒ finish by the end of the *previous* day
         searchEndDate = addDays(dayKey(dueDateYMD), -1);
       }
     } else {
-      // should not happen because we validate, but be safe
       return res
         .status(400)
         .json({ success: false, message: "Missing dueDate/startDate" });
     }
 
-    // if the window is already in the past, nothing to offer
     if (fmtDate(searchEndDate) < fmtDate(searchStartDate)) {
       return res.json({ success: true, data: [] });
     }
 
-    // get assigned tasks in the search window
     const assigned = await taskRepo.getAssignedBetween(
       userEmail,
       fmtDate(searchStartDate),
       fmtDate(searchEndDate)
     );
-    // create a busyByDay map
-    const busyByDay = new Map(); // key: YYYY-MM-DD -> [[s,e],...]
+
+    const busyByDay = new Map();
+
+    // 1) Build busyByDay with normalized date/time and location
     for (const t of assigned) {
-      // expected format
-      const dStr = t.task_start_date; // only single day
-      const sMin = parseHHMM(t.task_start_time || "");
-      const eMin = parseHHMM(t.task_end_time || "");
+      // --- normalize date to 'YYYY-MM-DD'
+      const dStr =
+        typeof t.task_start_date === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(t.task_start_date)
+          ? t.task_start_date
+          : fmtDate(new Date(t.task_start_date));
+      if (!dStr) continue;
+
+      // --- normalize times to 'HH:MM', then to minutes
+      const startHHMM =
+        typeof t.task_start_time === "string"
+          ? t.task_start_time
+          : toHHMM(
+              new Date(t.task_start_time).getHours() * 60 +
+                new Date(t.task_start_time).getMinutes()
+            );
+      const endHHMM =
+        typeof t.task_end_time === "string"
+          ? t.task_end_time
+          : toHHMM(
+              new Date(t.task_end_time).getHours() * 60 +
+                new Date(t.task_end_time).getMinutes()
+            );
+
+      const sMin = parseHHMM(startHHMM);
+      const eMin = parseHHMM(endHHMM);
+
+      // --- location (if any)
+      let loc = null;
+      if (
+        t.custom_location_latitude != null &&
+        t.custom_location_longitude != null
+      ) {
+        loc = {
+          lat: Number(t.custom_location_latitude),
+          lng: Number(t.custom_location_longitude),
+        };
+      } else if (t.location_latitude != null && t.location_longitude != null) {
+        loc = {
+          lat: Number(t.location_latitude),
+          lng: Number(t.location_longitude),
+        };
+      }
+
       if (!busyByDay.has(dStr)) busyByDay.set(dStr, []);
-      busyByDay.get(dStr).push([sMin, eMin]);
+      busyByDay.get(dStr).push({ start: sMin, end: eMin, loc });
     }
-    // sort and merge busy intervals
+
+    // 2) Merge overlaps per day (keep earliest block's loc)
     for (const [dStr, arr] of busyByDay) {
-      arr.sort((a, b) => a[0] - b[0]);
+      arr.sort((a, b) => a.start - b.start);
       const merged = [];
       for (const iv of arr) {
-        if (!merged.length || iv[0] > merged[merged.length - 1][1]) {
-          merged.push(iv.slice());
+        if (!merged.length || iv.start > merged[merged.length - 1].end) {
+          merged.push({ ...iv });
         } else {
-          merged[merged.length - 1][1] = Math.max(
-            merged[merged.length - 1][1],
-            iv[1]
+          merged[merged.length - 1].end = Math.max(
+            merged[merged.length - 1].end,
+            iv.end
           );
+          // keep loc from earliest block (good enough for travel-from)
         }
       }
       busyByDay.set(dStr, merged);
     }
 
-    //run  until we have enough
+    // Candidate location
+    let candidateLoc = null;
+    const candLat = customLat ?? customCoords?.lat;
+    const candLng = customLng ?? customCoords?.lng;
+    if (candLat != null && candLng != null) {
+      candidateLoc = { lat: Number(candLat), lng: Number(candLng) };
+    } else if (locationId) {
+      // Optional: resolve favorite lat/lng here if you want strict travel;
+      // otherwise keep null => 0 travel for "anywhere".
+    }
+
     const results = [];
     let d = new Date(searchStartDate);
-    const last = addDays(searchEndDate, 1); // exclusive
+    const last = addDays(searchEndDate, 1);
 
     while (d < last && results.length < offset + limit + 6) {
-      // space between tasks 6
       const dateStr = fmtDate(d);
-
       let dayStartMin = parseHHMM(dayStart.slice(0, 5));
       let dayEndMin = parseHHMM(dayEnd.slice(0, 5));
 
-      // clamp end-of-day by due time if same day
       if (dueDateYMD && dateStr === dueDateYMD && endTimeLimitMin != null) {
         dayEndMin = Math.min(dayEndMin, endTimeLimitMin);
       }
 
-      // if this is *today*, don't offer past times
       if (dateStr === todayStr) {
         dayStartMin = Math.max(dayStartMin, nowMin + minLeadMin);
-        dayStartMin = Math.ceil(dayStartMin / stepMin) * stepMin; // snap to grid
+        dayStartMin = Math.ceil(dayStartMin / stepMin) * stepMin;
         if (dayStartMin >= dayEndMin) {
           d = addDays(d, 1);
           continue;
-        } // nothing today
+        }
       }
 
-      // nothing to offer if the window is too small
       if (dayEndMin - dayStartMin >= needMin) {
-        const busy = busyByDay.get(dateStr) || [];
-        const free = buildFreeIntervalsForDay(
-          busy,
+        const busyWithLoc = busyByDay.get(dateStr) || [];
+        const free = buildFreeWithTravel(
+          busyWithLoc,
           dayStartMin,
           dayEndMin,
           needMin,
           bufMin,
-          stepMin
+          candidateLoc,
+          stepMin,
+          3
         );
-
-        for (const [s, e] of free) {
+        for (const f of free) {
           results.push({
             startDate: dateStr,
             endDate: dateStr,
-            startTime: toHHMM(s),
-            endTime: toHHMM(e),
-            // אופציונלי: meta לסיבה/עלות/נסיעה וכו’
-            meta: undefined,
+            startTime: toHHMM(f.start),
+            endTime: toHHMM(f.end),
+            meta: f.meta,
           });
           if (results.length >= offset + limit) break;
         }
@@ -254,7 +325,6 @@ exports.getSuggestions = async (req, res) => {
     }
 
     const page = results.slice(offset, offset + limit);
-
     return res.json({ success: true, data: page });
   } catch (err) {
     console.error("getSuggestions error:", err);

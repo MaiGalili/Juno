@@ -5,10 +5,18 @@ const db = require("../db");
 async function getAssignedBetween(email, startDate, endDate) {
   const [rows] = await db.promise().query(
     `
-    SELECT t.task_id, a.task_start_date, a.task_end_date,
-           a.task_start_time, a.task_end_time
+    SELECT
+      t.task_id,
+      a.task_start_date, a.task_end_date,
+      a.task_start_time, a.task_end_time,
+      -- for travel:
+      t.location_id,
+      t.custom_location_latitude, t.custom_location_longitude,
+      loc.latitude  AS location_latitude,
+      loc.longitude AS location_longitude
     FROM assigned a
-    JOIN task t ON t.task_id = a.task_id
+    JOIN task t     ON t.task_id = a.task_id
+    LEFT JOIN location loc ON loc.location_id = t.location_id
     WHERE t.email = ?
       AND a.task_start_date >= ?
       AND a.task_start_date <= ?
@@ -193,7 +201,6 @@ async function demoteAssignedToWaiting(assignedId, payload) {
     throw e;
   }
 }
-
 
 module.exports = {
   getAssignedBetween,

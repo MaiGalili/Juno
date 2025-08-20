@@ -10,6 +10,7 @@ export default function TaskSuggestionsPanel({
   bufferTime,
   locationId,
   customAddress,
+  customCoords,
   onSelectSuggestion,
 }) {
   const [offset, setOffset] = useState(0); // for "Show more"
@@ -47,6 +48,8 @@ export default function TaskSuggestionsPanel({
             bufferTime,
             locationId: locationId || null,
             customAddress: customAddress || null,
+            customLat: customCoords?.lat ?? null,
+            customLng: customCoords?.lng ?? null,
             offset,
             limit: 3,
           }),
@@ -102,7 +105,15 @@ export default function TaskSuggestionsPanel({
   useEffect(() => {
     resetPaging();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [duration, dueDate, dueTime, bufferTime, locationId, customAddress]);
+  }, [
+    duration,
+    dueDate,
+    dueTime,
+    bufferTime,
+    locationId,
+    customAddress,
+    customCoords,
+  ]);
 
   const LOCALE = "en-US"; // or: navigator.language || "en-US"
   const HOUR12 = true; // set false for 24h clock
