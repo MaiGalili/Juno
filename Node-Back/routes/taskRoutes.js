@@ -3,6 +3,7 @@
 const express = require("express");
 const router = express.Router();
 const taskController = require("../controllers/taskController");
+const searchController = require("../controllers/searchController");
 const { requireAuth } = require("../middleware/auth");
 
 //Create task
@@ -29,10 +30,11 @@ router.post(
 
 // Assigned -> Waiting
 router.post(
-  "/api/tasks/assigned/:id/move-to-waiting",
+  "/assigned/:id/move-to-waiting",
   taskController.moveAssignedToWaiting
 );
 
-router.get("/tasks/search", searchController.searchTasks);
+// Search route
+router.get("/search", searchController.searchTasks);
 
 module.exports = router;

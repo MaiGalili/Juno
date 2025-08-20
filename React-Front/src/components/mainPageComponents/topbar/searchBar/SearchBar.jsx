@@ -23,10 +23,14 @@ export default function SearchBar({ onPick }) {
     (async () => {
       try {
         const params = new URLSearchParams({ q: debouncedQ });
-        const res = await fetch(`/api/tasks/search?${params.toString()}`, {
-          credentials: "include",
-          signal: ac.signal,
-        });
+        const res = await fetch(
+          `http://localhost:8801/api/tasks/search?${params.toString()}`,
+          {
+            credentials: "include",
+            signal: ac.signal,
+          }
+        );
+
         const json = await res.json();
         if (json?.success) {
           setResults(json.data || []);

@@ -83,7 +83,8 @@ async function login(req, res) {
       }
 
       // Store user's email in session
-      req.session.userEmail = email;
+      req.session.userEmail = 
+      email;
       console.log("Session created after login:", req.session);
 
       return res.json({ success: true, message: "Login successful" });
