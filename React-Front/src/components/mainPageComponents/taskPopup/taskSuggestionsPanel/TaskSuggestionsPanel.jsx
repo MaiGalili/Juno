@@ -35,6 +35,12 @@ export default function TaskSuggestionsPanel({
         setLoading(true);
         setError("");
 
+        const now = new Date();
+        const nowYMD = `${now.getFullYear()}-${String(
+          now.getMonth() + 1
+        ).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        const nowMinOfDay = now.getHours() * 60 + now.getMinutes();
+
         const res = await fetch("/api/tasks/suggestions", {
           method: "POST",
           credentials: "include",
@@ -50,6 +56,8 @@ export default function TaskSuggestionsPanel({
             customAddress: customAddress || null,
             customLat: customCoords?.lat ?? null,
             customLng: customCoords?.lng ?? null,
+            nowYMD,
+            nowMinOfDay,
             offset,
             limit: 3,
           }),

@@ -124,10 +124,12 @@ exports.getSuggestions = async (req, res) => {
       startDate,
       bufferTime,
       locationId,
-      customAddress, // still allowed (string)
+      customAddress,
       customLat,
       customLng,
-      customCoords, // NEW (any of these ok)
+      customCoords,
+      nowYMD,
+      nowMinOfDay,
       offset = 0,
       limit = 3,
     } = req.body || {};
@@ -157,13 +159,13 @@ exports.getSuggestions = async (req, res) => {
     const bufMin = parseHHMM(bufferTime || defaultBuffer);
     const stepMin = Math.max(15, bufMin);
 
-    const now = new Date();
-    const todayStr = fmtDate(now);
-    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const todayStr = nowYMD || fmtDate(new Date());
+    const nowMin = Number.isFinite(nowMinOfDay)
+      ? Number(nowMinOfDay)
+      : new Date().getHours() * 60 + new Date().getMinutes();
     const minLeadMin = Math.max(bufMin, 30);
 
-    let searchStartDate = new Date();
-    searchStartDate.setHours(0, 0, 0, 0);
+    let searchStartDate = dayKey(todayStr);
     let searchEndDate,
       endTimeLimitMin = null;
 
