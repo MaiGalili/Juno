@@ -28,9 +28,9 @@ export default function CalendarMain({
   onSelectTask,
   onCreateTask,
 }) {
-
   //State
   const [currentView, setCurrentView] = useState("week");
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   //Style customizer for events
   const eventStyleGetter = (event) => {
@@ -50,7 +50,6 @@ export default function CalendarMain({
     };
   };
 
-  
   //When an existing task is selected from the calendar
   const handleSelectEvent = (event) => {
     onSelectTask?.(event.raw || event);
@@ -70,17 +69,30 @@ export default function CalendarMain({
     await fetchTasks();
   };
 
+  // Wire the toolbar navigation to your date state
+  const handleNavigate = (newDate, view, action) => {
+    // action is one of: 'TODAY' | 'DATE' | 'NEXT' | 'PREV'
+    if (action === "TODAY") {
+      setCurrentDate(new Date());
+    } else {
+      setCurrentDate(newDate); // RBC already computes next/prev by current view
+    }
+  };
+
   return (
     <div style={{ height: "calc(100vh - 100px)", padding: "20px" }}>
       <Calendar
-        view={currentView}
-        onView={setCurrentView}
         localizer={localizer}
         events={tasks}
         startAccessor="start"
         endAccessor="end"
-        defaultView="week"
         views={["day", "week", "month"]}
+        // controlled pieces:
+        view={currentView}
+        onView={setCurrentView}
+        date={currentDate}
+        onNavigate={handleNavigate}
+        //
         selectable
         style={{ height: "100%" }}
         eventPropGetter={eventStyleGetter}
