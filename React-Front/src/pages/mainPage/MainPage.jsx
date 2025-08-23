@@ -19,6 +19,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
   const [selectedTask, setSelectedTask] = useState(null);
   const [popupMode, setPopupMode] = useState("view");
   const [userSettings, setUserSettings] = useState({});
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   // Functions to open and close the popup
   const handleCreateTask = () => {
@@ -220,6 +221,8 @@ function MainPage({ isLoggin, setIsLoggin }) {
       <div className={classes.mainContent}>
         <div className={classes.sidebar}>
           <Sidebar
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
             userEmail={userEmail}
             setShowPopup={setShowPopup}
             userCategories={categories}
@@ -242,6 +245,8 @@ function MainPage({ isLoggin, setIsLoggin }) {
               setSelectedTask(slotTask);
               setShowPopup(true);
             }}
+            date={selectedDate}
+            onDateChange={setSelectedDate}
           />
         </div>
         <div className={classes.taskPanel}>
