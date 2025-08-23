@@ -34,7 +34,7 @@ router.post(
   taskController.moveAssignedToWaiting
 );
 
-// Search route
-router.get("/search", searchController.searchTasks);
+// Search route (fix path)
+router.get("/search", requireAuth, searchController.searchTasks);
 
 module.exports = router;

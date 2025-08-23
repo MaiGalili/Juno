@@ -3,10 +3,19 @@ const taskRepo = require("../repositories/taskRepo");
 const userRepo = require("../repositories/userRepo");
 
 // Haversine helper: minutes at ~30 km/h city average (tweak as you like)
-function travelMinutes(from, to, kmh = 30) {
+function travelMinutes(from, to, mode = "driving") {
   if (!from || !to || from.lat == null || to.lat == null) return 0;
-  const R = 6371,
-    toRad = (x) => (x * Math.PI) / 180;
+
+  const kmhByMode = {
+    driving: 35,
+    walking: 5,
+    bicycling: 15,
+    transit: 25,
+  };
+  const kmh = kmhByMode[mode] ?? 30;
+
+  const R = 6371;
+  const toRad = (x) => (x * Math.PI) / 180;
   const dLat = toRad(to.lat - from.lat);
   const dLon = toRad(to.lng - from.lng);
   const a =
@@ -16,6 +25,51 @@ function travelMinutes(from, to, kmh = 30) {
       Math.sin(dLon / 2) ** 2;
   const d = 2 * R * Math.asin(Math.sqrt(a)); // km
   return Math.ceil((d / kmh) * 60); // minutes
+}
+
+function buildFreeWithTravel(
+  busyWithLoc,
+  dayStartMin,
+  dayEndMin,
+  neededMin,
+  bufferMin,
+  candidateLoc,
+  stepMin = Math.max(15, bufferMin),
+  maxPerGap = 3,
+  travelMode = "driving"
+) {
+  const res = [];
+  const guards = [
+    { start: dayStartMin, end: dayStartMin, loc: null },
+    ...busyWithLoc,
+    { start: dayEndMin, end: dayEndMin, loc: null },
+  ];
+
+  for (let i = 0; i < guards.length - 1; i++) {
+    const A = guards[i];
+    const B = guards[i + 1];
+
+    const tFromA = travelMinutes(A.loc, candidateLoc, travelMode);
+    const tToB = travelMinutes(candidateLoc, B.loc, travelMode);
+
+    let earliest = A.end + tFromA;
+    const latestFinish = B.start - bufferMin - tToB;
+
+    if (latestFinish - earliest < neededMin) continue;
+
+    earliest = Math.ceil(earliest / stepMin) * stepMin;
+
+    let count = 0;
+    for (let s = earliest; s + neededMin <= latestFinish; s += stepMin) {
+      res.push({
+        start: s,
+        end: s + neededMin,
+        meta: `+${tFromA}m travel / +${tToB}m next`,
+      });
+      if (++count >= maxPerGap) break;
+    }
+  }
+  return res;
 }
 
 // Build suggestions inside gaps, respecting:
@@ -75,6 +129,7 @@ function parseHHMM(s) {
   const [h, m] = s.slice(0, 5).split(":").map(Number);
   return h * 60 + m;
 }
+
 function toHHMM(mins) {
   const h = String(Math.floor(mins / 60)).padStart(2, "0");
   const m = String(mins % 60).padStart(2, "0");
@@ -324,7 +379,8 @@ exports.getSuggestions = async (req, res) => {
           bufMin,
           candidateLoc,
           stepMin,
-          3
+          3,
+          user.travel_mode || "driving"
         );
 
         // Drop any option that starts before the "today cutoff"
