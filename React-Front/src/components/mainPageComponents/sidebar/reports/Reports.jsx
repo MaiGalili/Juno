@@ -4,6 +4,52 @@ import s from "./reports.module.css";
 import { format } from "date-fns";
 
 // Helpers
+
+// Rough distance (km) via haversine
+function haversineKm(a, b) {
+  if (!a || !b || a.lat == null || b.lat == null) return 0;
+  const toRad = (x) => (x * Math.PI) / 180;
+  const R = 6371; // km
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lng - a.lng);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+const speedKmhByMode = {
+  driving: 35, // tune for your city
+  walking: 5,
+  bicycling: 15,
+  transit: 25,
+};
+
+// Pull a friendly name + coords from a task
+function getTaskLocation(task) {
+  const raw = task.raw || {};
+  // custom coords override
+  if (
+    raw.custom_location_latitude != null &&
+    raw.custom_location_longitude != null
+  ) {
+    return {
+      name: raw.custom_address || "Custom place",
+      lat: Number(raw.custom_location_latitude),
+      lng: Number(raw.custom_location_longitude),
+    };
+  }
+  // favorite location
+  if (raw.location_latitude != null && raw.location_longitude != null) {
+    return {
+      name: raw.location_name || "Location",
+      lat: Number(raw.location_latitude),
+      lng: Number(raw.location_longitude),
+    };
+  }
+  return { name: "", lat: null, lng: null };
+}
+
 const toHM = (mins) => {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -112,14 +158,23 @@ export default function Reports({
 
   const totals = useMemo(() => {
     let scheduledMin = 0;
-    const byCategory = new Map(); // name -> minutes
-    const byLocation = new Map(); // name -> minutes
+    const byCategory = new Map();
+    const byLocation = new Map();
+
+    // --- NEW: prepare for travel between consecutive tasks
+    const mode = (userSettings?.travel_mode || "driving").toLowerCase();
+    const kmh = speedKmhByMode[mode] ?? 30;
+    let travelKm = 0;
+    let travelMin = 0;
+
+    // Sort only the tasks in range by start for travel calc
+    const sorted = [...inRange].sort((a, b) => a.start - b.start);
 
     for (const t of inRange) {
       const mins = durationWithinWorkday(t);
       scheduledMin += mins;
 
-      // categories: t.categories = [{category_id, category_name, color}, ...] ?
+      // categories
       const cats = Array.isArray(t.categories) ? t.categories : [];
       if (cats.length === 0) {
         byCategory.set(
@@ -133,14 +188,27 @@ export default function Reports({
         });
       }
 
-      // simple location label if you have it on t.raw (optional)
-      const locName =
-        t.raw?.location_name || t.raw?.custom_address || t.raw?.address || "";
-      if (locName)
-        byLocation.set(locName, (byLocation.get(locName) || 0) + mins);
+      // locations (time spent at a location)
+      const loc = getTaskLocation(t);
+      if (loc.name) {
+        byLocation.set(loc.name, (byLocation.get(loc.name) || 0) + mins);
+      }
     }
 
-    // working capacity minutes = sum of working minutes across all days in range
+    // --- NEW: travel legs between consecutive tasks with known coords
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const A = getTaskLocation(sorted[i]);
+      const B = getTaskLocation(sorted[i + 1]);
+      if (A.lat == null || B.lat == null) continue;
+      // if same place, skip
+      if (A.lat === B.lat && A.lng === B.lng) continue;
+
+      const km = haversineKm(A, B);
+      travelKm += km;
+      travelMin += Math.ceil((km / kmh) * 60);
+    }
+
+    // working capacity minutes across days in range
     let capacityMin = 0;
     const d = new Date(startDate);
     while (d < endDate) {
@@ -149,7 +217,6 @@ export default function Reports({
     }
     const freeMin = Math.max(0, capacityMin - scheduledMin);
 
-    // sort desc
     const catRows = Array.from(byCategory.entries())
       .map(([name, mins]) => ({ name, mins }))
       .sort((a, b) => b.mins - a.mins);
@@ -163,8 +230,17 @@ export default function Reports({
       capacityMin,
       catRows,
       locRows,
+      travelKm,
+      travelMin,
     };
-  }, [inRange, startDate, endDate, dayStartMin, dayEndMin]);
+  }, [
+    inRange,
+    startDate,
+    endDate,
+    dayStartMin,
+    dayEndMin,
+    userSettings?.travel_mode,
+  ]);
 
   const exportCSV = () => {
     const rows = inRange.map((t) => ({
@@ -180,6 +256,42 @@ export default function Reports({
     }));
     downloadCSV(
       `report_${format(startDate, "yyyyMMdd")}_${format(
+        endDate,
+        "yyyyMMdd"
+      )}.csv`,
+      rows
+    );
+  };
+
+  const exportSummaryCSV = () => {
+    const rows = [
+      { section: "Totals", name: "Tasks", value: inRange.length },
+      {
+        section: "Totals",
+        name: "Scheduled (min)",
+        value: totals.scheduledMin,
+      },
+      { section: "Totals", name: "Free (min)", value: totals.freeMin },
+      { section: "Totals", name: "Capacity (min)", value: totals.capacityMin },
+      { section: "Totals", name: "Travel (min)", value: totals.travelMin },
+      {
+        section: "Totals",
+        name: "Distance (km)",
+        value: totals.travelKm.toFixed(2),
+      },
+      ...totals.catRows.map((r) => ({
+        section: "By Category",
+        name: r.name,
+        value: r.mins,
+      })),
+      ...totals.locRows.map((r) => ({
+        section: "By Location",
+        name: r.name,
+        value: r.mins,
+      })),
+    ];
+    downloadCSV(
+      `summary_${format(startDate, "yyyyMMdd")}_${format(
         endDate,
         "yyyyMMdd"
       )}.csv`,
@@ -286,12 +398,27 @@ export default function Reports({
                 )}
               </ul>
             </div>
+
+            <div className={s.kpi}>
+              <div className={s.kpiTitle}>Travel time</div>
+              <div className={s.kpiValue}>{toHM(totals.travelMin)}</div>
+            </div>
+            <div className={s.kpi}>
+              <div className={s.kpiTitle}>Distance</div>
+              <div className={s.kpiValue}>{totals.travelKm.toFixed(1)} km</div>
+            </div>
           </div>
         </div>
 
         <div className={s.actions}>
           <button className={s.btnGhost} onClick={onClose}>
             Close
+          </button>
+          <button className={s.btnPrimary} onClick={exportCSV}>
+            Download CSV
+          </button>
+          <button className={s.btnGhost} onClick={exportSummaryCSV}>
+            Summary CSV
           </button>
           <button className={s.btnPrimary} onClick={exportCSV}>
             Download CSV
