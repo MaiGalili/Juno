@@ -17,6 +17,7 @@ export default function Sidebar({
   userLocations,
   fetchLocations,
   onCreateTask,
+  onShowReports,
 }) {
   return (
     <aside className={styles.sidebar}>
@@ -26,7 +27,9 @@ export default function Sidebar({
       </div>
       {/* Buttons for generating reports and creating a new task */}
       <div className={styles.buttons}>
-        <button className={styles.report}>Reports</button>
+        <button className={styles.report} onClick={onShowReports}>
+          Reports
+        </button>
         <button className={styles.newTask} onClick={onCreateTask}>
           + New Task
         </button>

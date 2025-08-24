@@ -8,6 +8,7 @@ import Sidebar from "../../components/mainPageComponents/sidebar/Sidebar";
 import TaskPanel from "../../components/mainPageComponents/taskPanel/TaskPanel";
 import CalendarMain from "../../components/mainPageComponents/calendarMain/CalendarMain";
 import TaskPopup from "../../components/mainPageComponents/taskPopup/TaskPopup";
+import Reports from "../../components/mainPageComponents/sidebar/reports/Reports";
 
 function MainPage({ isLoggin, setIsLoggin }) {
   const [userEmail, setUserEmail] = useState(null);
@@ -20,6 +21,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
   const [popupMode, setPopupMode] = useState("view");
   const [userSettings, setUserSettings] = useState({});
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showReports, setShowReports] = useState(false);
 
   // Functions to open and close the popup
   const handleCreateTask = () => {
@@ -230,6 +232,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
             userLocations={locations}
             fetchLocations={fetchLocations}
             onCreateTask={handleCreateTask}
+            onShowReports={() => setShowReports(true)}
           />
         </div>
         <div className={classes.calendar}>
@@ -272,6 +275,15 @@ function MainPage({ isLoggin, setIsLoggin }) {
           fetchLocations={fetchLocations}
           userSettings={userSettings}
           tasks={tasks}
+        />
+      )}
+
+      {showReports && (
+        <Reports
+          open={showReports}
+          onClose={() => setShowReports(false)}
+          tasks={tasks}
+          userSettings={userSettings}
         />
       )}
     </div>

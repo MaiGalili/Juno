@@ -1,0 +1,303 @@
+// Reports.jsx
+import React, { useMemo, useState } from "react";
+import s from "./reports.module.css";
+import { format } from "date-fns";
+
+// Helpers
+const toHM = (mins) => {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${h}h ${String(m).padStart(2, "0")}m`;
+};
+
+const parseTimeToMin = (hhmm = "00:00") => {
+  const [h, m] = hhmm.slice(0, 5).split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+
+const endOfRange = (start, kind) => {
+  const d = new Date(start);
+  if (kind === "day") d.setDate(d.getDate() + 1);
+  else if (kind === "week") d.setDate(d.getDate() + 7);
+  else if (kind === "month") d.setMonth(d.getMonth() + 1);
+  else if (kind === "year") d.setFullYear(d.getFullYear() + 1);
+  return d;
+};
+
+const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
+
+// CSV
+function downloadCSV(filename, rows) {
+  const header = Object.keys(rows[0] || {}).join(",");
+  const body = rows
+    .map((r) =>
+      Object.values(r)
+        .map(
+          (v) =>
+            `"${String(v ?? "")
+              .replaceAll('"', '""')
+              .replaceAll("\n", " ")}"`
+        )
+        .join(",")
+    )
+    .join("\n");
+  const csv = header + "\n" + body;
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export default function Reports({
+  open,
+  onClose,
+  tasks = [],
+  userSettings, // { start_day_time, end_day_time }
+}) {
+  const [kind, setKind] = useState("week"); // day | week | month | year
+  const [start, setStart] = useState(() => format(new Date(), "yyyy-MM-dd"));
+
+  const startDate = useMemo(() => new Date(start), [start]);
+  const endDate = useMemo(() => endOfRange(startDate, kind), [startDate, kind]);
+
+  // Filter tasks that overlap the range
+  const inRange = useMemo(() => {
+    const a = startDate.getTime();
+    const b = endDate.getTime();
+    return tasks.filter((t) => {
+      if (!t?.start || !t?.end) return false;
+      const s = t.start.getTime();
+      const e = t.end.getTime();
+      return e > a && s < b; // overlap
+    });
+  }, [tasks, startDate, endDate]);
+
+  // Duration minutes per task (clip to working day)
+  const dayStartMin = parseTimeToMin(userSettings?.start_day_time || "08:00");
+  const dayEndMin = parseTimeToMin(userSettings?.end_day_time || "21:00");
+
+  function durationWithinWorkday(t) {
+    if (!t?.start || !t?.end) return 0;
+    // Per day clipping (handles tasks that span multiple days)
+    let sum = 0;
+    const cur = new Date(Math.max(t.start.getTime(), startDate.getTime()));
+    const stop = new Date(Math.min(t.end.getTime(), endDate.getTime()));
+
+    // iterate day by day (fast enough; ranges are small)
+    while (cur < stop) {
+      const dayStr = format(cur, "yyyy-MM-dd");
+      const dayStart = new Date(`${dayStr}T00:00:00`);
+      const nextDay = new Date(dayStart);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      const segStart = new Date(Math.max(cur.getTime(), dayStart.getTime()));
+      const segEnd = new Date(Math.min(stop.getTime(), nextDay.getTime()));
+
+      const segStartMin = segStart.getHours() * 60 + segStart.getMinutes();
+      const segEndMin = segEnd.getHours() * 60 + segEnd.getMinutes();
+
+      const clippedStart = clamp(segStartMin, dayStartMin, dayEndMin);
+      const clippedEnd = clamp(segEndMin, dayStartMin, dayEndMin);
+
+      if (clippedEnd > clippedStart) sum += clippedEnd - clippedStart;
+
+      cur.setDate(cur.getDate() + 1);
+      cur.setHours(0, 0, 0, 0);
+    }
+    return sum;
+  }
+
+  const totals = useMemo(() => {
+    let scheduledMin = 0;
+    const byCategory = new Map(); // name -> minutes
+    const byLocation = new Map(); // name -> minutes
+
+    for (const t of inRange) {
+      const mins = durationWithinWorkday(t);
+      scheduledMin += mins;
+
+      // categories: t.categories = [{category_id, category_name, color}, ...] ?
+      const cats = Array.isArray(t.categories) ? t.categories : [];
+      if (cats.length === 0) {
+        byCategory.set(
+          "(Uncategorized)",
+          (byCategory.get("(Uncategorized)") || 0) + mins
+        );
+      } else {
+        cats.forEach((c) => {
+          const key = c.category_name || c.name || "Category";
+          byCategory.set(key, (byCategory.get(key) || 0) + mins);
+        });
+      }
+
+      // simple location label if you have it on t.raw (optional)
+      const locName =
+        t.raw?.location_name || t.raw?.custom_address || t.raw?.address || "";
+      if (locName)
+        byLocation.set(locName, (byLocation.get(locName) || 0) + mins);
+    }
+
+    // working capacity minutes = sum of working minutes across all days in range
+    let capacityMin = 0;
+    const d = new Date(startDate);
+    while (d < endDate) {
+      capacityMin += Math.max(0, dayEndMin - dayStartMin);
+      d.setDate(d.getDate() + 1);
+    }
+    const freeMin = Math.max(0, capacityMin - scheduledMin);
+
+    // sort desc
+    const catRows = Array.from(byCategory.entries())
+      .map(([name, mins]) => ({ name, mins }))
+      .sort((a, b) => b.mins - a.mins);
+    const locRows = Array.from(byLocation.entries())
+      .map(([name, mins]) => ({ name, mins }))
+      .sort((a, b) => b.mins - a.mins);
+
+    return {
+      scheduledMin,
+      freeMin,
+      capacityMin,
+      catRows,
+      locRows,
+    };
+  }, [inRange, startDate, endDate, dayStartMin, dayEndMin]);
+
+  const exportCSV = () => {
+    const rows = inRange.map((t) => ({
+      title: t.title,
+      start: t.start ? format(t.start, "yyyy-MM-dd HH:mm") : "",
+      end: t.end ? format(t.end, "yyyy-MM-dd HH:mm") : "",
+      duration_min: durationWithinWorkday(t),
+      categories: Array.isArray(t.categories)
+        ? t.categories.map((c) => c.category_name || c.name).join("; ")
+        : "",
+      location: t.raw?.location_name || t.raw?.custom_address || "",
+      note: t.note || "",
+    }));
+    downloadCSV(
+      `report_${format(startDate, "yyyyMMdd")}_${format(
+        endDate,
+        "yyyyMMdd"
+      )}.csv`,
+      rows
+    );
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className={s.backdrop}>
+      <div className={s.modal}>
+        <div className={s.header}>
+          <h2>Create Report</h2>
+          <button className={s.iconBtn} onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        </div>
+
+        <div className={s.controls}>
+          <div className={s.group}>
+            <div className={s.label}>Duration</div>
+            <div className={s.segmented}>
+              {["day", "week", "month", "year"].map((k) => (
+                <button
+                  key={k}
+                  className={k === kind ? s.segActive : s.seg}
+                  onClick={() => setKind(k)}
+                >
+                  {k[0].toUpperCase() + k.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className={s.group}>
+            <label className={s.label}>Start date</label>
+            <input
+              type="date"
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+              className={s.input}
+            />
+          </div>
+
+          <div className={s.group}>
+            <div className={s.label}>Range</div>
+            <div className={s.rangeBox}>
+              {format(startDate, "dd/MM/yyyy")} –{" "}
+              {format(endDate, "dd/MM/yyyy")}
+            </div>
+          </div>
+        </div>
+
+        <div className={s.preview}>
+          <div className={s.kpis}>
+            <div className={s.kpi}>
+              <div className={s.kpiTitle}>Tasks</div>
+              <div className={s.kpiValue}>{inRange.length}</div>
+            </div>
+            <div className={s.kpi}>
+              <div className={s.kpiTitle}>Scheduled</div>
+              <div className={s.kpiValue}>{toHM(totals.scheduledMin)}</div>
+            </div>
+            <div className={s.kpi}>
+              <div className={s.kpiTitle}>Free time</div>
+              <div className={s.kpiValue}>{toHM(totals.freeMin)}</div>
+            </div>
+            <div className={s.kpi}>
+              <div className={s.kpiTitle}>Capacity</div>
+              <div className={s.kpiValue}>{toHM(totals.capacityMin)}</div>
+            </div>
+          </div>
+
+          <div className={s.columns}>
+            <div className={s.col}>
+              <h4>By Category</h4>
+              <ul className={s.list}>
+                {totals.catRows.map((r) => (
+                  <li key={r.name} className={s.row}>
+                    <span className={s.rowName}>{r.name}</span>
+                    <span className={s.rowVal}>{toHM(r.mins)}</span>
+                  </li>
+                ))}
+                {totals.catRows.length === 0 && (
+                  <li className={s.muted}>
+                    No categorized time in this range.
+                  </li>
+                )}
+              </ul>
+            </div>
+
+            <div className={s.col}>
+              <h4>By Location</h4>
+              <ul className={s.list}>
+                {totals.locRows.map((r) => (
+                  <li key={r.name} className={s.row}>
+                    <span className={s.rowName}>{r.name}</span>
+                    <span className={s.rowVal}>{toHM(r.mins)}</span>
+                  </li>
+                ))}
+                {totals.locRows.length === 0 && (
+                  <li className={s.muted}>No location time in this range.</li>
+                )}
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className={s.actions}>
+          <button className={s.btnGhost} onClick={onClose}>
+            Close
+          </button>
+          <button className={s.btnPrimary} onClick={exportCSV}>
+            Download CSV
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
