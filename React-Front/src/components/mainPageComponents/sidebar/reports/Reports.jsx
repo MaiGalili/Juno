@@ -366,6 +366,15 @@ export default function Reports({
             </div>
           </div>
 
+          <div className={s.kpi}>
+            <div className={s.kpiTitle}>Travel time</div>
+            <div className={s.kpiValue}>{toHM(totals.travelMin)}</div>
+          </div>
+          <div className={s.kpi}>
+            <div className={s.kpiTitle}>Distance</div>
+            <div className={s.kpiValue}>{totals.travelKm.toFixed(1)} km</div>
+          </div>
+
           <div className={s.columns}>
             <div className={s.col}>
               <h4>By Category</h4>
@@ -398,24 +407,12 @@ export default function Reports({
                 )}
               </ul>
             </div>
-
-            <div className={s.kpi}>
-              <div className={s.kpiTitle}>Travel time</div>
-              <div className={s.kpiValue}>{toHM(totals.travelMin)}</div>
-            </div>
-            <div className={s.kpi}>
-              <div className={s.kpiTitle}>Distance</div>
-              <div className={s.kpiValue}>{totals.travelKm.toFixed(1)} km</div>
-            </div>
           </div>
         </div>
 
         <div className={s.actions}>
           <button className={s.btnGhost} onClick={onClose}>
             Close
-          </button>
-          <button className={s.btnPrimary} onClick={exportCSV}>
-            Download CSV
           </button>
           <button className={s.btnGhost} onClick={exportSummaryCSV}>
             Summary CSV

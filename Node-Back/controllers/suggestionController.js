@@ -1,42 +1,48 @@
-//suggestionController.js
+// suggestionController.js
 const taskRepo = require("../repositories/taskRepo");
 const userRepo = require("../repositories/userRepo");
+const locationRepo = require("../repositories/locationRepo");
+const { distanceMatrixMinutes } = require("../services/googleDistanceService");
 
-// Haversine helper: minutes at ~30 km/h city average (tweak as you like)
-function travelMinutes(from, to, mode = "driving") {
+// --- helpers ---
+// fallback haversine (keep yours)
+function haversineMinutes(from, to, mode = "driving") {
   if (!from || !to || from.lat == null || to.lat == null) return 0;
-
-  const kmhByMode = {
-    driving: 35,
-    walking: 5,
-    bicycling: 15,
-    transit: 25,
-  };
+  const kmhByMode = { driving: 35, walking: 5, bicycling: 15, transit: 25 };
   const kmh = kmhByMode[mode] ?? 30;
-
-  const R = 6371;
-  const toRad = (x) => (x * Math.PI) / 180;
-  const dLat = toRad(to.lat - from.lat);
-  const dLon = toRad(to.lng - from.lng);
+  const R = 6371,
+    toRad = (x) => (x * Math.PI) / 180;
+  const dLat = toRad(to.lat - from.lat),
+    dLon = toRad(to.lng - from.lng);
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(from.lat)) *
       Math.cos(toRad(to.lat)) *
       Math.sin(dLon / 2) ** 2;
-  const d = 2 * R * Math.asin(Math.sqrt(a)); // km
-  return Math.ceil((d / kmh) * 60); // minutes
+  const d = 2 * R * Math.asin(Math.sqrt(a));
+  return Math.ceil((d / kmh) * 60);
 }
 
-function buildFreeWithTravel(
+async function travelMinutes(from, to, mode, departSec) {
+  // try Google
+  const g = await distanceMatrixMinutes(from, to, mode, departSec);
+  if (g != null) return g;
+  // fallback
+  return haversineMinutes(from, to, mode);
+}
+
+// Make it async and compute 2 legs per gap using departure times near the slot
+async function buildFreeWithTravelAsync(
   busyWithLoc,
   dayStartMin,
   dayEndMin,
   neededMin,
   bufferMin,
   candidateLoc,
-  stepMin = Math.max(15, bufferMin),
-  maxPerGap = 3,
-  travelMode = "driving"
+  stepMin,
+  maxPerGap,
+  travelMode,
+  dateEpochSec // unix seconds for 00:00 of the day
 ) {
   const res = [];
   const guards = [
@@ -49,14 +55,23 @@ function buildFreeWithTravel(
     const A = guards[i];
     const B = guards[i + 1];
 
-    const tFromA = travelMinutes(A.loc, candidateLoc, travelMode);
-    const tToB = travelMinutes(candidateLoc, B.loc, travelMode);
+    // Representative departure times:
+    const departA = dateEpochSec + (A.end + bufferMin) * 60; // soon after A ends
+    const latestCandidateStart = B.start - bufferMin - neededMin; // latest start that fits
+    const departToB = dateEpochSec + (latestCandidateStart + neededMin) * 60; // arriving at B window
+
+    const tFromA = candidateLoc
+      ? await travelMinutes(A.loc, candidateLoc, travelMode, departA)
+      : 0;
+
+    const tToB = candidateLoc
+      ? await travelMinutes(candidateLoc, B.loc, travelMode, departToB)
+      : 0;
 
     let earliest = A.end + tFromA;
     const latestFinish = B.start - bufferMin - tToB;
 
     if (latestFinish - earliest < neededMin) continue;
-
     earliest = Math.ceil(earliest / stepMin) * stepMin;
 
     let count = 0;
@@ -72,100 +87,36 @@ function buildFreeWithTravel(
   return res;
 }
 
-// Build suggestions inside gaps, respecting:
-// prevTask → travelToCandidate + candidate + buffer + travelCandidateToNext ← nextTask
-function buildFreeWithTravel(
-  busyWithLoc, // [{start,end,loc}] sorted & merged
-  dayStartMin,
-  dayEndMin,
-  neededMin,
-  bufferMin,
-  candidateLoc, // {lat,lng} or null
-  stepMin = Math.max(15, bufferMin),
-  maxPerGap = 3
-) {
-  const res = [];
-  const guards = [
-    { start: dayStartMin, end: dayStartMin, loc: null }, // "start of day"
-    ...busyWithLoc,
-    { start: dayEndMin, end: dayEndMin, loc: null }, // "end of day"
-  ];
-
-  for (let i = 0; i < guards.length - 1; i++) {
-    const A = guards[i]; // previous busy block (or day start)
-    const B = guards[i + 1]; // next busy block (or day end)
-
-    const tFromA = travelMinutes(A.loc, candidateLoc); // A -> candidate
-    const tToB = travelMinutes(candidateLoc, B.loc); // candidate -> B
-
-    // Earliest we can start after A finishes (including travel)
-    let earliest = A.end + tFromA;
-    // Latest we must finish before B starts (leave buffer + travel to B)
-    const latestFinish = B.start - bufferMin - tToB;
-
-    // No room for the candidate?
-    if (latestFinish - earliest < neededMin) continue;
-
-    // Snap earliest to the step grid
-    earliest = Math.ceil(earliest / stepMin) * stepMin;
-
-    // Generate up to maxPerGap stepped options inside this gap
-    let count = 0;
-    for (let s = earliest; s + neededMin <= latestFinish; s += stepMin) {
-      res.push({
-        start: s,
-        end: s + neededMin,
-        meta: `+${tFromA}m travel / +${tToB}m next`,
-      });
-      if (++count >= maxPerGap) break;
-    }
-  }
-
-  return res;
-}
-
-function parseHHMM(s) {
+const parseHHMM = (s) => {
   if (!s) return 0;
   const [h, m] = s.slice(0, 5).split(":").map(Number);
   return h * 60 + m;
-}
-
-function toHHMM(mins) {
-  const h = String(Math.floor(mins / 60)).padStart(2, "0");
-  const m = String(mins % 60).padStart(2, "0");
-  return `${h}:${m}`;
-}
-
-function dayKey(dateStr) {
-  // YYYY-MM-DD -> Date (local)
+};
+const toHHMM = (mins) =>
+  `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(
+    mins % 60
+  ).padStart(2, "0")}`;
+const dayKey = (dateStr) => {
   const [y, m, d] = dateStr.split("-").map(Number);
   return new Date(y, m - 1, d);
-}
-
-function addDays(date, n) {
+};
+const addDays = (date, n) => {
   const d = new Date(date);
   d.setDate(d.getDate() + n);
   return d;
-}
-
-function fmtDate(d) {
-  // -> YYYY-MM-DD (local)
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-// suggestionController.js – add helper:
+};
+const fmtDate = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
 function toYMD(input) {
   if (!input) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input; // already Y-M-D
+  if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
   const d = new Date(input);
-  if (!isNaN(d.getTime())) return fmtDate(d); // fmtDate => YYYY-MM-DD
-  return null;
+  return isNaN(d.getTime()) ? null : fmtDate(d);
 }
 
-// Get suggestions for a task
+// --- controller ---
 exports.getSuggestions = async (req, res) => {
   try {
     const userEmail = req.session?.userEmail;
@@ -179,7 +130,6 @@ exports.getSuggestions = async (req, res) => {
       startDate,
       bufferTime,
       locationId,
-      customAddress,
       customLat,
       customLng,
       customCoords,
@@ -199,18 +149,18 @@ exports.getSuggestions = async (req, res) => {
     const dueDateYMD = toYMD(dueDate);
     const startDateYMD = toYMD(startDate);
 
-    const user = await userRepo.getSettings(userEmail);
+    const user = await userRepo.getSettings(userEmail); // MUST include travel_mode in SELECT
     const dayStart = user.start_day_time || "08:00:00";
     const dayEnd = user.end_day_time || "21:00:00";
     const defaultBuffer = user.defult_buffer || "00:10:00";
 
     const needMin = parseHHMM(duration);
-    if (needMin <= 0) {
+    if (needMin <= 0)
       return res.status(400).json({
         success: false,
         message: "duration must be greater than 00:00",
       });
-    }
+
     const bufMin = parseHHMM(bufferTime || defaultBuffer);
     const stepMin = Math.max(15, bufMin);
 
@@ -237,16 +187,13 @@ exports.getSuggestions = async (req, res) => {
       } else {
         searchEndDate = addDays(dayKey(dueDateYMD), -1);
       }
-    } else {
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing dueDate/startDate" });
     }
 
     if (fmtDate(searchEndDate) < fmtDate(searchStartDate)) {
       return res.json({ success: true, data: [] });
     }
 
+    // Fetch existing assigned tasks in range (with locations)
     const assigned = await taskRepo.getAssignedBetween(
       userEmail,
       fmtDate(searchStartDate),
@@ -254,10 +201,7 @@ exports.getSuggestions = async (req, res) => {
     );
 
     const busyByDay = new Map();
-
-    // 1) Build busyByDay with normalized date/time and location
     for (const t of assigned) {
-      // --- normalize date to 'YYYY-MM-DD'
       const dStr =
         typeof t.task_start_date === "string" &&
         /^\d{4}-\d{2}-\d{2}$/.test(t.task_start_date)
@@ -265,7 +209,6 @@ exports.getSuggestions = async (req, res) => {
           : fmtDate(new Date(t.task_start_date));
       if (!dStr) continue;
 
-      // --- normalize times to 'HH:MM', then to minutes
       const startHHMM =
         typeof t.task_start_time === "string"
           ? t.task_start_time
@@ -283,10 +226,8 @@ exports.getSuggestions = async (req, res) => {
 
       const sMin = parseHHMM(startHHMM);
       const eMin = parseHHMM(endHHMM);
-      //avoid empty range
       if (!(eMin > sMin)) continue;
 
-      // --- location (if any)
       let loc = null;
       if (
         t.custom_location_latitude != null &&
@@ -307,7 +248,7 @@ exports.getSuggestions = async (req, res) => {
       busyByDay.get(dStr).push({ start: sMin, end: eMin, loc });
     }
 
-    // 2) Merge overlaps per day (keep earliest block's loc)
+    // Merge overlaps per day
     for (const [dStr, arr] of busyByDay) {
       arr.sort((a, b) => a.start - b.start);
       const merged = [];
@@ -319,45 +260,51 @@ exports.getSuggestions = async (req, res) => {
             merged[merged.length - 1].end,
             iv.end
           );
-          // keep loc from earliest block (good enough for travel-from)
         }
       }
       busyByDay.set(dStr, merged);
     }
 
-    // Candidate location
+    // Resolve candidate location once
     let candidateLoc = null;
     const candLat = customLat ?? customCoords?.lat;
     const candLng = customLng ?? customCoords?.lng;
     if (candLat != null && candLng != null) {
       candidateLoc = { lat: Number(candLat), lng: Number(candLng) };
     } else if (locationId) {
-      // Optional: resolve favorite lat/lng here if you want strict travel;
-      // otherwise keep null => 0 travel for "anywhere".
+      const loc = await locationRepo.getUserLocationById(
+        userEmail,
+        Number(locationId)
+      );
+      if (loc && loc.lat != null && loc.lng != null) {
+        candidateLoc = { lat: Number(loc.lat), lng: Number(loc.lng) };
+      }
     }
+
+    console.log("candidateLoc", { locationId, candLat, candLng, candidateLoc });
 
     const results = [];
     let d = new Date(searchStartDate);
     const last = addDays(searchEndDate, 1);
-
-    console.log("[suggestions]", { todayStr, nowMin, minLeadMin, stepMin });
-
-    // compute a robust "today cutoff" in minutes from midnight, aligned to stepMin
     const todayCutoff = Math.ceil((nowMin + minLeadMin) / stepMin) * stepMin;
 
     while (d < last && results.length < offset + limit + 6) {
       const dateStr = fmtDate(d);
 
-      // day bounds from user settings
       let dayStartMin = parseHHMM(dayStart.slice(0, 5));
       let dayEndMin = parseHHMM(dayEnd.slice(0, 5));
 
-      // if there is a dueTime on the dueDate, cap the day end
+      const y = d.getFullYear(),
+        m = d.getMonth(),
+        dd = d.getDate();
+      const dayEpochSec = Math.floor(
+        new Date(y, m, dd, 0, 0, 0).getTime() / 1000
+      );
+
       if (dueDateYMD && dateStr === dueDateYMD && endTimeLimitMin != null) {
         dayEndMin = Math.min(dayEndMin, endTimeLimitMin);
       }
 
-      // if today, don’t allow anything before (now + lead), snapped to step
       if (dateStr === todayStr) {
         dayStartMin = Math.max(dayStartMin, nowMin + minLeadMin);
         dayStartMin = Math.ceil(dayStartMin / stepMin) * stepMin;
@@ -369,9 +316,7 @@ exports.getSuggestions = async (req, res) => {
 
       if (dayEndMin - dayStartMin >= needMin) {
         const busyWithLoc = busyByDay.get(dateStr) || [];
-
-        // NOTE: 'let' (not 'const') because we filter it for "today"
-        let free = buildFreeWithTravel(
+        let free = await buildFreeWithTravelAsync(
           busyWithLoc,
           dayStartMin,
           dayEndMin,
@@ -380,13 +325,11 @@ exports.getSuggestions = async (req, res) => {
           candidateLoc,
           stepMin,
           3,
-          user.travel_mode || "driving"
+          user.travel_mode || "driving",
+          dayEpochSec
         );
-
-        // Drop any option that starts before the "today cutoff"
-        if (dateStr === todayStr) {
+        if (dateStr === todayStr)
           free = free.filter((f) => f.start >= todayCutoff);
-        }
 
         for (const f of free) {
           results.push({
@@ -404,10 +347,12 @@ exports.getSuggestions = async (req, res) => {
       d = addDays(d, 1);
     }
 
-    const page = results.slice(offset, offset + limit);
-    return res.json({ success: true, data: page });
+    return res.json({
+      success: true,
+      data: results.slice(offset, offset + limit),
+    });
   } catch (err) {
-    console.error("getSuggestions error:", err);
+    console.error("getSuggestions error:", err.stack || err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
