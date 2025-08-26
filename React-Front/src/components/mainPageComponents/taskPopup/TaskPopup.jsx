@@ -121,10 +121,10 @@ export default function TaskPopup({
       setDueDate("");
       setDueTime("");
       setBufferTime(userSettings.defult_buffer || "00:10");
-      setLocationId(userSettings.default_location_id || "");
+      setLocationId("");
       setCustomAddress("");
       setCustomCoords({ lat: null, lng: null });
-      setUseFavorite(true);
+      setUseFavorite(false);
       setTaskRepeat("none");
       setRepeatUntil("");
     } else {
@@ -189,7 +189,7 @@ export default function TaskPopup({
         });
         setLocationId("");
       } else {
-        setUseFavorite(true);
+        setUseFavorite(false);
         setLocationId("");
         setCustomAddress("");
         setCustomCoords({ lat: null, lng: null });
@@ -239,6 +239,10 @@ export default function TaskPopup({
       setEndTime("");
       setTaskRepeat("none");
       setRepeatUntil("");
+      setUseFavorite(false);
+      setLocationId("");
+      setCustomAddress("");
+      setCustomCoords({ lat: null, lng: null });
     }
   }, [dueDate]);
 

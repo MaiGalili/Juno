@@ -17,16 +17,6 @@ function toHHMMSS(s) {
   return `${h}:${m}:${sec}`;
 }
 
-// Helper: Get default_location_id if needed
-async function getLocationIdOrDefault(location_id, email) {
-  if (location_id) return location_id; // if location_id is provided, use it
-  // if not, get default_location_id
-  const [[userRow]] = await db
-    .promise()
-    .query(`SELECT default_location_id FROM users WHERE email = ?`, [email]);
-  return userRow?.default_location_id || null;
-}
-
 // Get repeat dates
 function getRepeatDates(startDate, repeatUntil, repeatType) {
   const dates = [];
@@ -89,7 +79,7 @@ async function createAssignedTask(req, res) {
       repeatDates = getRepeatDates(start_date, repeat_until, task_repeat);
     }
 
-    const final_location_id = await getLocationIdOrDefault(location_id, email);
+    const final_location_id = location_id ?? null;
 
     const insertedTasks = [];
 
@@ -199,7 +189,7 @@ async function createWaitingTask(req, res) {
       });
     }
 
-    const final_location_id = await getLocationIdOrDefault(location_id, email);
+    const final_location_id = location_id ?? null;
 
     //Insert input into to the task table
     const [result] = await db.promise().query(
@@ -971,7 +961,6 @@ async function moveAssignedToWaiting(req, res) {
       .json({ success: false, message: err?.sqlMessage || "Server error" });
   }
 }
-
 
 module.exports = {
   createAssignedTask,
