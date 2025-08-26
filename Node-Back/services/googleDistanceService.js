@@ -16,6 +16,11 @@ function cacheKey({ from, to, mode, departSec }) {
 async function distanceMatrixMinutes(from, to, mode = "driving", departSec) {
   if (!from || !to || from.lat == null || to.lat == null) return 0;
 
+  if (!process.env.GOOGLE_MAPS_API_KEY) {
+    console.warn("[DM] No GOOGLE_MAPS_API_KEY set – using fallback");
+    return null;
+  }
+
   const key = cacheKey({ from, to, mode, departSec });
   const now = Date.now();
   const hit = cache.get(key);
@@ -38,10 +43,17 @@ async function distanceMatrixMinutes(from, to, mode = "driving", departSec) {
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`DM HTTP ${resp.status}`);
     const json = await resp.json();
-
     const el = json?.rows?.[0]?.elements?.[0];
-    if (!el || el.status !== "OK") throw new Error(`DM status ${el?.status}`);
 
+    if (!resp.ok || !el || el.status !== "OK") {
+      console.warn("[DM] Fallback:", {
+        http: resp.status,
+        elStatus: el?.status,
+        error: json?.error_message,
+      });
+      return null; // force fallback
+    }
+    
     // Prefer duration_in_traffic (driving); otherwise duration
     const secs =
       (el.duration_in_traffic && el.duration_in_traffic.value) ||

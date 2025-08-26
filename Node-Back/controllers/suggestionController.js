@@ -32,21 +32,25 @@ async function travelMinutes(from, to, mode, departSec) {
 }
 
 // Make it async and compute 2 legs per gap using departure times near the slot
+// Make it async and compute 2 legs per gap using departure times near the slot
 async function buildFreeWithTravelAsync(
   busyWithLoc,
   dayStartMin,
   dayEndMin,
   neededMin,
   bufferMin,
-  candidateLoc,
+  candidateLoc,   // null => "anywhere"
   stepMin,
   maxPerGap,
   travelMode,
-  dateEpochSec // unix seconds for 00:00 of the day
+  dateEpochSec,    // unix seconds for 00:00 of the day
+  defaultStartLoc  // מיקום ברירת מחדל בתחילת היום (אם אין A)
 ) {
   const res = [];
+
+  // מוסיפים "שומרים" לקצה היום, וממקמים את מיקום ברירת המחדל בתחילת היום
   const guards = [
-    { start: dayStartMin, end: dayStartMin, loc: null },
+    { start: dayStartMin, end: dayStartMin, loc: defaultStartLoc || null },
     ...busyWithLoc,
     { start: dayEndMin, end: dayEndMin, loc: null },
   ];
@@ -55,35 +59,57 @@ async function buildFreeWithTravelAsync(
     const A = guards[i];
     const B = guards[i + 1];
 
-    // Representative departure times:
-    const departA = dateEpochSec + (A.end + bufferMin) * 60; // soon after A ends
-    const latestCandidateStart = B.start - bufferMin - neededMin; // latest start that fits
-    const departToB = dateEpochSec + (latestCandidateStart + neededMin) * 60; // arriving at B window
+    // יציאה ממש לפני B אם נניח שהמשימה תהיה הכי מאוחר שאפשר בתוך החור
+    const departToB_ifTaskAtEnd = dateEpochSec + (B.start - bufferMin) * 60;
 
-    const tFromA = candidateLoc
-      ? await travelMinutes(A.loc, candidateLoc, travelMode, departA)
-      : 0;
+    let tFromA = 0;
+    let tToB = 0;
+    let earliest;     // ההתחלה המוקדמת ביותר שמותר לי
+    let latestFinish; // הסיום המאוחר ביותר שמותר לי
 
-    const tToB = candidateLoc
-      ? await travelMinutes(candidateLoc, B.loc, travelMode, departToB)
-      : 0;
+    if (candidateLoc) {
+      // --- המשימה עם מיקום קבוע ---
+      // רגל 1: A -> המשימה שלי (יוצאים כש-A נגמר)
+      const departA = dateEpochSec + A.end * 60;
+      tFromA = (await travelMinutes(A.loc, candidateLoc, travelMode, departA)) || 0;
 
-    let earliest = A.end + tFromA;
-    const latestFinish = B.start - bufferMin - tToB;
+      // רגל 2: המשימה שלי -> B (בודקים זמן נסיעה סביב ההתחלה המאוחרת ביותר שתתאים)
+      const latestStart = B.start - bufferMin - neededMin;               // מתי הכי מאוחר להתחיל כדי להספיק
+      const arriveToBTime = dateEpochSec + (latestStart + neededMin) * 60;
+      tToB = (await travelMinutes(candidateLoc, B.loc, travelMode, arriveToBTime)) || 0;
 
+      // חייבים להגיע עם buffer לפני תחילת המשימה, ולהשאיר buffer + נסיעה לפני B
+      earliest = A.end + tFromA + bufferMin;
+      latestFinish = B.start - bufferMin - tToB;
+    } else {
+      // --- המשימה "מכל מקום" (אין מיקום קבוע) ---
+      // אין צורך בנסיעה A->Task, אבל חייבים להשאיר מקום ל-A->B + buffer לפני B
+      const tAB =
+        (await travelMinutes(A.loc, B.loc, travelMode, departToB_ifTaskAtEnd)) || 0;
+      tFromA = 0;
+      tToB = tAB;
+
+      // לפני המשימה – רק buffer; אחרי – להשאיר A->B + buffer לפני B
+      earliest = A.end + bufferMin;
+      latestFinish = B.start - bufferMin - tAB;
+    }
+
+    // האם בכלל נכנס?
     if (latestFinish - earliest < neededMin) continue;
-    earliest = Math.ceil(earliest / stepMin) * stepMin;
 
+    // מיישרים לפי stepMin (רזולוציית הצעות)
+    let s = Math.ceil(earliest / stepMin) * stepMin;
     let count = 0;
-    for (let s = earliest; s + neededMin <= latestFinish; s += stepMin) {
+    for (; s + neededMin <= latestFinish; s += stepMin) {
       res.push({
         start: s,
         end: s + neededMin,
-        meta: `+${tFromA}m travel / +${tToB}m next`,
+        meta: `+${tFromA}m travel / +${tToB}m next`, // להסבר/דיבוג
       });
       if (++count >= maxPerGap) break;
     }
   }
+
   return res;
 }
 
@@ -153,6 +179,15 @@ exports.getSuggestions = async (req, res) => {
     const dayStart = user.start_day_time || "08:00:00";
     const dayEnd = user.end_day_time || "21:00:00";
     const defaultBuffer = user.defult_buffer || "00:10:00";
+
+    let defaultStartLoc = null;
+    if (user.default_location_id) {
+      const dl = await locationRepo.getUserLocationById(
+        userEmail,
+        Number(user.default_location_id)
+      );
+      if (dl && dl.lat != null && dl.lng != null) defaultStartLoc = dl;
+    }
 
     const needMin = parseHHMM(duration);
     if (needMin <= 0)
@@ -326,7 +361,8 @@ exports.getSuggestions = async (req, res) => {
           stepMin,
           3,
           user.travel_mode || "driving",
-          dayEpochSec
+          dayEpochSec,
+          defaultStartLoc
         );
         if (dateStr === todayStr)
           free = free.filter((f) => f.start >= todayCutoff);
