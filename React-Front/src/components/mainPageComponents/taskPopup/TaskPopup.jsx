@@ -5,6 +5,7 @@ import ConfirmModal from "../../ConfirmModal";
 import AddressInput from "../sidebar/locations/AddressInput";
 import RepeatActionPopup from "./RepeatActionPopup/RepeatActionPopup";
 import TaskSuggestionsPanel from "./taskSuggestionsPanel/TaskSuggestionsPanel";
+import SaveAsPDF from "./SaveAsPDF/SaveAsPDF";
 
 export default function TaskPopup({
   mode = "create",
@@ -949,6 +950,12 @@ export default function TaskPopup({
                     >
                       Update
                     </button>
+                    <SaveAsPDF
+                      task={task}
+                      userCategories={userCategories}
+                      userLocations={userLocations}
+                      className={styles.secondaryButton} 
+                    />
                   </>
                 )}
               </div>
