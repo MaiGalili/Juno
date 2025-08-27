@@ -1,9 +1,11 @@
 //Node-Bakc/app.js
 //Import required modules
+require("dotenv").config();
 const express = require("express");
 const session = require("express-session");
 const cors = require("cors");
 const logger = require("./logger");
+const travelRoutes = require("./routes/travelRoutes");
 
 // Import route files
 const authRoutes = require("./routes/authRoutes");
@@ -72,6 +74,7 @@ app.use("/api/locations", locationsRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api", suggestionsRouter);
+app.use("/api/travel", travelRoutes);
 
 // Start the server
 app.listen(port, () => {

@@ -4,6 +4,7 @@
   "private": true,
   "proxy": "http://localhost:8801",
   "dependencies": {
+    "@googlemaps/google-maps-services-js": "^3.4.2",
     "@headlessui/react": "^2.2.4",
     "@react-google-maps/api": "^2.20.6",
     "@testing-library/dom": "^10.4.0",

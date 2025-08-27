@@ -1,5 +1,5 @@
 // Reports.jsx
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import s from "./reports.module.css";
 import { format } from "date-fns";
 
@@ -124,6 +124,44 @@ function downloadCSV(filename, rows) {
   URL.revokeObjectURL(url);
 }
 
+function buildTravelLegs(tasks, locMap) {
+  // רק משימות לא-all-day ובעלות זמנים
+  const clean = tasks.filter(
+    (t) =>
+      t?.start &&
+      t?.end &&
+      !(t.task_all_day === 1 || t.task_all_day === true || t?.raw?.task_all_day)
+  );
+
+  // קיבוץ לפי יום
+  const byDay = new Map();
+  for (const t of clean) {
+    const key = format(t.start, "yyyy-MM-dd");
+    if (!byDay.has(key)) byDay.set(key, []);
+    byDay.get(key).push(t);
+  }
+
+  const legs = [];
+  for (const [, list] of byDay) {
+    list.sort((a, b) => a.start - b.start);
+
+    for (let i = 0; i < list.length - 1; i++) {
+      const A = getTaskLocation(list[i], locMap);
+      const B = getTaskLocation(list[i + 1], locMap);
+
+      if (A.lat == null || B.lat == null) continue;
+      if (A.lat === B.lat && A.lng === B.lng) continue;
+
+      legs.push({
+        from: { lat: A.lat, lng: A.lng },
+        to: { lat: B.lat, lng: B.lng },
+        // departure: list[i].end?.toISOString() // לא באמת נדרש ל-DM, אפשר לשמור לעתיד
+      });
+    }
+  }
+  return legs;
+}
+
 export default function Reports({
   open,
   onClose,
@@ -133,6 +171,13 @@ export default function Reports({
 }) {
   const [kind, setKind] = useState("week"); // day | week | month | year
   const [start, setStart] = useState(() => format(new Date(), "yyyy-MM-dd"));
+
+  const [gmTravel, setGmTravel] = useState({
+    km: 0,
+    min: 0,
+    usedFallback: false,
+  });
+  const mode = (userSettings?.travel_mode || "driving").toLowerCase();
 
   const startDate = useMemo(() => new Date(start), [start]);
   const endDate = useMemo(() => endOfRange(startDate, kind), [startDate, kind]);
@@ -293,6 +338,68 @@ export default function Reports({
     userSettings?.travel_mode,
   ]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function computeTravel() {
+      const legs = buildTravelLegs(inRange, locMap);
+      if (legs.length === 0) {
+        if (!cancelled) setGmTravel({ km: 0, min: 0, usedFallback: false });
+        return;
+      }
+
+      try {
+        const res = await fetch("http://localhost:8801/api/travel/matrix", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ legs, mode }),
+        });
+        const data = await res.json();
+
+        if (data?.success) {
+          const km = (data.meters || 0) / 1000;
+          const min = Math.round((data.seconds || 0) / 60);
+          if (!cancelled) setGmTravel({ km, min, usedFallback: false });
+          return;
+        }
+        // fallback במקרה של כשל
+        throw new Error("distance matrix failed");
+      } catch (e) {
+        // fallback ל-haversine המהיר (עדיף על כלום)
+        let travelKm = 0;
+        let travelMin = 0;
+        const kmh = speedKmhByMode[mode] ?? 30;
+        const sorted = [...inRange]
+          .filter(
+            (t) =>
+              !(
+                t.task_all_day === 1 ||
+                t.task_all_day === true ||
+                t?.raw?.task_all_day
+              )
+          )
+          .sort((a, b) => a.start - b.start);
+        for (let i = 0; i < sorted.length - 1; i++) {
+          const A = getTaskLocation(sorted[i], locMap);
+          const B = getTaskLocation(sorted[i + 1], locMap);
+          if (A.lat == null || B.lat == null) continue;
+          if (A.lat === B.lat && A.lng === B.lng) continue;
+          const km = haversineKm(A, B);
+          travelKm += km;
+          travelMin += Math.ceil((km / kmh) * 60);
+        }
+        if (!cancelled)
+          setGmTravel({ km: travelKm, min: travelMin, usedFallback: true });
+      }
+    }
+
+    computeTravel();
+    return () => {
+      cancelled = true;
+    };
+  }, [inRange, locMap, mode]);
+
   const exportCSV = () => {
     const rows = inRange.map((t) => {
       const loc = getTaskLocation(t, locMap);
@@ -327,12 +434,13 @@ export default function Reports({
       },
       { section: "Totals", name: "Free (min)", value: totals.freeMin },
       { section: "Totals", name: "Capacity (min)", value: totals.capacityMin },
-      { section: "Totals", name: "Travel (min)", value: totals.travelMin },
+      { section: "Totals", name: "Travel (min)", value: gmTravel.min },
       {
         section: "Totals",
         name: "Distance (km)",
-        value: totals.travelKm.toFixed(2),
+        value: gmTravel.km.toFixed(2),
       },
+
       ...totals.catRows.map((r) => ({
         section: "By Category",
         name: r.name,
@@ -422,11 +530,14 @@ export default function Reports({
 
           <div className={s.kpi}>
             <div className={s.kpiTitle}>Travel time</div>
-            <div className={s.kpiValue}>{toHM(totals.travelMin)}</div>
+            <div className={s.kpiValue}>{toHM(gmTravel.min)}</div>
           </div>
           <div className={s.kpi}>
             <div className={s.kpiTitle}>Distance</div>
-            <div className={s.kpiValue}>{totals.travelKm.toFixed(1)} km</div>
+            <div className={s.kpiValue}>
+              {gmTravel.km.toFixed(1)} km
+              {gmTravel.usedFallback ? " (est.)" : ""}
+            </div>
           </div>
 
           <div className={s.columns}>
