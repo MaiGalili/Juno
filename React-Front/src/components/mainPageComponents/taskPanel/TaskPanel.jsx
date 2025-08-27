@@ -4,12 +4,22 @@ import TaskCard from "./taskCard/TaskCard";
 import styles from "./taskPanel.module.css";
 
 function isOverdue(task) {
-  if (!task?.task_duedate) return false;
+  const dateRaw = task?.task_duedate;
+  if (!dateRaw) return false;
+
   const hhmm = (task.task_duetime || "23:59").slice(0, 5);
-  const due = new Date(`${task.task_duedate}T${hhmm}`);
+  const [h, m] = hhmm.split(":").map(Number);
+
+  // תומך גם ב-ISO וגם ב-"YYYY-MM-DD" וגם ב- Date
+  const due = new Date(dateRaw);
   if (Number.isNaN(due.getTime())) return false;
+
+  // קובעים שעה/דקות מקומיים
+  due.setHours(Number.isFinite(h) ? h : 23, Number.isFinite(m) ? m : 59, 0, 0);
+
   return due.getTime() < Date.now();
 }
+
 
 // A list of tasks that are scheduled for a specific time and location
 export default function TaskPanel({
