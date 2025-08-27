@@ -29,7 +29,7 @@ const speedKmhByMode = {
 function getTaskLocation(task, locMap) {
   const raw = task?.raw || {};
 
-  // 1) custom location (מהטסק עצמו/מה-raw)
+  // 1) custom location (task/raw)
   const customLat =
     raw.custom_location_latitude ?? task?.custom_location_latitude;
   const customLng =
@@ -44,11 +44,11 @@ function getTaskLocation(task, locMap) {
     };
   }
 
-  // 2) favorite location שהגיע מה-JOIN
+  // 2) favorite from the JOIN (server put them under raw.*)
   const rawLat =
-    raw.loc_latitude ?? raw.latitude ?? raw.location_latitude ?? null;
+    raw.location_latitude ?? raw.loc_latitude ?? raw.latitude ?? null;
   const rawLng =
-    raw.loc_longitude ?? raw.longitude ?? raw.location_longitude ?? null;
+    raw.location_longitude ?? raw.loc_longitude ?? raw.longitude ?? null;
   const rawName = raw.location_name || raw.location_address;
   if (rawLat != null && rawLng != null) {
     return {
@@ -58,23 +58,24 @@ function getTaskLocation(task, locMap) {
     };
   }
 
-  // 3) דרך המפה של userLocations לפי id
-  if (task?.location_id != null && locMap) {
-    const loc = locMap.get(String(task.location_id));
+  // 3) fallback by location_id via userLocations map
+  const locId = task?.location_id ?? raw?.location_id ?? null; // <— also check raw
+  if (locId != null && locMap) {
+    const loc = locMap.get(String(locId));
     if (loc) {
-      const lat = loc.latitude ?? loc.lat ?? null;
-      const lng = loc.longitude ?? loc.lng ?? null;
+      const lat = loc.location_latitude ?? loc.latitude ?? loc.lat ?? null;
+      const lng = loc.location_longitude ?? loc.longitude ?? loc.lng ?? null;
       const name =
         loc.location_name ?? loc.name ?? loc.location_address ?? "Location";
-      if (lat != null && lng != null)
+      if (lat != null && lng != null) {
         return { name, lat: Number(lat), lng: Number(lng) };
+      }
       return { name, lat: null, lng: null };
     }
   }
 
   return { name: "", lat: null, lng: null };
 }
-
 
 const toHM = (mins) => {
   const h = Math.floor(mins / 60);

@@ -24,7 +24,7 @@ function MainPage({ isLoggin, setIsLoggin }) {
   const [showReports, setShowReports] = useState(false);
 
   const assignedTasksForReports = tasks.filter((t) => t.start && t.end);
-  
+
   // Functions to open and close the popup
   const handleCreateTask = () => {
     setPopupMode("create");
@@ -99,6 +99,10 @@ function MainPage({ isLoggin, setIsLoggin }) {
           allDay: task.task_all_day === 1 || !start || !end,
           note: task.task_note,
           categories: task.categories,
+          location_id: task.location_id,
+          custom_location_address: task.custom_location_address,
+          custom_location_latitude: task.custom_location_latitude,
+          custom_location_longitude: task.custom_location_longitude,
           raw: task,
         };
       });
