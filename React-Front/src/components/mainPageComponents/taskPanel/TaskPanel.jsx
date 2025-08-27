@@ -3,6 +3,14 @@ import React from "react";
 import TaskCard from "./taskCard/TaskCard";
 import styles from "./taskPanel.module.css";
 
+function isOverdue(task) {
+  if (!task?.task_duedate) return false;
+  const hhmm = (task.task_duetime || "23:59").slice(0, 5);
+  const due = new Date(`${task.task_duedate}T${hhmm}`);
+  if (Number.isNaN(due.getTime())) return false;
+  return due.getTime() < Date.now();
+}
+
 // A list of tasks that are scheduled for a specific time and location
 export default function TaskPanel({
   upcomingTasks = [],
@@ -65,31 +73,39 @@ export default function TaskPanel({
         {sortedWaiting.length === 0 ? (
           <div className={styles.empty}>No unscheduled tasks.</div>
         ) : (
-          sortedWaiting.map((task) => (
-            <div
-              key={task.task_id}
-              onClick={() => onSelectTask?.(task)}
-              style={{ cursor: "pointer" }}
-            >
-              <TaskCard
-                title={task.task_title}
-                time={
-                  task.task_duedate
-                    ? `${new Date(task.task_duedate).toLocaleDateString(
-                        "he-IL",
-                        { year: "numeric", month: "2-digit", day: "2-digit" }
-                      )}${
-                        task.task_duetime
-                          ? " " + task.task_duetime.slice(0, 5)
-                          : ""
-                      }`
-                    : ""
-                }
-                location={""}
-                priority="normal"
-              />
-            </div>
-          ))
+          sortedWaiting.map((task) => {
+            const overdue = isOverdue(task);
+
+            return (
+              <div
+                key={task.task_id}
+                onClick={() => onSelectTask?.(task)}
+                style={{ cursor: "pointer" }}
+              >
+                <TaskCard
+                  title={task.task_title}
+                  time={
+                    task.task_duedate
+                      ? `${new Date(task.task_duedate).toLocaleDateString(
+                          "he-IL",
+                          {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                          }
+                        )}${
+                          task.task_duetime
+                            ? " " + task.task_duetime.slice(0, 5)
+                            : ""
+                        }`
+                      : ""
+                  }
+                  location={""}
+                  priority={overdue ? "overdue" : "normal"} // ← השינוי היחיד בפרופס
+                />
+              </div>
+            );
+          })
         )}
       </div>
     </div>

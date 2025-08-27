@@ -1,3 +1,5 @@
+/* taskCard.module.css */
+
 .card {
   background-color: #ffffff;
   border-radius: 12px;
@@ -7,36 +9,25 @@
   transition: box-shadow 0.2s ease;
 }
 
-.card:hover {
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+.card:hover { box-shadow: 0 3px 8px rgba(0,0,0,.2); }
+
+.title { font-weight: bold; font-size: 16px; margin-bottom: 5px; }
+
+.details { font-size: 14px; color: #555; display: flex; gap: 10px; }
+
+/* קיימות אצלך */
+.high { border-left: 6px solid #e74c3c; }
+.medium { border-left: 6px solid #f39c12; }
+.low { border-left: 6px solid #27ae60; }
+.normal { border-left: 6px solid #ccc; }
+
+/* ← המחלקה שחסרה */
+.overdue {
+  border-left: 6px solid #ef4444;
+  background: #fff5f5;
 }
 
-.title {
-  font-weight: bold;
-  font-size: 16px;
-  margin-bottom: 5px;
-}
-
-.details {
-  font-size: 14px;
-  color: #555;
-  display: flex;
-  gap: 10px;
-}
-
-/* צבעים לפי עדיפות */
-.high {
-  border-left: 6px solid #e74c3c;
-}
-
-.medium {
-  border-left: 6px solid #f39c12;
-}
-
-.low {
-  border-left: 6px solid #27ae60;
-}
-
-.normal {
-  border-left: 6px solid #ccc;
+.overdue .title,
+.overdue .details {
+  color: #b42318;
 }
