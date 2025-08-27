@@ -23,6 +23,8 @@ function MainPage({ isLoggin, setIsLoggin }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showReports, setShowReports] = useState(false);
 
+  const assignedTasksForReports = tasks.filter((t) => t.start && t.end);
+  
   // Functions to open and close the popup
   const handleCreateTask = () => {
     setPopupMode("create");
@@ -282,8 +284,9 @@ function MainPage({ isLoggin, setIsLoggin }) {
         <Reports
           open={showReports}
           onClose={() => setShowReports(false)}
-          tasks={tasks}
+          tasks={assignedTasksForReports}
           userSettings={userSettings}
+          userLocations={locations}
         />
       )}
     </div>

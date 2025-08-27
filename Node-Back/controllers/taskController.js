@@ -273,18 +273,31 @@ async function getAssignedTasks(req, res) {
   try {
     const taskQuery = `
       SELECT 
-        t.task_id, t.task_title, t.task_note, t.task_buffertime,
-        t.task_duration, t.task_all_day, t.task_repeat,  t.series_id, t.repeat_until, t.location_id, t.custom_location_address, t.custom_location_latitude, t.custom_location_longitude,
-        DATE_FORMAT(a.task_start_date, '%Y-%m-%d') AS task_start_date,
-        DATE_FORMAT(a.task_end_date, '%Y-%m-%d') AS task_end_date,
-        TIME_FORMAT(a.task_start_time, '%H:%i') AS task_start_time,
-        TIME_FORMAT(a.task_end_time, '%H:%i') AS task_end_time,
-        c.category_id, c.category_name, c.category_color
+       t.task_id, t.task_title, t.task_note, t.task_buffertime,
+    t.task_duration, t.task_all_day, t.task_repeat, t.series_id, t.repeat_until,
+    t.location_id, 
+    t.custom_location_address, t.custom_location_latitude, t.custom_location_longitude,
+
+    -- dates and times
+    DATE_FORMAT(a.task_start_date, '%Y-%m-%d') AS task_start_date,
+    DATE_FORMAT(a.task_end_date,   '%Y-%m-%d') AS task_end_date,
+    TIME_FORMAT(a.task_start_time, '%H:%i')    AS task_start_time,
+    TIME_FORMAT(a.task_end_time,   '%H:%i')    AS task_end_time,
+
+    -- category 
+      c.category_id, c.category_name, c.category_color,
+
+    -- favorite location
+    l.location_name   AS loc_name,
+    l.location_address AS loc_address,
+    l.latitude  AS loc_latitude,
+    l.longitude AS loc_longitude
       FROM task t
-      JOIN assigned a ON t.task_id = a.task_id
-      LEFT JOIN task_category tc ON tc.task_id = t.task_id
-      LEFT JOIN category c ON tc.category_id = c.category_id
-      WHERE t.email = ?
+  JOIN assigned a       ON t.task_id = a.task_id
+  LEFT JOIN task_category tc ON tc.task_id = t.task_id
+  LEFT JOIN category c       ON tc.category_id = c.category_id
+  LEFT JOIN location l  ON t.location_id = l.location_id
+  WHERE t.email = ?
     `;
 
     db.query(taskQuery, [userEmail], (error, results) => {
@@ -320,6 +333,13 @@ async function getAssignedTasks(req, res) {
             task_repeat: row.task_repeat,
             repeat_until: row.repeat_until,
             categories: [],
+            raw: {
+              location_name: row.loc_name,
+              location_address: row.loc_address,
+              location_latitude: row.loc_latitude,
+              location_longitude: row.loc_longitude,
+              task_all_day: row.task_all_day,
+            },
           };
         }
 
@@ -744,16 +764,21 @@ async function getWaitingTasks(req, res) {
     const [rows] = await db.promise().query(
       `SELECT 
         t.task_id, t.task_title, t.task_note, t.task_buffertime,
-        t.task_duration, t.location_id, t.custom_location_address, 
-        t.custom_location_latitude, t.custom_location_longitude,
-        w.task_duedate, w.task_duetime,
-        c.category_id, c.category_name, c.category_color
-      FROM task t
-      JOIN waiting_list w ON t.task_id = w.task_id
-      LEFT JOIN task_category tc ON tc.task_id = t.task_id
-      LEFT JOIN category c ON tc.category_id = c.category_id
-      WHERE t.email = ?
-      ORDER BY w.task_duedate ASC, w.task_duetime ASC`,
+     t.task_duration, t.location_id, t.custom_location_address, 
+     t.custom_location_latitude, t.custom_location_longitude,
+     w.task_duedate, w.task_duetime,
+     c.category_id, c.category_name, c.category_color,
+     l.location_name      AS loc_name,
+    l.location_address   AS loc_address,
+    l.latitude                   AS loc_latitude,
+    l.longitude                 AS loc_longitude
+   FROM task t
+   JOIN waiting_list w    ON t.task_id = w.task_id
+   LEFT JOIN task_category tc ON tc.task_id = t.task_id
+   LEFT JOIN category c       ON tc.category_id = c.category_id
+   LEFT JOIN location l ON t.location_id = l.location_id
+   WHERE t.email = ?
+   ORDER BY w.task_duedate ASC, w.task_duetime ASC`,
       [email]
     );
     const taskMap = {};
@@ -772,6 +797,12 @@ async function getWaitingTasks(req, res) {
           task_duedate: row.task_duedate,
           task_duetime: row.task_duetime,
           categories: [],
+          raw: {
+            location_name: row.loc_name,
+            location_address: row.loc_address,
+            location_latitude: row.loc_latitude,
+            location_longitude: row.loc_longitude,
+          },
         };
       }
       // קטגוריות

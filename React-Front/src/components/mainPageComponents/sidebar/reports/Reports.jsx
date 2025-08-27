@@ -26,29 +26,55 @@ const speedKmhByMode = {
 };
 
 // Pull a friendly name + coords from a task
-function getTaskLocation(task) {
-  const raw = task.raw || {};
-  // custom coords override
-  if (
-    raw.custom_location_latitude != null &&
-    raw.custom_location_longitude != null
-  ) {
+function getTaskLocation(task, locMap) {
+  const raw = task?.raw || {};
+
+  // 1) custom location (מהטסק עצמו/מה-raw)
+  const customLat =
+    raw.custom_location_latitude ?? task?.custom_location_latitude;
+  const customLng =
+    raw.custom_location_longitude ?? task?.custom_location_longitude;
+  const customAddr =
+    raw.custom_location_address ?? task?.custom_location_address;
+  if (customLat != null && customLng != null) {
     return {
-      name: raw.custom_address || "Custom place",
-      lat: Number(raw.custom_location_latitude),
-      lng: Number(raw.custom_location_longitude),
+      name: customAddr || "Custom place",
+      lat: Number(customLat),
+      lng: Number(customLng),
     };
   }
-  // favorite location
-  if (raw.location_latitude != null && raw.location_longitude != null) {
+
+  // 2) favorite location שהגיע מה-JOIN
+  const rawLat =
+    raw.loc_latitude ?? raw.latitude ?? raw.location_latitude ?? null;
+  const rawLng =
+    raw.loc_longitude ?? raw.longitude ?? raw.location_longitude ?? null;
+  const rawName = raw.location_name || raw.location_address;
+  if (rawLat != null && rawLng != null) {
     return {
-      name: raw.location_name || "Location",
-      lat: Number(raw.location_latitude),
-      lng: Number(raw.location_longitude),
+      name: rawName || "Location",
+      lat: Number(rawLat),
+      lng: Number(rawLng),
     };
   }
+
+  // 3) דרך המפה של userLocations לפי id
+  if (task?.location_id != null && locMap) {
+    const loc = locMap.get(String(task.location_id));
+    if (loc) {
+      const lat = loc.latitude ?? loc.lat ?? null;
+      const lng = loc.longitude ?? loc.lng ?? null;
+      const name =
+        loc.location_name ?? loc.name ?? loc.location_address ?? "Location";
+      if (lat != null && lng != null)
+        return { name, lat: Number(lat), lng: Number(lng) };
+      return { name, lat: null, lng: null };
+    }
+  }
+
   return { name: "", lat: null, lng: null };
 }
+
 
 const toHM = (mins) => {
   const h = Math.floor(mins / 60);
@@ -102,6 +128,7 @@ export default function Reports({
   onClose,
   tasks = [],
   userSettings, // { start_day_time, end_day_time }
+  userLocations = [],
 }) {
   const [kind, setKind] = useState("week"); // day | week | month | year
   const [start, setStart] = useState(() => format(new Date(), "yyyy-MM-dd"));
@@ -125,8 +152,22 @@ export default function Reports({
   const dayStartMin = parseTimeToMin(userSettings?.start_day_time || "08:00");
   const dayEndMin = parseTimeToMin(userSettings?.end_day_time || "21:00");
 
+  const locMap = useMemo(() => {
+    const m = new Map();
+    for (const l of userLocations) m.set(String(l.location_id), l);
+    return m;
+  }, [userLocations]);
+
   function durationWithinWorkday(t) {
     if (!t?.start || !t?.end) return 0;
+    // do not count all-day items as "scheduled hours"
+    if (
+      t.task_all_day === 1 ||
+      t.task_all_day === true ||
+      t?.raw?.task_all_day
+    ) {
+      return 0;
+    }
     // Per day clipping (handles tasks that span multiple days)
     let sum = 0;
     const cur = new Date(Math.max(t.start.getTime(), startDate.getTime()));
@@ -168,7 +209,16 @@ export default function Reports({
     let travelMin = 0;
 
     // Sort only the tasks in range by start for travel calc
-    const sorted = [...inRange].sort((a, b) => a.start - b.start);
+    const sorted = [...inRange]
+      .filter(
+        (t) =>
+          !(
+            t.task_all_day === 1 ||
+            t.task_all_day === true ||
+            t?.raw?.task_all_day
+          )
+      )
+      .sort((a, b) => a.start - b.start);
 
     for (const t of inRange) {
       const mins = durationWithinWorkday(t);
@@ -189,7 +239,7 @@ export default function Reports({
       }
 
       // locations (time spent at a location)
-      const loc = getTaskLocation(t);
+      const loc = getTaskLocation(t, locMap);
       if (loc.name) {
         byLocation.set(loc.name, (byLocation.get(loc.name) || 0) + mins);
       }
@@ -197,8 +247,8 @@ export default function Reports({
 
     // --- NEW: travel legs between consecutive tasks with known coords
     for (let i = 0; i < sorted.length - 1; i++) {
-      const A = getTaskLocation(sorted[i]);
-      const B = getTaskLocation(sorted[i + 1]);
+      const A = getTaskLocation(sorted[i], locMap);
+      const B = getTaskLocation(sorted[i + 1], locMap);
       if (A.lat == null || B.lat == null) continue;
       // if same place, skip
       if (A.lat === B.lat && A.lng === B.lng) continue;
@@ -243,17 +293,20 @@ export default function Reports({
   ]);
 
   const exportCSV = () => {
-    const rows = inRange.map((t) => ({
-      title: t.title,
-      start: t.start ? format(t.start, "yyyy-MM-dd HH:mm") : "",
-      end: t.end ? format(t.end, "yyyy-MM-dd HH:mm") : "",
-      duration_min: durationWithinWorkday(t),
-      categories: Array.isArray(t.categories)
-        ? t.categories.map((c) => c.category_name || c.name).join("; ")
-        : "",
-      location: t.raw?.location_name || t.raw?.custom_address || "",
-      note: t.note || "",
-    }));
+    const rows = inRange.map((t) => {
+      const loc = getTaskLocation(t, locMap);
+      return {
+        title: t.title,
+        start: t.start ? format(t.start, "yyyy-MM-dd HH:mm") : "",
+        end: t.end ? format(t.end, "yyyy-MM-dd HH:mm") : "",
+        duration_min: durationWithinWorkday(t),
+        categories: Array.isArray(t.categories)
+          ? t.categories.map((c) => c.category_name || c.name).join("; ")
+          : "",
+        location: loc.name || "",
+        note: t.note || "",
+      };
+    });
     downloadCSV(
       `report_${format(startDate, "yyyyMMdd")}_${format(
         endDate,

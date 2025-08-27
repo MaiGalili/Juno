@@ -45,7 +45,7 @@ export default function Sidebar({
           userEmail={userEmail}
         />
       </div>
-      Locations section
+      {/* Locations section */}
       <div className={styles.section}>
         <div className={styles.sectionTitle}>
           <span>LOCATIONS</span>
