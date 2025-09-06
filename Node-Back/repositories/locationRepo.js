@@ -11,5 +11,11 @@ exports.getUserLocationById = async (email, locationId) => {
      LIMIT 1`,
     [email, locationId]
   );
-  return rows[0] || null;
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    location_name: r.location_name,
+    lat: Number(r.lat),
+    lng: Number(r.lng),
+  };
 };

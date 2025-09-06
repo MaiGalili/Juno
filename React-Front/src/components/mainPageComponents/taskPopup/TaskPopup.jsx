@@ -7,6 +7,8 @@ import RepeatActionPopup from "./RepeatActionPopup/RepeatActionPopup";
 import TaskSuggestionsPanel from "./taskSuggestionsPanel/TaskSuggestionsPanel";
 import SaveAsPDF from "./SaveAsPDF/SaveAsPDF";
 
+const UI_LOCALE = "en-GB";
+
 export default function TaskPopup({
   mode = "create",
   task = null,
@@ -148,7 +150,7 @@ export default function TaskPopup({
         setSelectedCategories([]);
       }
 
-      // Buffer time: תומך בכל פורמט
+      // Buffer time
       const bufferRaw = task?.buffer_time || task?.task_buffertime || "";
       setBufferTime(hhmmFromHHMMSS(bufferRaw) || "00:10");
 
@@ -157,7 +159,7 @@ export default function TaskPopup({
         task?.task_duedate !== null &&
         task?.task_duedate !== ""
       ) {
-        // משימת המתנה
+        // waiting task
         setDueDate(task.task_duedate || "");
         setDueTime((task.task_duetime || "").slice(0, 5));
         setStartDate("");
@@ -166,7 +168,7 @@ export default function TaskPopup({
         setEndTime("");
         setAllDay(false);
       } else {
-        // משימה רגילה
+        //assigned task
         setDueDate("");
         setDueTime("");
         setStartDate(task?.task_start_date || "");
@@ -175,7 +177,7 @@ export default function TaskPopup({
         setEndTime(task?.task_end_time || "");
         setAllDay(task?.task_all_day || false);
       }
-      // לוקיישנים
+      // location
       if (task?.location_id && !task?.custom_location_address) {
         setUseFavorite(true);
         setLocationId(String(task.location_id));
@@ -704,7 +706,7 @@ export default function TaskPopup({
   };
 
   return (
-    <div className={styles.popupWrapper}>
+    <div className={styles.popupWrapper} lang={UI_LOCALE}>
       <div className={styles.popup}>
         <h2>{isEdit ? "Edit Task" : "Create Task"}</h2>
         {!settingsLoaded ? (
@@ -752,6 +754,7 @@ export default function TaskPopup({
                     Start Time:
                     <input
                       type="time"
+                      step="60"
                       value={startTime}
                       placeholder="--:--"
                       onChange={(e) => setStartTime(e.target.value)}
@@ -761,6 +764,7 @@ export default function TaskPopup({
                     End Time:
                     <input
                       type="time"
+                      step="60"
                       value={endTime}
                       placeholder="--:--"
                       onChange={(e) => setEndTime(e.target.value)}
@@ -772,6 +776,7 @@ export default function TaskPopup({
                 Duration:
                 <input
                   type="time"
+                  step="60"
                   value={duration}
                   placeholder="--:--"
                   onChange={(e) => setDuration(e.target.value)}
@@ -817,6 +822,7 @@ export default function TaskPopup({
                 Due Time:
                 <input
                   type="time"
+                  step="60"
                   value={dueTime}
                   onChange={(e) => setDueTime(e.target.value)}
                 />
@@ -825,6 +831,7 @@ export default function TaskPopup({
                 Buffer Time:
                 <input
                   type="time"
+                  step="60"
                   value={bufferTime}
                   onChange={(e) => setBufferTime(e.target.value)}
                 />
@@ -908,10 +915,10 @@ export default function TaskPopup({
               {isWaitingUI && duration && dueDate && (
                 <TaskSuggestionsPanel
                   userEmail={userEmail}
-                  duration={duration}
-                  dueDate={dueDate}
-                  dueTime={dueTime || undefined}
-                  bufferTime={bufferTime}
+                  duration={toHHMMSS(duration)}
+                  dueDate={toInputDateString(dueDate)}
+                  dueTime={dueTime ? toHHMMSS(dueTime) : null}
+                  bufferTime={toHHMMSS(bufferTime)}
                   locationId={useFavorite ? locationId : null}
                   customAddress={!useFavorite ? customAddress : null}
                   customCoords={!useFavorite ? customCoords : null}
@@ -954,7 +961,7 @@ export default function TaskPopup({
                       task={task}
                       userCategories={userCategories}
                       userLocations={userLocations}
-                      className={styles.secondaryButton} 
+                      className={styles.secondaryButton}
                     />
                   </>
                 )}

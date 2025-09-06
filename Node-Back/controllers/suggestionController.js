@@ -23,15 +23,31 @@ function haversineMinutes(from, to, mode = "driving") {
   return Math.ceil((d / kmh) * 60);
 }
 
-async function travelMinutes(from, to, mode, departSec) {
-  // try Google
-  const g = await distanceMatrixMinutes(from, to, mode, departSec);
-  if (g != null) return g;
-  // fallback
-  return haversineMinutes(from, to, mode);
+async function travelMinutesWithSource(from, to, mode, departSec) {
+  if (
+    !from ||
+    !to ||
+    from.lat == null ||
+    from.lng == null ||
+    to.lat == null ||
+    to.lng == null
+  ) {
+    return { mins: 0, source: "none" };
+  }
+  try {
+    const g = await distanceMatrixMinutes(
+      { lat: Number(from.lat), lng: Number(from.lng) },
+      { lat: Number(to.lat), lng: Number(to.lng) },
+      mode,
+      departSec
+    );
+    if (Number.isFinite(g)) return { mins: g, source: "gmaps" };
+  } catch (e) {
+    console.warn("distanceMatrixMinutes error:", e?.message || e);
+  }
+  return { mins: haversineMinutes(from, to, mode), source: "fallback" };
 }
 
-// Make it async and compute 2 legs per gap using departure times near the slot
 // Make it async and compute 2 legs per gap using departure times near the slot
 async function buildFreeWithTravelAsync(
   busyWithLoc,
@@ -39,16 +55,14 @@ async function buildFreeWithTravelAsync(
   dayEndMin,
   neededMin,
   bufferMin,
-  candidateLoc,   // null => "anywhere"
+  candidateLoc,
   stepMin,
   maxPerGap,
   travelMode,
-  dateEpochSec,    // unix seconds for 00:00 of the day
-  defaultStartLoc  // מיקום ברירת מחדל בתחילת היום (אם אין A)
+  dateEpochSec,
+  defaultStartLoc
 ) {
   const res = [];
-
-  // מוסיפים "שומרים" לקצה היום, וממקמים את מיקום ברירת המחדל בתחילת היום
   const guards = [
     { start: dayStartMin, end: dayStartMin, loc: defaultStartLoc || null },
     ...busyWithLoc,
@@ -56,60 +70,70 @@ async function buildFreeWithTravelAsync(
   ];
 
   for (let i = 0; i < guards.length - 1; i++) {
-    const A = guards[i];
-    const B = guards[i + 1];
+    const A = guards[i],
+      B = guards[i + 1];
+    const locA = A.loc || defaultStartLoc || null;
+    const locB = B.loc || defaultStartLoc || null;
 
-    // יציאה ממש לפני B אם נניח שהמשימה תהיה הכי מאוחר שאפשר בתוך החור
     const departToB_ifTaskAtEnd = dateEpochSec + (B.start - bufferMin) * 60;
 
-    let tFromA = 0;
-    let tToB = 0;
-    let earliest;     // ההתחלה המוקדמת ביותר שמותר לי
-    let latestFinish; // הסיום המאוחר ביותר שמותר לי
+    let tFromA = 0,
+      tToB = 0,
+      earliest,
+      latestFinish;
+    let src1 = "",
+      src2 = "";
 
     if (candidateLoc) {
-      // --- המשימה עם מיקום קבוע ---
-      // רגל 1: A -> המשימה שלי (יוצאים כש-A נגמר)
       const departA = dateEpochSec + A.end * 60;
-      tFromA = (await travelMinutes(A.loc, candidateLoc, travelMode, departA)) || 0;
+      const r1 = await travelMinutesWithSource(
+        locA,
+        candidateLoc,
+        travelMode,
+        departA
+      );
+      tFromA = r1.mins;
+      src1 = r1.source;
 
-      // רגל 2: המשימה שלי -> B (בודקים זמן נסיעה סביב ההתחלה המאוחרת ביותר שתתאים)
-      const latestStart = B.start - bufferMin - neededMin;               // מתי הכי מאוחר להתחיל כדי להספיק
+      const latestStart = B.start - bufferMin - neededMin;
       const arriveToBTime = dateEpochSec + (latestStart + neededMin) * 60;
-      tToB = (await travelMinutes(candidateLoc, B.loc, travelMode, arriveToBTime)) || 0;
+      const r2 = await travelMinutesWithSource(
+        candidateLoc,
+        locB,
+        travelMode,
+        arriveToBTime
+      );
+      tToB = r2.mins;
+      src2 = r2.source;
 
-      // חייבים להגיע עם buffer לפני תחילת המשימה, ולהשאיר buffer + נסיעה לפני B
       earliest = A.end + tFromA + bufferMin;
       latestFinish = B.start - bufferMin - tToB;
     } else {
-      // --- המשימה "מכל מקום" (אין מיקום קבוע) ---
-      // אין צורך בנסיעה A->Task, אבל חייבים להשאיר מקום ל-A->B + buffer לפני B
-      const tAB =
-        (await travelMinutes(A.loc, B.loc, travelMode, departToB_ifTaskAtEnd)) || 0;
-      tFromA = 0;
-      tToB = tAB;
-
-      // לפני המשימה – רק buffer; אחרי – להשאיר A->B + buffer לפני B
+      const rAB = await travelMinutesWithSource(
+        locA,
+        locB,
+        travelMode,
+        departToB_ifTaskAtEnd
+      );
+      tToB = rAB.mins;
+      src2 = rAB.source;
       earliest = A.end + bufferMin;
-      latestFinish = B.start - bufferMin - tAB;
+      latestFinish = B.start - bufferMin - tToB;
     }
 
-    // האם בכלל נכנס?
     if (latestFinish - earliest < neededMin) continue;
 
-    // מיישרים לפי stepMin (רזולוציית הצעות)
     let s = Math.ceil(earliest / stepMin) * stepMin;
     let count = 0;
     for (; s + neededMin <= latestFinish; s += stepMin) {
       res.push({
         start: s,
         end: s + neededMin,
-        meta: `+${tFromA}m travel / +${tToB}m next`, // להסבר/דיבוג
+        meta: `+${tFromA}m / +${tToB}m [${src1 || "-"},${src2 || "-"}]`,
       });
       if (++count >= maxPerGap) break;
     }
   }
-
   return res;
 }
 
@@ -118,23 +142,28 @@ const parseHHMM = (s) => {
   const [h, m] = s.slice(0, 5).split(":").map(Number);
   return h * 60 + m;
 };
+
 const toHHMM = (mins) =>
   `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(
     mins % 60
   ).padStart(2, "0")}`;
+
 const dayKey = (dateStr) => {
   const [y, m, d] = dateStr.split("-").map(Number);
   return new Date(y, m - 1, d);
 };
+
 const addDays = (date, n) => {
   const d = new Date(date);
   d.setDate(d.getDate() + n);
   return d;
 };
+
 const fmtDate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
     d.getDate()
   ).padStart(2, "0")}`;
+
 function toYMD(input) {
   if (!input) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
@@ -142,7 +171,6 @@ function toYMD(input) {
   return isNaN(d.getTime()) ? null : fmtDate(d);
 }
 
-// --- controller ---
 exports.getSuggestions = async (req, res) => {
   try {
     const userEmail = req.session?.userEmail;
@@ -172,33 +200,49 @@ exports.getSuggestions = async (req, res) => {
       });
     }
 
+    // 1) פונקציית עזר לפני שמשתמשים בה
+    const normHHMM = (t) =>
+      typeof t === "string" && t.length >= 5 ? t.slice(0, 5) : null;
+
+    // 2) נרמול תאריכים לפני חישובים
     const dueDateYMD = toYMD(dueDate);
     const startDateYMD = toYMD(startDate);
 
-    const user = await userRepo.getSettings(userEmail); // MUST include travel_mode in SELECT
+    // 3) הבאת ההגדרות של המשתמש (נשתמש בהן לברירות מחדל)
+    const user = await userRepo.getSettings(userEmail); // חייב לכלול גם travel_mode
     const dayStart = user.start_day_time || "08:00:00";
     const dayEnd = user.end_day_time || "21:00:00";
     const defaultBuffer = user.defult_buffer || "00:10:00";
 
+    // 4) נרמול זמני קלט אחרי שיש לנו ברירות מחדל
+    const durHHMM = normHHMM(duration); // "HH:MM"
+    const dueTimeHHMM = normHHMM(dueTime); // יכול להיות null
+    const bufHHMM = normHHMM(bufferTime) || defaultBuffer.slice(0, 5);
+
+    // 5) חישובי דקות מהערכים המנורמלים
+    const needMin = parseHHMM(durHHMM);
+    if (needMin <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "duration must be greater than 00:00",
+      });
+    }
+    const bufMin = parseHHMM(bufHHMM);
+    const stepMin = Math.max(15, bufMin);
+
+    // 6) לוקיישן ברירת מחדל לתחילת היום (אם קיים)
     let defaultStartLoc = null;
     if (user.default_location_id) {
       const dl = await locationRepo.getUserLocationById(
         userEmail,
         Number(user.default_location_id)
       );
-      if (dl && dl.lat != null && dl.lng != null) defaultStartLoc = dl;
+      if (dl && dl.lat != null && dl.lng != null) {
+        defaultStartLoc = { lat: Number(dl.lat), lng: Number(dl.lng) }; // <<< חשוב
+      }
     }
 
-    const needMin = parseHHMM(duration);
-    if (needMin <= 0)
-      return res.status(400).json({
-        success: false,
-        message: "duration must be greater than 00:00",
-      });
-
-    const bufMin = parseHHMM(bufferTime || defaultBuffer);
-    const stepMin = Math.max(15, bufMin);
-
+    // --- טווחי חיפוש ---
     const todayStr = toYMD(nowYMD) || fmtDate(new Date());
     const parsedNow = Number(nowMinOfDay);
     const nowMin = Number.isFinite(parsedNow)
@@ -216,10 +260,11 @@ exports.getSuggestions = async (req, res) => {
       searchStartDate = start < today ? today : start;
       searchEndDate = dayKey(startDateYMD);
     } else if (dueDateYMD) {
-      if (dueTime) {
+      if (dueTimeHHMM) {
         searchEndDate = dayKey(dueDateYMD);
-        endTimeLimitMin = parseHHMM(dueTime);
+        endTimeLimitMin = parseHHMM(dueTimeHHMM);
       } else {
+        // ללא dueTime → מחפשים עד היום שלפני dueDate
         searchEndDate = addDays(dayKey(dueDateYMD), -1);
       }
     }
@@ -228,7 +273,7 @@ exports.getSuggestions = async (req, res) => {
       return res.json({ success: true, data: [] });
     }
 
-    // Fetch existing assigned tasks in range (with locations)
+    // --- משימות קיימות (עם לוקיישנים) בטווח ---
     const assigned = await taskRepo.getAssignedBetween(
       userEmail,
       fmtDate(searchStartDate),
@@ -283,7 +328,7 @@ exports.getSuggestions = async (req, res) => {
       busyByDay.get(dStr).push({ start: sMin, end: eMin, loc });
     }
 
-    // Merge overlaps per day
+    // --- מיזוג חפיפות ---
     for (const [dStr, arr] of busyByDay) {
       arr.sort((a, b) => a.start - b.start);
       const merged = [];
@@ -300,7 +345,7 @@ exports.getSuggestions = async (req, res) => {
       busyByDay.set(dStr, merged);
     }
 
-    // Resolve candidate location once
+    // --- לוקיישן מועמד (אם המשימה נדרשת במקום מסוים) ---
     let candidateLoc = null;
     const candLat = customLat ?? customCoords?.lat;
     const candLng = customLng ?? customCoords?.lng;
@@ -315,8 +360,6 @@ exports.getSuggestions = async (req, res) => {
         candidateLoc = { lat: Number(loc.lat), lng: Number(loc.lng) };
       }
     }
-
-    console.log("candidateLoc", { locationId, candLat, candLng, candidateLoc });
 
     const results = [];
     let d = new Date(searchStartDate);
@@ -364,6 +407,7 @@ exports.getSuggestions = async (req, res) => {
           dayEpochSec,
           defaultStartLoc
         );
+
         if (dateStr === todayStr)
           free = free.filter((f) => f.start >= todayCutoff);
 

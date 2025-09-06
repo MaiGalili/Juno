@@ -6,9 +6,12 @@ const cache = new Map();
 const TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 function cacheKey({ from, to, mode, departSec }) {
-  const f = `${from.lat.toFixed(5)},${from.lng.toFixed(5)}`;
-  const t = `${to.lat.toFixed(5)},${to.lng.toFixed(5)}`;
-  // round depart time to 5-minute buckets to reuse results
+  const fLat = Number(from.lat),
+    fLng = Number(from.lng);
+  const tLat = Number(to.lat),
+    tLng = Number(to.lng);
+  const f = `${fLat.toFixed(5)},${fLng.toFixed(5)}`;
+  const t = `${tLat.toFixed(5)},${tLng.toFixed(5)}`;
   const bucket = Math.floor(departSec / 300) * 300;
   return `${f}|${t}|${mode}|${bucket}`;
 }
@@ -53,7 +56,7 @@ async function distanceMatrixMinutes(from, to, mode = "driving", departSec) {
       });
       return null; // force fallback
     }
-    
+
     // Prefer duration_in_traffic (driving); otherwise duration
     const secs =
       (el.duration_in_traffic && el.duration_in_traffic.value) ||
