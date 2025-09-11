@@ -190,7 +190,6 @@ export default function TaskSuggestionsPanel({
             >
               <div className={styles.itemMain}>
                 <div className={styles.itemWhen}>{formatLabel(s)}</div>
-                {s.meta && <div className={styles.itemMeta}>{s.meta}</div>}
               </div>
               <button
                 type="button"
