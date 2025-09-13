@@ -4,8 +4,8 @@ const userRepo = require("../repositories/userRepo");
 const locationRepo = require("../repositories/locationRepo");
 const { distanceMatrixMinutes } = require("../services/googleDistanceService");
 
-// --- helpers ---
-// fallback haversine (keep yours)
+// Helpers
+// Fallback travel time using a crude Haversine distance + average speed by mode
 function haversineMinutes(from, to, mode = "driving") {
   if (!from || !to || from.lat == null || to.lat == null) return 0;
   const kmhByMode = { driving: 35, walking: 5, bicycling: 15, transit: 25 };
@@ -23,6 +23,7 @@ function haversineMinutes(from, to, mode = "driving") {
   return Math.ceil((d / kmh) * 60);
 }
 
+// Try Google Distance Matrix (via distanceMatrixMinutes); on failure, fallback to Haversine
 async function travelMinutesWithSource(from, to, mode, departSec) {
   if (
     !from ||
@@ -48,7 +49,7 @@ async function travelMinutesWithSource(from, to, mode, departSec) {
   return { mins: haversineMinutes(from, to, mode), source: "fallback" };
 }
 
-// Make it async and compute 2 legs per gap using departure times near the slot
+// Compute free slots (with travel) between two locations
 async function buildFreeWithTravelAsync(
   busyWithLoc,
   dayStartMin,
@@ -63,6 +64,7 @@ async function buildFreeWithTravelAsync(
   defaultStartLoc
 ) {
   const res = [];
+  // Frame the day start and end with synthetic zero-length intervals
   const guards = [
     { start: dayStartMin, end: dayStartMin, loc: defaultStartLoc || null },
     ...busyWithLoc,
@@ -75,6 +77,7 @@ async function buildFreeWithTravelAsync(
     const locA = A.loc || defaultStartLoc || null;
     const locB = B.loc || defaultStartLoc || null;
 
+    //Hypothetical departure if task ends right at buffer before B
     const departToB_ifTaskAtEnd = dateEpochSec + (B.start - bufferMin) * 60;
 
     let tFromA = 0,
@@ -85,6 +88,7 @@ async function buildFreeWithTravelAsync(
       src2 = "";
 
     if (candidateLoc) {
+      // Travel A -> candidateLoc at time just after A
       const departA = dateEpochSec + A.end * 60;
       const r1 = await travelMinutesWithSource(
         locA,
@@ -95,6 +99,7 @@ async function buildFreeWithTravelAsync(
       tFromA = r1.mins;
       src1 = r1.source;
 
+      // Travel candidateLoc ->B just in time to arrive before B (latest feasible start)
       const latestStart = B.start - bufferMin - neededMin;
       const arriveToBTime = dateEpochSec + (latestStart + neededMin) * 60;
       const r2 = await travelMinutesWithSource(
@@ -109,6 +114,7 @@ async function buildFreeWithTravelAsync(
       earliest = A.end + tFromA + bufferMin;
       latestFinish = B.start - bufferMin - tToB;
     } else {
+      // No specific candidate location: only ensure we can reach B after placing task near the gap end
       const rAB = await travelMinutesWithSource(
         locA,
         locB,
@@ -121,8 +127,10 @@ async function buildFreeWithTravelAsync(
       latestFinish = B.start - bufferMin - tToB;
     }
 
+    // Gap too short
     if (latestFinish - earliest < neededMin) continue;
 
+    // Add candidate slots every `stepMin` minutes (e.g., every 15m)
     let s = Math.ceil(earliest / stepMin) * stepMin;
     let count = 0;
     for (; s + neededMin <= latestFinish; s += stepMin) {
@@ -137,33 +145,41 @@ async function buildFreeWithTravelAsync(
   return res;
 }
 
+// Basic time/date utils
+
+// Parse "HH:MM" to minutes-from-midnight
 const parseHHMM = (s) => {
   if (!s) return 0;
   const [h, m] = s.slice(0, 5).split(":").map(Number);
   return h * 60 + m;
 };
 
+// Format minutes-from-midnight to "HH:MM"
 const toHHMM = (mins) =>
   `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(
     mins % 60
   ).padStart(2, "0")}`;
 
+// Convert "YYYY-MM-DD" (string) to a Date
 const dayKey = (dateStr) => {
   const [y, m, d] = dateStr.split("-").map(Number);
   return new Date(y, m - 1, d);
 };
 
+// Add N days
 const addDays = (date, n) => {
   const d = new Date(date);
   d.setDate(d.getDate() + n);
   return d;
 };
 
+//Format Date to "YYYY-MM-DD"
 const fmtDate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
     d.getDate()
   ).padStart(2, "0")}`;
 
+//Normalize various date-like inputs to "YYYY-MM-DD"
 function toYMD(input) {
   if (!input) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
@@ -171,6 +187,9 @@ function toYMD(input) {
   return isNaN(d.getTime()) ? null : fmtDate(d);
 }
 
+// Returns suggested free slots (start/end) considering:
+// user's working day bounds, default buffer and travel_mode,
+// existing assigned tasks, candidate location, and time window derived from startDate OR dueDate
 exports.getSuggestions = async (req, res) => {
   try {
     const userEmail = req.session?.userEmail;
@@ -200,26 +219,26 @@ exports.getSuggestions = async (req, res) => {
       });
     }
 
-    // 1) פונקציית עזר לפני שמשתמשים בה
+    // 1) Utility to clamp "HH:MM:SS" or "HH:MM" down to "HH:MM"
     const normHHMM = (t) =>
       typeof t === "string" && t.length >= 5 ? t.slice(0, 5) : null;
 
-    // 2) נרמול תאריכים לפני חישובים
+    // 2) Normalize dates before computations
     const dueDateYMD = toYMD(dueDate);
     const startDateYMD = toYMD(startDate);
 
-    // 3) הבאת ההגדרות של המשתמש (נשתמש בהן לברירות מחדל)
-    const user = await userRepo.getSettings(userEmail); // חייב לכלול גם travel_mode
+    // 3) Pull user settings (default buffer / day bounds / travel_mode / default_location_id)
+    const user = await userRepo.getSettings(userEmail);
     const dayStart = user.start_day_time || "08:00:00";
     const dayEnd = user.end_day_time || "21:00:00";
     const defaultBuffer = user.defult_buffer || "00:10:00";
 
-    // 4) נרמול זמני קלט אחרי שיש לנו ברירות מחדל
-    const durHHMM = normHHMM(duration); // "HH:MM"
-    const dueTimeHHMM = normHHMM(dueTime); // יכול להיות null
+    // 4) Normalize input times now that defaults are known
+    const durHHMM = normHHMM(duration);
+    const dueTimeHHMM = normHHMM(dueTime);
     const bufHHMM = normHHMM(bufferTime) || defaultBuffer.slice(0, 5);
 
-    // 5) חישובי דקות מהערכים המנורמלים
+    // 5) Convert to minutes (duration must be > 0)
     const needMin = parseHHMM(durHHMM);
     if (needMin <= 0) {
       return res.status(400).json({
@@ -228,9 +247,9 @@ exports.getSuggestions = async (req, res) => {
       });
     }
     const bufMin = parseHHMM(bufHHMM);
-    const stepMin = Math.max(15, bufMin);
+    const stepMin = Math.max(15, bufMin); // grid step for proposals
 
-    // 6) לוקיישן ברירת מחדל לתחילת היום (אם קיים)
+    // 6) Default start-of-day location
     let defaultStartLoc = null;
     if (user.default_location_id) {
       const dl = await locationRepo.getUserLocationById(
@@ -242,19 +261,20 @@ exports.getSuggestions = async (req, res) => {
       }
     }
 
-    // --- טווחי חיפוש ---
+    // Define search window (dates)
     const todayStr = toYMD(nowYMD) || fmtDate(new Date());
     const parsedNow = Number(nowMinOfDay);
     const nowMin = Number.isFinite(parsedNow)
       ? parsedNow
       : new Date().getHours() * 60 + new Date().getMinutes();
-    const minLeadMin = Math.max(bufMin, 30);
+    const minLeadMin = Math.max(bufMin, 30); // enforce minimal lead time from "now"
 
     let searchStartDate = dayKey(todayStr);
     let searchEndDate,
       endTimeLimitMin = null;
 
     if (startDateYMD) {
+      // Start from startDate but don't allow past dates before "today"
       const start = dayKey(startDateYMD);
       const today = dayKey(todayStr);
       searchStartDate = start < today ? today : start;
@@ -264,22 +284,24 @@ exports.getSuggestions = async (req, res) => {
         searchEndDate = dayKey(dueDateYMD);
         endTimeLimitMin = parseHHMM(dueTimeHHMM);
       } else {
-        // ללא dueTime → מחפשים עד היום שלפני dueDate
+        // No dueTime -> search until the day before dueDate
         searchEndDate = addDays(dayKey(dueDateYMD), -1);
       }
     }
 
+    // No feasible window
     if (fmtDate(searchEndDate) < fmtDate(searchStartDate)) {
       return res.json({ success: true, data: [] });
     }
 
-    // --- משימות קיימות (עם לוקיישנים) בטווח ---
+    // Fetch existing assigned tasks (with location columns) within the window
     const assigned = await taskRepo.getAssignedBetween(
       userEmail,
       fmtDate(searchStartDate),
       fmtDate(searchEndDate)
     );
 
+    // Build busy intervals per day
     const busyByDay = new Map();
     for (const t of assigned) {
       const dStr =
@@ -289,6 +311,7 @@ exports.getSuggestions = async (req, res) => {
           : fmtDate(new Date(t.task_start_date));
       if (!dStr) continue;
 
+      // Normalize start/end as "HH:MM"
       const startHHMM =
         typeof t.task_start_time === "string"
           ? t.task_start_time
@@ -308,6 +331,7 @@ exports.getSuggestions = async (req, res) => {
       const eMin = parseHHMM(endHHMM);
       if (!(eMin > sMin)) continue;
 
+      // Pick location
       let loc = null;
       if (
         t.custom_location_latitude != null &&
@@ -328,7 +352,7 @@ exports.getSuggestions = async (req, res) => {
       busyByDay.get(dStr).push({ start: sMin, end: eMin, loc });
     }
 
-    // --- מיזוג חפיפות ---
+    // Merge overlapping intervals per day to simplify gaps
     for (const [dStr, arr] of busyByDay) {
       arr.sort((a, b) => a.start - b.start);
       const merged = [];
@@ -345,7 +369,7 @@ exports.getSuggestions = async (req, res) => {
       busyByDay.set(dStr, merged);
     }
 
-    // --- לוקיישן מועמד (אם המשימה נדרשת במקום מסוים) ---
+    // Candidate location for the new task
     let candidateLoc = null;
     const candLat = customLat ?? customCoords?.lat;
     const candLng = customLng ?? customCoords?.lng;
@@ -361,6 +385,7 @@ exports.getSuggestions = async (req, res) => {
       }
     }
 
+    // Iterate through dates in window and collect suggestions
     const results = [];
     let d = new Date(searchStartDate);
     const last = addDays(searchEndDate, 1);
@@ -369,9 +394,12 @@ exports.getSuggestions = async (req, res) => {
     while (d < last && results.length < offset + limit + 6) {
       const dateStr = fmtDate(d);
 
+      // Daily working bounds
       let dayStartMin = parseHHMM(dayStart.slice(0, 5));
       let dayEndMin = parseHHMM(dayEnd.slice(0, 5));
 
+      // Unix timestamp (seconds) at this day’s midnight
+      // Add minutes to it to get exact departure times for the travel API
       const y = d.getFullYear(),
         m = d.getMonth(),
         dd = d.getDate();
@@ -379,10 +407,12 @@ exports.getSuggestions = async (req, res) => {
         new Date(y, m, dd, 0, 0, 0).getTime() / 1000
       );
 
+      // If dueDate==this date and we have a dueTime, limit the end of working window
       if (dueDateYMD && dateStr === dueDateYMD && endTimeLimitMin != null) {
         dayEndMin = Math.min(dayEndMin, endTimeLimitMin);
       }
 
+      // For "today", enforce minimal lead time and align to step grid
       if (dateStr === todayStr) {
         dayStartMin = Math.max(dayStartMin, nowMin + minLeadMin);
         dayStartMin = Math.ceil(dayStartMin / stepMin) * stepMin;
@@ -392,6 +422,7 @@ exports.getSuggestions = async (req, res) => {
         }
       }
 
+      // Only if day's window can fit the task
       if (dayEndMin - dayStartMin >= needMin) {
         const busyWithLoc = busyByDay.get(dateStr) || [];
         let free = await buildFreeWithTravelAsync(
@@ -408,16 +439,18 @@ exports.getSuggestions = async (req, res) => {
           defaultStartLoc
         );
 
+        // For today: remove slots that start before cutoff
         if (dateStr === todayStr)
           free = free.filter((f) => f.start >= todayCutoff);
 
+        // Append to results
         for (const f of free) {
           results.push({
             startDate: dateStr,
             endDate: dateStr,
             startTime: toHHMM(f.start),
             endTime: toHHMM(f.end),
-            meta: f.meta,
+            meta: f.meta, // "+<fromA>m / +<toB>m [src1,src2]"
           });
           if (results.length >= offset + limit) break;
         }
@@ -427,6 +460,7 @@ exports.getSuggestions = async (req, res) => {
       d = addDays(d, 1);
     }
 
+    // Apply offset/limit pagination
     return res.json({
       success: true,
       data: results.slice(offset, offset + limit),

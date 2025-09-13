@@ -3,7 +3,7 @@ const db = require("../db");
 const { v4: uuidv4 } = require("uuid");
 const taskRepo = require("../repositories/taskRepo");
 
-// Normilize HH:MM:SS
+// Normilize to HH:MM:SS
 function toHHMMSS(s) {
   if (s == null || s === "") return null;
   const parts = String(s).split(":");
@@ -17,7 +17,7 @@ function toHHMMSS(s) {
   return `${h}:${m}:${sec}`;
 }
 
-// Normalize YYYY-MM-DD safely (accepts string or Date)
+// Normalize to YYYY-MM-DD
 function toYMD(val) {
   if (!val) return null;
   if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
@@ -25,7 +25,7 @@ function toYMD(val) {
   return d ? d.toISOString().slice(0, 10) : null;
 }
 
-// Parse to a UTC "date-only" Date object (no TZ drift)
+// Parse a Date-like into a UTC date-only Date (midnight UTC), avoiding TZ drift
 function toUTCDate(dateLike) {
   if (!dateLike) return null;
   if (dateLike instanceof Date) {
@@ -49,6 +49,7 @@ function toUTCDate(dateLike) {
   );
 }
 
+// Generate the next N dates from a base date according to repeatType
 function getNextNDates(baseDate, count, repeatType) {
   const out = [];
   let d = toUTCDate(baseDate);
@@ -68,12 +69,13 @@ function getNextNDates(baseDate, count, repeatType) {
         d.setUTCFullYear(d.getUTCFullYear() + 1);
         break;
       default:
-        return out; // none
+        return out; // 'none'- stop after first push
     }
   }
   return out;
 }
 
+//Generate dates from startDate until repeatUntil (inclusive) according to repeatType
 function getRepeatDates(startDate, repeatUntil, repeatType) {
   const dates = [];
   let curr = toUTCDate(startDate);
@@ -101,6 +103,7 @@ function getRepeatDates(startDate, repeatUntil, repeatType) {
   return dates;
 }
 
+//  Create one or more assigned tasks. Supports repetition via task_repeat + repeat_until.Insets into task and assigned tables (and task_category table).
 async function createAssignedTask(req, res) {
   const {
     title,
@@ -129,6 +132,7 @@ async function createAssignedTask(req, res) {
     let series_id = null;
     let repeatDates = [start_date];
 
+    // Build the series if repetition requested
     if (task_repeat && task_repeat !== "none" && repeat_until) {
       series_id = uuidv4();
       repeatDates = getRepeatDates(start_date, repeat_until, task_repeat);
@@ -138,6 +142,7 @@ async function createAssignedTask(req, res) {
 
     const insertedTasks = [];
 
+    // Insert each occurrence (task + assigned + categories)
     for (const date of repeatDates) {
       const [result] = await db
         .promise()
@@ -174,7 +179,7 @@ async function createAssignedTask(req, res) {
             task_id,
             toYMD(date),
             toYMD(date),
-            toHHMMSS(start_time), // חשוב: להוסיף שניות
+            toHHMMSS(start_time),
             toHHMMSS(end_time),
           ]
         );
@@ -203,7 +208,7 @@ async function createAssignedTask(req, res) {
   }
 }
 
-//Create waiting task function
+//Create a waiting task (task + waiting_list + optional categories)
 async function createWaitingTask(req, res) {
   const {
     title,
@@ -224,7 +229,7 @@ async function createWaitingTask(req, res) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
 
   try {
-    // get waiting list max
+    // Fetch user's waiting list limit
     const [[userRow]] = await db
       .promise()
       .query(`SELECT waiting_list_max FROM users WHERE email = ?`, [email]);
@@ -232,7 +237,7 @@ async function createWaitingTask(req, res) {
 
     console.log("waitingListMax from DB:", waitingListMax);
 
-    // count waiting tasks
+    // Count current waiting tasks
     const [[{ waiting_count }]] = await db.promise().query(
       `SELECT COUNT(*) as waiting_count
        FROM task
@@ -241,7 +246,7 @@ async function createWaitingTask(req, res) {
       [email]
     );
 
-    // check if waiting list is full
+    // Enforce max
     if (waiting_count >= waitingListMax) {
       return res.status(400).json({
         success: false,
@@ -280,7 +285,7 @@ async function createWaitingTask(req, res) {
 
     const task_id = result.insertId;
 
-    //Insert input into to the waiting table
+    // Insert waiting_list row
     await db.promise().query(
       `INSERT INTO waiting_list (
     task_id,
@@ -290,7 +295,7 @@ async function createWaitingTask(req, res) {
       [task_id, toYMD(due_date), toHHMMSS(due_time)]
     );
 
-    //Assign categories to task
+    // Assign categories
     if (Array.isArray(category_ids)) {
       for (const category_id of category_ids) {
         await db
@@ -302,7 +307,7 @@ async function createWaitingTask(req, res) {
       }
     }
 
-    // if waiting list is full
+    // If this addition hit the max
     if (waiting_count + 1 === waitingListMax) {
       return res.status(201).json({
         success: true,
@@ -323,17 +328,15 @@ async function createWaitingTask(req, res) {
   }
 }
 
-//Get assigned tasks (calendar view)
+// Fetch assigned tasks for calendar view (joins categories & favorite location data). Groups multiple category rows into a single task with categories[]
 async function getAssignedTasks(req, res) {
   const userEmail = req.session.userEmail;
   if (!userEmail) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
-  // Retrieve tasks for this user
   try {
-    const taskQuery = `
-      SELECT 
+    const taskQuery = `SELECT 
        t.task_id, t.task_title, t.task_note, t.task_buffertime,
     t.task_duration, t.task_all_day, t.task_repeat, t.series_id, t.repeat_until,
     t.location_id, 
@@ -358,8 +361,7 @@ async function getAssignedTasks(req, res) {
   LEFT JOIN task_category tc ON tc.task_id = t.task_id
   LEFT JOIN category c       ON tc.category_id = c.category_id
   LEFT JOIN location l  ON t.location_id = l.location_id
-  WHERE t.email = ?
-    `;
+  WHERE t.email = ?`;
 
     db.query(taskQuery, [userEmail], (error, results) => {
       if (error) {
@@ -448,7 +450,7 @@ async function updateAssignedTask(req, res) {
   } = req.body;
 
   try {
-    // 1) הבא את המצב הנוכחי – כולל כל השדות שאנו עלולים לדרוס
+    // 1) Load the current state (we may keep some original fields)
     const [rows] = await db.promise().query(
       `SELECT
   t.series_id, t.task_repeat, t.repeat_until, t.email,
@@ -480,7 +482,7 @@ WHERE t.task_id = ?
       email,
     } = row;
 
-    // 2) ברירות מחדל – אם הלקוח לא שלח, נשמור את הקיים
+    // 2) Defaults: preserve existing if client didn't send new values
     const newStartDate = start_date ?? row.task_start_date;
     const newEndDate = end_date ?? row.task_end_date ?? newStartDate;
     const newStartTime = start_time ?? row.task_start_time;
@@ -508,7 +510,7 @@ WHERE t.task_id = ?
     const newCustLng =
       custom_location_longitude ?? row.custom_location_longitude ?? null;
 
-    // ולידציה בסיסית ל-repeat_until
+    // Basic validation for repeat_until vs start_date
     if (
       reqRepeatUntil &&
       toUTCDate(reqRepeatUntil) < toUTCDate(newStartDateStr)
@@ -519,7 +521,7 @@ WHERE t.task_id = ?
       });
     }
 
-    // 3) SQL לביצוע העדכונים
+    // 3) SQL templates
     const updateTaskSqlCore = `UPDATE task SET
       task_title = ?,
       task_all_day = ?,
@@ -543,7 +545,7 @@ WHERE t.task_id = ?
       task_start_time = ?,
       task_end_time = ?`;
 
-    // helper
+    // Helper: reset and reassign categories for given task IDs
     async function updateCategories(taskIds, conn = null) {
       const client = conn || db.promise();
       for (const tid of taskIds) {
@@ -561,13 +563,14 @@ WHERE t.task_id = ?
       }
     }
 
+    // Helper: build date list by count or until
     function buildDatesArray(baseDate, count, repeatType, explicitUntil) {
       const rt = repeatType || "none";
       if (explicitUntil) return getRepeatDates(baseDate, explicitUntil, rt);
       return getNextNDates(baseDate, count, rt);
     }
 
-    // 4) ONE – רק המופע הזה
+    // 4) Scope: ONE - update only this occurrence
     if (!series_id || task_repeat === "none" || scope === "ONE") {
       await db
         .promise()
@@ -598,12 +601,12 @@ WHERE t.task_id = ?
       return res.json({ success: true, message: "Assigned task updated" });
     }
 
-    // 5) FUTURE – המופע הנוכחי והלאה
+    // 5) Scope: FUTURE- update this and all future occurrences in the same series
     if (scope === "FUTURE") {
       try {
-        // טרנזאקציה על חיבור יחיד
         await db.promise().query("START TRANSACTION");
 
+        // Find future occurrences (>= this start date+time)
         const [futureRows] = await db.promise().query(
           `SELECT t.task_id, a.task_start_date, a.task_start_time
          FROM task t
@@ -627,6 +630,7 @@ WHERE t.task_id = ?
           ? dates[dates.length - 1]
           : reqRepeatUntil || newStartDate;
 
+        // Update all future tasks with new dates/times/attrs
         const limit = Math.min(tids.length, dates.length);
         for (let i = 0; i < limit; i++) {
           const tid = tids[i];
@@ -660,7 +664,7 @@ WHERE t.task_id = ?
             ]);
         }
 
-        await updateCategories(tids.slice(0, limit)); // משתמש ב-db.promise() בפנים
+        await updateCategories(tids.slice(0, limit));
         await db.promise().query("COMMIT");
 
         return res.json({
@@ -681,13 +685,12 @@ WHERE t.task_id = ?
       }
     }
 
-    // 6) ALL – כל הסדרה
-    // 6) ALL – כל הסדרה
+    // 6) Scope: ALL - update the entire series (from the first occurrence)
     if (scope === "ALL") {
       try {
         await db.promise().query("START TRANSACTION");
 
-        // שלפי סדר כרונולוגי ונביא גם את התאריכים של כל מופע
+        // Fetch all occurrences ordered chronologically
         const [allRows] = await db.promise().query(
           `SELECT t.task_id,
               DATE_FORMAT(a.task_start_date, '%Y-%m-%d') AS d_start,
@@ -704,7 +707,7 @@ WHERE t.task_id = ?
           ? allRows[0].d_start
           : toYMD(newStartDate);
 
-        // האם המשתמשת ביקשה לשנות תאריכים/חזרתיות?
+        // Decide whether to rebuild dates/repetition (when client changed relevant fields)
         const wantsDateRebuild =
           start_date != null ||
           end_date != null ||
@@ -716,7 +719,7 @@ WHERE t.task_id = ?
 
         if (wantsDateRebuild) {
           const newRepeatType = (reqTaskRepeat ?? task_repeat) || "none";
-          // חשוב: מייצרים תאריכים החל מה-מופע הראשון בסדרה, לא מהמופע שערכנו
+          // Rebuild dates starting from the first occurrence of the series
           dates = buildDatesArray(
             toYMD(firstSeriesDate),
             tids.length,
@@ -728,18 +731,18 @@ WHERE t.task_id = ?
             : reqRepeatUntil || firstSeriesDate;
         }
 
-        // לולאת העדכון
+        // Apply updates across all occurrences
         for (let i = 0; i < tids.length; i++) {
           const tid = tids[i];
 
-          // אם אין rebuild – נשמר את התאריכים המקוריים של כל מופע
+          // Use original dates per occurrence unless rebuilding
           const rowDateStart = allRows[i].d_start;
           const rowDateEnd = allRows[i].d_end || allRows[i].d_start;
 
           const d = wantsDateRebuild ? dates[i] : rowDateStart;
           const dEnd = wantsDateRebuild ? dates[i] : rowDateEnd;
 
-          // עדכון task (כולל שדות “אב”)
+          // Update task (with/without repeat fields)
           if (wantsDateRebuild) {
             await db
               .promise()
@@ -774,7 +777,7 @@ WHERE t.task_id = ?
               ]);
           }
 
-          // עדכון assigned – אם אין שינוי תאריך, נוגעים רק בשעות
+          // Update assigned (if date unchanged, only time fields change)
           await db
             .promise()
             .query(updateAssignedSql + ` WHERE task_id = ?`, [
@@ -816,7 +819,7 @@ WHERE t.task_id = ?
   }
 }
 
-//Edit waiting task
+//Update a waiting task (task + waiting_list + categories)
 async function updateWaitingTask(req, res) {
   const { task_id } = req.params;
   const {
@@ -859,7 +862,7 @@ async function updateWaitingTask(req, res) {
       ]
     );
 
-    // Update
+    // Update waiting_list fields
     await db.promise().query(
       `UPDATE waiting_list
          SET task_duedate = ?,
@@ -891,8 +894,7 @@ async function updateWaitingTask(req, res) {
   }
 }
 
-// Delete Task (and all related entries via CASCADE)
-// Handles scope: "ONE" (default), "FUTURE", "ALL"
+// Delete an assigned (or waiting) task respecting scope for series
 async function deleteTask(req, res) {
   const { task_id } = req.params;
   const scope = req.query.scope || "ONE";
@@ -903,7 +905,7 @@ async function deleteTask(req, res) {
   }
 
   try {
-    // לבדוק קודם אם זו משימה מסוג assigned
+    // Check assigned case first
     const [assignedRows] = await db.promise().query(
       `SELECT 
          t.series_id, 
@@ -920,7 +922,7 @@ async function deleteTask(req, res) {
       const { series_id, task_repeat, task_start_date, task_start_time } =
         assignedRows[0];
 
-      // ONE – מחיקה רק של המופע הזה
+      // ONE - delete only this occurrence
       if (!series_id || task_repeat === "none" || scope === "ONE") {
         const [result] = await db
           .promise()
@@ -934,10 +936,13 @@ async function deleteTask(req, res) {
             message: "Task not found or access denied",
           });
         }
-        return res.json({ success: true, message: "Task deleted successfully" });
+        return res.json({
+          success: true,
+          message: "Task deleted successfully",
+        });
       }
 
-      // FUTURE – מן המופע הנוכחי (כולל) והלאה
+      // FUTURE - delete from this occurrence (inclusive) forward
       if (scope === "FUTURE") {
         const startDateYMD = toYMD(task_start_date);
         const startTimeHMS = toHHMMSS(task_start_time);
@@ -960,7 +965,7 @@ async function deleteTask(req, res) {
         });
       }
 
-      // ALL – כל הסדרה
+      // ALL - delete entire series
       if (scope === "ALL") {
         const [delResult] = await db
           .promise()
@@ -980,7 +985,7 @@ async function deleteTask(req, res) {
         .json({ success: false, message: "Invalid delete scope" });
     }
 
-    // לא assigned? לבדוק אם זו משימת waiting
+    // Not assigned? Check waiting
     const [waitingRows] = await db.promise().query(
       `SELECT t.task_id
          FROM task t
@@ -1007,7 +1012,7 @@ async function deleteTask(req, res) {
       });
     }
 
-    // לא נמצא בכלל
+    // Not found at all
     return res
       .status(404)
       .json({ success: false, message: "Task not found or access denied" });
@@ -1017,7 +1022,7 @@ async function deleteTask(req, res) {
   }
 }
 
-// getWaitingTasks
+// Return all waiting tasks for the user
 async function getWaitingTasks(req, res) {
   const email = req.session.userEmail;
   if (!email)
@@ -1044,6 +1049,8 @@ async function getWaitingTasks(req, res) {
    ORDER BY w.task_duedate ASC, w.task_duetime ASC`,
       [email]
     );
+
+    // Fold rows by task_id; aggregate categories per task
     const taskMap = {};
     rows.forEach((row) => {
       if (!taskMap[row.task_id]) {
@@ -1068,7 +1075,7 @@ async function getWaitingTasks(req, res) {
           },
         };
       }
-      // קטגוריות
+      // Aggregate category row if present
       if (row.category_id) {
         taskMap[row.task_id].categories.push({
           category_id: row.category_id,
@@ -1086,7 +1093,7 @@ async function getWaitingTasks(req, res) {
   }
 }
 
-// Waiting task -> assigned task
+// Waiting task -> Assigned task
 async function assignFromWaiting(req, res) {
   try {
     const userEmail = req.session?.userEmail;
@@ -1114,7 +1121,7 @@ async function assignFromWaiting(req, res) {
 
     console.log("assignFromWaiting.body:", req.body);
 
-    // Guard: these fields are required to promote a waiting task to an assigned task
+    // Required fields to promote to assigned
     if (!start_date || !start_time || !end_time) {
       return res.status(400).json({
         success: false,
@@ -1123,7 +1130,7 @@ async function assignFromWaiting(req, res) {
       });
     }
 
-    // 1) Load waiting task & check ownership
+    // 1) Load waiting task & verify ownership
     const wt = await taskRepo.getWaitingById(waitingId, userEmail);
     if (!wt) {
       return res
@@ -1131,7 +1138,7 @@ async function assignFromWaiting(req, res) {
         .json({ success: false, message: "Waiting task not found" });
     }
 
-    // 2) Build assigned payload (inherit + overrides)
+    // 2) Build assigned payload (inherit original values, allow overrides)
     const assignedPayload = {
       title: title ?? wt.task_title,
       note: note ?? wt.task_note ?? "",
@@ -1174,7 +1181,7 @@ async function assignFromWaiting(req, res) {
   }
 }
 
-// Assigned task -> waiting task
+// Assigned task -> Waiting task
 async function moveAssignedToWaiting(req, res) {
   try {
     const userEmail = req.session?.userEmail;
@@ -1184,8 +1191,8 @@ async function moveAssignedToWaiting(req, res) {
 
     const assignedId = req.params.id;
 
+    // Only waiting-related + shared fields (no start/end)
     const {
-      // only waiting fields + shared fields (do NOT use start/end here)
       title,
       duration,
       note,
@@ -1207,7 +1214,7 @@ async function moveAssignedToWaiting(req, res) {
         .json({ success: false, message: "Assigned task not found" });
     }
 
-    // 2) Build waiting payload (inherit original values, allow client overrides)
+    // 2) Build waiting payload (inherit + overrides)
     const waitingPayload = {
       title: title ?? at.task_title,
       note: note ?? at.task_note ?? "",
@@ -1229,7 +1236,7 @@ async function moveAssignedToWaiting(req, res) {
       user_email: userEmail,
     };
 
-    // Guard: due_date is required for waiting tasks
+    // Waiting tasks must have a due_date
     if (!waitingPayload.due_date) {
       return res.status(400).json({
         success: false,
@@ -1266,4 +1273,4 @@ module.exports = {
   getWaitingTasks,
   assignFromWaiting,
   moveAssignedToWaiting,
-}; 
+};

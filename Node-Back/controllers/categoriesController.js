@@ -1,9 +1,9 @@
 // categoriesController.js
 const db = require("../db");
 
-// Get categories function
+// Returns all categories for the logged-in user
 async function getCategories(req, res) {
-  // Get user email from session
+  // Read user email from session
   const user_email = req.session.userEmail;
 
   if (!user_email) {
@@ -14,13 +14,12 @@ async function getCategories(req, res) {
     const [results] = await db
       .promise()
       .query(
-        "SELECT category_id, category_name AS name, category_color AS color FROM category WHERE user_email = ?",
+        `SELECT category_id, category_name AS name, category_color AS color FROM category WHERE user_email = ?`,
         [user_email]
       );
 
     // Send list of categories as response
     res.json(results);
-
   } catch (error) {
     console.error("Error fetching categories:", error);
     res
@@ -29,7 +28,7 @@ async function getCategories(req, res) {
   }
 }
 
-// Add category function
+// Creates (or upserts color for) a category for the logged-in user
 async function addCategory(req, res) {
   const user_email = req.session.userEmail;
   const { category_name, category_color } = req.body;
@@ -39,13 +38,11 @@ async function addCategory(req, res) {
   }
 
   try {
-    const insertQuery = `
-      INSERT INTO category (category_name, category_color, user_email)
+    const insertQuery = `INSERT INTO category (category_name, category_color, user_email)
       VALUES (?, ?, ?)
-      ON DUPLICATE KEY UPDATE category_color = VALUES(category_color)
-    `;
+      ON DUPLICATE KEY UPDATE category_color = VALUES(category_color)`;
 
-    // Insert or update category color if the name already exists
+    // Insert or update category color if the name already exists (idempotent by name+user)
     await db
       .promise()
       .query(insertQuery, [category_name, category_color, user_email]);
@@ -65,7 +62,7 @@ async function addCategory(req, res) {
   }
 }
 
-// Delete category function
+// Delete category by id
 async function deleteCategory(req, res) {
   const user_email = req.session.userEmail;
   const { category_id } = req.params;
@@ -88,7 +85,7 @@ async function deleteCategory(req, res) {
   }
 }
 
-// Update category function
+// Updates category name/color
 async function updateCategory(req, res) {
   const user_email = req.body.user_email || req.session.userEmail;
   const { category_id, new_name, new_color } = req.body;
@@ -101,7 +98,7 @@ async function updateCategory(req, res) {
     await db
       .promise()
       .query(
-        "UPDATE category SET category_name = ?, category_color = ? WHERE category_id = ?",
+        `UPDATE category SET category_name = ?, category_color = ? WHERE category_id = ?`,
         [new_name, new_color, category_id]
       );
 

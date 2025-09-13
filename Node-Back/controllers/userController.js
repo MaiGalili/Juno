@@ -24,6 +24,7 @@ exports.getUserSettings = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
+    // Mirror DB field names as-is to keep a stable API contract
     res.json({
       success: true,
       defult_buffer: rows[0].defult_buffer,
@@ -51,12 +52,12 @@ exports.updateSettings = async (req, res) => {
       start_day_time,
       end_day_time,
       waiting_list_max,
-      default_location_id, // <-- may be "", null, a number
+      default_location_id, // may be "", null, a number
       travel_mode, // 'driving' | 'walking' | 'bicycling' | 'transit'
     } = req.body || {};
 
-    // ---- validation  ----
-    const parseHHMM = (s) => /^\d{2}:\d{2}$/.test(s || ""); // only HH:MM
+    // validation
+    const parseHHMM = (s) => /^\d{2}:\d{2}$/.test(s || ""); // HH:MM
 
     if (defult_buffer && !parseHHMM(defult_buffer)) {
       return res
@@ -87,8 +88,7 @@ exports.updateSettings = async (req, res) => {
       }
     }
 
-    // ---- normalize default_location_id ----
-    // Treat "" as null so users can clear the default.
+    // Normalize default_location_id.Treat "" as null so users can clear the default.
     const normalizedDefaultLoc =
       default_location_id === "" || default_location_id == null
         ? null
@@ -109,7 +109,7 @@ exports.updateSettings = async (req, res) => {
       }
     }
 
-    // ---- dynamic update ----
+    // Dynamic update
     const fields = [];
     const vals = [];
 

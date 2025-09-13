@@ -1,13 +1,13 @@
-//authController.js
-// Import required modules
+// authController.js
+
 const db = require("../db");
 const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
 
 // Load environment variables from .env
-require("dotenv").config();  
+require("dotenv").config();
 
-//Sign up function
+// Sign up
 async function signUp(req, res) {
   const { email, password } = req.body;
 
@@ -40,11 +40,9 @@ async function signUp(req, res) {
       { name: "Friends", color: "#fff0cc" },
     ];
 
-    const insertCategoryQuery = `
-      INSERT INTO category (category_name, category_color, user_email)
+    const insertCategoryQuery = `INSERT INTO category (category_name, category_color, user_email)
       VALUES (?, ?, ?)
-      ON DUPLICATE KEY UPDATE category_color = VALUES(category_color)
-    `;
+      ON DUPLICATE KEY UPDATE category_color = VALUES(category_color)`;
 
     for (const cat of defaultCategories) {
       await db
@@ -59,7 +57,7 @@ async function signUp(req, res) {
   }
 }
 
-//Login function
+// Login
 async function login(req, res) {
   const { email, password } = req.body;
 
@@ -73,7 +71,7 @@ async function login(req, res) {
         return res.json({ success: false, message: "User not found" });
       }
 
-      // Check if password  matches
+      // Compare plaintext password to hashed password
       const isMatch = await bcrypt.compare(password, result[0].password);
       if (!isMatch) {
         return res.json({
@@ -83,8 +81,7 @@ async function login(req, res) {
       }
 
       // Store user's email in session
-      req.session.userEmail = 
-      email;
+      req.session.userEmail = email;
       console.log("Session created after login:", req.session);
 
       return res.json({ success: true, message: "Login successful" });
@@ -92,7 +89,7 @@ async function login(req, res) {
   );
 }
 
-//Get session function
+// Get session
 function getSession(req, res) {
   const userEmail = req.session.userEmail;
   if (userEmail) {
@@ -102,7 +99,7 @@ function getSession(req, res) {
   }
 }
 
-//Logout function
+// Logout (destroy server session + clear cookie).
 function logout(req, res) {
   req.session.destroy((err) => {
     if (err) {
@@ -116,7 +113,7 @@ function logout(req, res) {
   });
 }
 
-//Get email function
+// Get email (existence check)
 function getEmail(req, res) {
   db.query(
     "SELECT email FROM users WHERE email = ?",
@@ -131,15 +128,15 @@ function getEmail(req, res) {
   );
 }
 
-//Send reset code function
+// Send a password reset code to user's email.
 function sendResetCode(req, res) {
   const { email } = req.body;
 
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      user: process.env.EMAIL_USER, //from .env
+      pass: process.env.EMAIL_PASS, //from .env
     },
   });
 
@@ -151,8 +148,9 @@ function sendResetCode(req, res) {
     if (users.length === 0) {
       return res.json({ success: false, message: "Email not found" });
     }
-
+    // Generate a 6-digit code as string
     const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // Email body (plain text)
     const emailText = `
       Hello,
 
@@ -167,7 +165,7 @@ function sendResetCode(req, res) {
       Best regards,
       The Juno Calendar Team
     `;
-
+    // Send the email
     transporter.sendMail(
       {
         from: process.env.EMAIL_USER,
@@ -187,7 +185,7 @@ function sendResetCode(req, res) {
   });
 }
 
-//Reset password function
+// Reset password (set a new bcrypt-hashed password for the given email)
 function resetPassword(req, res) {
   const { email, password } = req.body;
 
@@ -211,7 +209,7 @@ function resetPassword(req, res) {
   });
 }
 
-//Send mail function
+// Send mail (contact form): sends the user's message to admin, and sends a confirmation email back to the user
 function sendMail(req, res) {
   const { email, message } = req.body;
 
@@ -235,7 +233,7 @@ function sendMail(req, res) {
         .json({ success: false, message: "Email not found" });
     }
 
-    // Prepare emails
+    // Prepare emails (admin + user confirmation)
     const mailToAdmin = {
       from: process.env.EMAIL_USER,
       to: process.env.EMAIL_USER,
