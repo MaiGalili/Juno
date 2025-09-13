@@ -1,4 +1,4 @@
-// TaskPopup/TaskSuggestionsPanel/TaskSuggestionsPanel.jsx
+// components/mainPageComponents/taskPopup/taskSuggestionsPanel/TaskSuggestionsPanel.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import styles from "./taskSuggestionsPanel.module.css";
 
@@ -13,7 +13,8 @@ export default function TaskSuggestionsPanel({
   customCoords,
   onSelectSuggestion,
 }) {
-  const [offset, setOffset] = useState(0); // for "Show more"
+  // Paging & fetch status
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [suggestions, setSuggestions] = useState([]);
@@ -24,6 +25,7 @@ export default function TaskSuggestionsPanel({
     [duration, dueDate]
   );
 
+  // Fetch suggestions from backend
   useEffect(() => {
     if (!canQuery) {
       setSuggestions([]);
@@ -35,6 +37,7 @@ export default function TaskSuggestionsPanel({
         setLoading(true);
         setError("");
 
+        // Provide "now" context for same-day constraints on the server
         const now = new Date();
         const nowYMD = `${now.getFullYear()}-${String(
           now.getMonth() + 1
@@ -97,6 +100,7 @@ export default function TaskSuggestionsPanel({
     offset,
   ]);
 
+  // Send a normalized selection back to parent (keeps HH:MM only)
   const handlePick = (sug) => {
     onSelectSuggestion?.({
       startDate: sug.startDate,
@@ -109,7 +113,7 @@ export default function TaskSuggestionsPanel({
   const showMore = () => setOffset((o) => o + 3);
   const resetPaging = () => setOffset(0);
 
-  // אם המשתמש/ת משנה פרמטרים (למשל dueDate), נאתחל פאג'ינציה
+  // Reset paging whenever the input filters change
   useEffect(() => {
     resetPaging();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -123,8 +127,9 @@ export default function TaskSuggestionsPanel({
     customCoords,
   ]);
 
-  const LOCALE = "en-US"; // or: navigator.language || "en-US"
-  const HOUR12 = true; // set false for 24h clock
+  // Display preferences (toggle 12h/24h as needed)
+  const LOCALE = "en-US";
+  const HOUR12 = false;
 
   const formatTime = (dateStr, timeStr) => {
     if (!timeStr) return "";
@@ -136,6 +141,7 @@ export default function TaskSuggestionsPanel({
     });
   };
 
+  // List label: "Wednesday, 03/27/2025 | 9:30–10:30 AM"
   const formatLabel = (sug) => {
     try {
       const d = new Date(`${sug.startDate}T${sug.startTime || "00:00"}:00`);
@@ -162,12 +168,14 @@ export default function TaskSuggestionsPanel({
         {loading && <span className={styles.loading}>Loading…</span>}
       </div>
 
+      {/* Require minimal inputs */}
       {!canQuery && (
         <div className={styles.empty}>
           Fill in <b>duration</b> and <b>due date</b> to see suggestions.
         </div>
       )}
 
+      {/* Error state with quick retry */}
       {canQuery && error && (
         <div className={styles.error}>
           {error}{" "}
@@ -177,10 +185,12 @@ export default function TaskSuggestionsPanel({
         </div>
       )}
 
+      {/* No results */}
       {canQuery && !error && suggestions.length === 0 && !loading && (
         <div className={styles.empty}>No free time suggestions found.</div>
       )}
 
+      {/* Results list */}
       {suggestions.length > 0 && (
         <ul className={styles.list}>
           {suggestions.map((s) => (
@@ -203,6 +213,7 @@ export default function TaskSuggestionsPanel({
         </ul>
       )}
 
+      {/* Paging */}
       {canQuery && !loading && (
         <div className={styles.moreRow}>
           <button type="button" className={styles.moreBtn} onClick={showMore}>

@@ -1,4 +1,4 @@
-//TaskPopup.jsx
+//components/mainPageComponents/taskPopup/TaskPopup.jsx
 import React, { useState, useEffect } from "react";
 import styles from "./taskPopup.module.css";
 import ConfirmModal from "../../ConfirmModal";
@@ -22,7 +22,7 @@ export default function TaskPopup({
 }) {
   const isEdit = mode === "edit" || !!task?.task_id;
 
-  // --- User settings state ---
+  // User settings (defaults)
   const [userSettings, setUserSettings] = useState({
     defult_buffer: "00:10:00",
     start_day_time: "08:00:00",
@@ -30,7 +30,7 @@ export default function TaskPopup({
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
-  // --- Task fields state ---
+  // Form state (covers both assigned & waiting fields)
   const [title, setTitle] = useState("");
   const [allDay, setAllDay] = useState(false);
   const [startDate, setStartDate] = useState("");
@@ -52,7 +52,7 @@ export default function TaskPopup({
   const [selectedLocationId, setSelectedLocationId] = useState(null);
   const [pickedSuggestion, setPickedSuggestion] = useState(false);
 
-  // --- UI feedback states ---
+  //  UI feedback / confirmation / series-scope controls
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [statusType, setStatusType] = useState("");
@@ -61,13 +61,14 @@ export default function TaskPopup({
   const [showRepeatPopup, setShowRepeatPopup] = useState(false);
   const [repeatPopupAction, setRepeatPopupAction] = useState(""); // "delete" or "edit"
 
+  // A task belongs to a series if it has series_id and task_repeat !== 'none'
   const isRepeatingTask = !!(
     task?.series_id &&
     task?.task_repeat &&
     task.task_repeat !== "none"
   );
 
-  //delete after fix
+  //DEBUG
   useEffect(() => {
     if (task) {
       console.log("task", task);
@@ -75,7 +76,7 @@ export default function TaskPopup({
     }
   }, [task, dueDate, dueTime]);
 
-  // --- Reset location fields when using favorite address ---
+  // Keep location inputs mutually exclusive: favorite OR custom
   useEffect(() => {
     if (useFavorite) {
       setCustomAddress("");
@@ -85,7 +86,7 @@ export default function TaskPopup({
     }
   }, [useFavorite]);
 
-  // --- Fetch user settings from backend ---
+  // Load user defaults (buffer/day times)
   useEffect(() => {
     async function fetchSettings() {
       try {
@@ -108,10 +109,11 @@ export default function TaskPopup({
     fetchSettings();
   }, []);
 
-  // --- Set task fields based on mode and task data ---
+  // Reset form when switching between create/edit or when task changes
+  // Also maps existing task shape to form fields (including categories & location)
   useEffect(() => {
     if (!isEdit) {
-      // Reset task fields
+      // Fresh form for create
       setTitle("");
       setAllDay(false);
       setStartDate("");
@@ -131,13 +133,14 @@ export default function TaskPopup({
       setTaskRepeat("none");
       setRepeatUntil("");
     } else {
+      // Fill from existing task
       setTitle(task?.task_title || "");
       setNote(task?.task_note || "");
       setDuration(task?.task_duration || "");
       setTaskRepeat(task?.task_repeat || "none");
       setRepeatUntil(task?.repeat_until || "");
 
-      // categories
+      // Categories
       if (Array.isArray(task?.categories)) {
         setSelectedCategories(
           task.categories.map((c) => String(c.category_id))
@@ -154,12 +157,13 @@ export default function TaskPopup({
       const bufferRaw = task?.buffer_time || task?.task_buffertime || "";
       setBufferTime(hhmmFromHHMMSS(bufferRaw) || "00:10");
 
+      // Decide UI by presence of due date (waiting) vs start/end (assigned)
       if (
         task?.task_duedate !== undefined &&
         task?.task_duedate !== null &&
         task?.task_duedate !== ""
       ) {
-        // waiting task
+        // Waiting task
         setDueDate(task.task_duedate || "");
         setDueTime((task.task_duetime || "").slice(0, 5));
         setStartDate("");
@@ -168,7 +172,7 @@ export default function TaskPopup({
         setEndTime("");
         setAllDay(false);
       } else {
-        //assigned task
+        //Assigned task
         setDueDate("");
         setDueTime("");
         setStartDate(task?.task_start_date || "");
@@ -177,7 +181,7 @@ export default function TaskPopup({
         setEndTime(task?.task_end_time || "");
         setAllDay(task?.task_all_day || false);
       }
-      // location
+      //Location
       if (task?.location_id && !task?.custom_location_address) {
         setUseFavorite(true);
         setLocationId(String(task.location_id));
@@ -200,13 +204,17 @@ export default function TaskPopup({
     }
   }, [task, isEdit, userSettings]);
 
-  // --- useEffect: Sync and calculate values ---
+  // Auto calculate fields
   useEffect(() => {
+    //all-day: fills start/end time from user settings
     if (allDay) {
       setStartTime((userSettings.start_day_time || "").slice(0, 5));
       setEndTime((userSettings.end_day_time || "").slice(0, 5));
     }
+    // if start date set w/o end date :mirror end date
     if (startDate && !endDate) setEndDate(startDate);
+
+    // if only one of (start time, end time, duration) is missing: compute it
     if (startTime && endTime) {
       const mins = toTime(endTime) - toTime(startTime);
       if (mins >= 0) setDuration(fromMinutes(mins));
@@ -259,7 +267,7 @@ export default function TaskPopup({
     }
   }, [startDate, startTime, endTime]);
 
-  // --- Time helpers ---
+  // Time helpers
   const toTime = (str) => {
     if (!str) return 0;
     const [h, m] = str.split(":").map(Number);
@@ -273,9 +281,10 @@ export default function TaskPopup({
     const m = (mins % 60).toString().padStart(2, "0");
     return `${h}:${m}`;
   };
+
   function hhmmFromHHMMSS(str) {
     if (!str) return "";
-    if (/^\d{1,2}:\d{2}$/.test(str)) return str.padStart(5, "0"); // "0:30" -> "00:30"
+    if (/^\d{1,2}:\d{2}$/.test(str)) return str.padStart(5, "0");
     if (/^\d{2}:\d{2}:\d{2}$/.test(str)) return str.slice(0, 5);
     return "";
   }
@@ -286,12 +295,9 @@ export default function TaskPopup({
 
   function toInputDateString(date) {
     if (!date) return "";
-    // If already in correct format
     if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
-    // Try to parse if it's an ISO string
     const d = new Date(date);
     if (!isNaN(d.getTime())) {
-      // pad month and day
       const month = (d.getMonth() + 1).toString().padStart(2, "0");
       const day = d.getDate().toString().padStart(2, "0");
       return `${d.getFullYear()}-${month}-${day}`;
@@ -299,7 +305,7 @@ export default function TaskPopup({
     return "";
   }
 
-  // Is this popup in "waiting task" context?
+  // Derived flags used for rendering and update logic
   const isWaitingUI = React.useMemo(() => {
     const isExistingWaiting =
       !!task?.task_duedate && !task?.task_start_date && !task?.task_start_time;
@@ -308,7 +314,6 @@ export default function TaskPopup({
     return isExistingWaiting || isNewWaiting;
   }, [isEdit, task, dueDate, startDate, startTime, endTime]);
 
-  // Is this popup showing an assigned task initially?
   const isAssignedUI = React.useMemo(() => {
     return !!(
       task?.task_start_date ||
@@ -317,7 +322,7 @@ export default function TaskPopup({
     );
   }, [task]);
 
-  // --- Validation and actions ---
+  // Validation
   const validate = () => {
     if (!startDate && !dueDate) return "Please select a date or due date.";
     if (!duration && !(startTime && endTime))
@@ -326,7 +331,7 @@ export default function TaskPopup({
     return "";
   };
 
-  // === handleSubmit ===
+  // HandleSubmit
   const handleSubmit = async (e) => {
     e.preventDefault();
     const validationMessage = validate();
@@ -337,7 +342,7 @@ export default function TaskPopup({
     await handleSave();
   };
 
-  // === CLEAR FORM ===
+  // CLEAR FORM
   const clearFields = () => {
     setTitle("");
     setAllDay(false);
@@ -355,7 +360,7 @@ export default function TaskPopup({
     setError("");
   };
 
-  // === ACTIONS ===
+  // ACTIONS
   //Show confirmation modal for delete
   const handleDelete = () => {
     console.log("task in popup", task);
@@ -386,13 +391,13 @@ export default function TaskPopup({
   const handleRepeatPopupSelect = (scope) => {
     setShowRepeatPopup(false);
     if (repeatPopupAction === "delete") {
-      handleDeleteConfirmed(scope); // Pass the scope to your delete logic
+      handleDeleteConfirmed(scope); // Pass the scope fordelete logic
     } else if (repeatPopupAction === "edit") {
-      handleUpdateConfirmed(scope); // Pass the scope to your update logic
+      handleUpdateConfirmed(scope); // Pass the scope for update logic
     }
   };
 
-  //Execute delete operation
+  //Delete task
   const handleDeleteConfirmed = async (scope = "ONE") => {
     setConfirmAction(null);
     try {
@@ -419,7 +424,7 @@ export default function TaskPopup({
     }
   };
 
-  //Execute update operation
+  //Update task
   const handleUpdateConfirmed = async (scope = "ONE") => {
     setConfirmAction(null);
     try {
@@ -427,7 +432,7 @@ export default function TaskPopup({
         task?.task_duedate != null && task.task_duedate !== "";
       const hasStartFields = !!(startDate && startTime && endTime);
 
-      // Compute conversion intent locally (avoid shadowing)
+      // Assigned -> Waiting convert (edit): create waiting, then delete the old assigned
       const wantsConvertToWaiting =
         isEdit &&
         isAssignedUI &&
@@ -451,8 +456,6 @@ export default function TaskPopup({
           due_time: dueTime || null,
         };
 
-        // Try server-side convert if you add it later
-        // Create a new waiting task, then delete the old assigned task
         const createRes = await fetch(
           "http://localhost:8801/api/tasks/create/waiting",
           {
@@ -486,6 +489,7 @@ export default function TaskPopup({
         return;
       }
 
+      // Waiting -> Assigned promote
       if (isWaitingTask && hasStartFields) {
         const promoteBody = {
           start_date: startDate,
@@ -505,7 +509,6 @@ export default function TaskPopup({
           due_time: dueTime || null,
         };
 
-        // ניסיון A: לקדם משימת המתנה בצד השרת
         const res = await fetch(
           `http://localhost:8801/api/tasks/waiting/${task.task_id}/assign`,
           {
@@ -530,7 +533,7 @@ export default function TaskPopup({
           return;
         }
 
-        // Plan-B: ליצור משימה משובצת חדשה ולמחוק את ההמתנה הישנה
+        // Fallback: create assigned + delete old waiting
         const createRes = await fetch(
           "http://localhost:8801/api/tasks/create/assigned",
           {
@@ -565,6 +568,7 @@ export default function TaskPopup({
         return;
       }
 
+      // Regular update
       const endpoint = isWaitingTask
         ? `http://localhost:8801/api/tasks/update/waiting/${task.task_id}`
         : `http://localhost:8801/api/tasks/update/assigned/${task.task_id}?scope=${scope}`;
@@ -622,7 +626,7 @@ export default function TaskPopup({
     }
   };
 
-  //Save new task or update existing task
+  // Create or update based on mode/fields
   const handleSave = async () => {
     const validationMessage = validate();
     if (validationMessage) {
@@ -681,6 +685,7 @@ export default function TaskPopup({
         );
 
         setStatusType("success");
+        // Close immediately (or after notice if waiting list got filled)
         if (result.waitingListFull) {
           setTimeout(() => {
             onClose?.();
@@ -783,6 +788,7 @@ export default function TaskPopup({
                 />
               </label>
 
+              {/* Repeat applies only to assigned tasks (has dates); BE handles series creation */}
               <label>
                 Repeat:
                 <select
@@ -810,6 +816,7 @@ export default function TaskPopup({
                 </label>
               )}
 
+              {/* Choosing due date/time switches UI to waiting mode (mutually exclusive) */}
               <label>
                 Due Date:
                 <input
@@ -859,6 +866,8 @@ export default function TaskPopup({
                   )}
                 </select>
               </label>
+
+              {/* Location toggle: saved favorite vs custom Google address */}
               <label>
                 Location:
                 <div>
@@ -912,6 +921,8 @@ export default function TaskPopup({
                   maxLength={160}
                 />
               </label>
+
+              {/* Suggestions appear only for waiting tasks with known duration/due */}
               {isWaitingUI && duration && dueDate && (
                 <TaskSuggestionsPanel
                   userEmail={userEmail}
@@ -957,6 +968,8 @@ export default function TaskPopup({
                     >
                       Update
                     </button>
+
+                    {/* Export current task to PDF */}
                     <SaveAsPDF
                       task={task}
                       userCategories={userCategories}
@@ -979,6 +992,8 @@ export default function TaskPopup({
           </div>
         )}
       </div>
+
+      {/* Confirm simple actions (non-series) */}
       {confirmAction && (
         <ConfirmModal
           message={confirmMessage}
@@ -986,6 +1001,8 @@ export default function TaskPopup({
           onCancel={() => setConfirmAction(null)}
         />
       )}
+
+      {/* Scope selector for repeating series edits/deletes */}
       <RepeatActionPopup
         open={showRepeatPopup}
         onClose={() => setShowRepeatPopup(false)}

@@ -1,12 +1,13 @@
-// ConfirmModal.jsx
+// components/ConfirmModal.jsx
 import React from "react";
 import styles from "./confirmModal.module.css";
 
 export default function ConfirmModal({ message, onConfirm, onCancel }) {
   return (
-    // Overlay to darken background and center modal
+    // Full-screen overlay; centers modal and prevents interaction with background
     <div className={styles.overlay}>
       <div className={styles.modal}>
+        {/* Main prompt text */}
         <p>{message}</p>
 
         {/* Action buttons */}

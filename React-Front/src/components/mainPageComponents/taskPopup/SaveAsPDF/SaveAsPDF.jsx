@@ -1,8 +1,9 @@
-// SaveAsPDF.jsx
+// components/mainPageComponents/taskPopup/SaveAsPDF/SaveAsPDF.jsx
 import React from "react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
+//Small format helpers (keep UI-friendly values)
 function toInputDateString(date) {
   if (!date) return "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
@@ -15,12 +16,13 @@ function toInputDateString(date) {
 
 function hhmm(str) {
   if (!str) return "";
-  // allow HH:MM or HH:MM:SS
+  //  Accept HH:MM or HH:MM:SS; output HH:MM
   if (/^\d{1,2}:\d{2}$/.test(str)) return str.padStart(5, "0");
   if (/^\d{2}:\d{2}:\d{2}$/.test(str)) return str.slice(0, 5);
   return str;
 }
 
+// A “waiting” task is identified by having due fields but no start fields
 function isWaitingTask(task) {
   return !!(
     task?.task_duedate &&
@@ -29,6 +31,7 @@ function isWaitingTask(task) {
   );
 }
 
+// Resolve category display names from selected IDs
 function categoryNames(selectedIds, userCategories) {
   const set = new Set((selectedIds || []).map(String));
   const names = (userCategories || [])
@@ -37,6 +40,7 @@ function categoryNames(selectedIds, userCategories) {
   return names.length ? names.join(", ") : "";
 }
 
+// Build a readable location string using either custom address or a favorite
 function resolveLocationString(task, userLocations) {
   if (task?.custom_location_address) {
     return task.custom_location_address;
@@ -58,11 +62,13 @@ export default function SaveAsPDF({
   userLocations = [],
   className,
 }) {
+  // Disable button when we don’t have a persistent task to export
   const disabled = !task || !task.task_id;
 
   const handleDownload = () => {
     if (disabled) return;
 
+    // Initialize a clean PDF document
     const doc = new jsPDF();
 
     // Title
@@ -70,18 +76,19 @@ export default function SaveAsPDF({
     doc.setFontSize(18);
     doc.text(title, 14, 18);
 
-    // Decide which date/time fields to show
+    // Decide which fields to render based on task type
     const waiting = isWaitingTask(task);
 
-    // Fields for table
+    // Build rows for the table: [["Field", "Value"], ...]
     const rows = [];
 
-    // Assigned vs Waiting
+    // Type
     rows.push([
       "Type",
       waiting ? "Waiting (due task)" : "Assigned (scheduled)",
     ]);
 
+    // Dates/times: assigned vs waiting
     if (!waiting) {
       rows.push([
         "Start Date",
@@ -100,10 +107,10 @@ export default function SaveAsPDF({
       rows.push(["Due Time", hhmm(task?.task_duetime) || "-"]);
     }
 
+    // Core fields (duration, all-day, repeat)
     rows.push(["Duration", hhmm(task?.task_duration) || "-"]);
     rows.push(["All Day", task?.task_all_day ? "Yes" : "No"]);
 
-    // Repeat
     const repeatStr =
       task?.task_repeat && task.task_repeat !== "none"
         ? `${task.task_repeat}${
@@ -114,7 +121,7 @@ export default function SaveAsPDF({
         : "No";
     rows.push(["Repeat", repeatStr]);
 
-    // Categories: support both `categories` (objects) or `category_ids` (ids)
+    // Categories: support multiple shapes (objects / ids / single id)
     let catDisplay = "";
     if (Array.isArray(task?.categories) && task.categories.length) {
       catDisplay = task.categories
@@ -127,13 +134,9 @@ export default function SaveAsPDF({
     }
     rows.push(["Categories", catDisplay || "-"]);
 
-    // Location
+    // Location, Notes, Buffer
     rows.push(["Location", resolveLocationString(task, userLocations) || "-"]);
-
-    // Notes
     rows.push(["Notes", task?.task_note || "-"]);
-
-    // Buffer
     const buffer = task?.buffer_time || task?.task_buffertime || "";
     const bufferHHMM = hhmm(buffer);
     rows.push(["Buffer Time", bufferHHMM || "-"]);
