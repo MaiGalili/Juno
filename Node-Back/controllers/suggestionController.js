@@ -257,7 +257,7 @@ exports.getSuggestions = async (req, res) => {
         Number(user.default_location_id)
       );
       if (dl && dl.lat != null && dl.lng != null) {
-        defaultStartLoc = { lat: Number(dl.lat), lng: Number(dl.lng) }; // <<< חשוב
+        defaultStartLoc = { lat: Number(dl.lat), lng: Number(dl.lng) };
       }
     }
 

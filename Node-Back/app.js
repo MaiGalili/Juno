@@ -1,5 +1,4 @@
 //Node-Bakc/app.js
-//Import required modules
 require("dotenv").config();
 const express = require("express");
 const session = require("express-session");
@@ -7,7 +6,7 @@ const cors = require("cors");
 const logger = require("./logger");
 const travelRoutes = require("./routes/travelRoutes");
 
-// Import route files
+// Route files
 const authRoutes = require("./routes/authRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const locationsRoutes = require("./routes/locationsRoutes");
@@ -21,15 +20,10 @@ const app = express();
 // Define the port the server will listen on
 const port = 8801;
 
-// === MIDDLEWARE SETUP ===
+// MIDDLEWARE SETUP
 
 // Enable CORS to allow requests from the frontend (on localhost:3000)
-app.use(
-  cors({
-    origin: "http://localhost:3000",
-    credentials: true,
-  })
-);
+app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 
 // Configure session middleware
 app.use(
@@ -45,6 +39,7 @@ app.use(
   })
 );
 
+// Debug route
 app.get("/api/debug/ping-session", (req, res) => {
   res.json({
     ok: true,
@@ -65,15 +60,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// === ROUTES ===
-
-// Set up routes for different features (modularized)
+// ROUTES 
 app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/locations", locationsRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api", suggestionsRouter);
+app.use("/api/suggestions", suggestionsRouter);
 app.use("/api/travel", travelRoutes);
 
 // Start the server

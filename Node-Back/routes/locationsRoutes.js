@@ -1,14 +1,8 @@
 //locationsRoutes.js
-//Import required modules
 const express = require("express");
 const router = express.Router();
 
-// Add this line to check if the controller loads
-console.log("Loading locations controller...");
 const locationsController = require("../controllers/locationsController");
-console.log("Locations controller loaded:", Object.keys(locationsController));
-
-// === ROUTES ===
 
 // Get all locations for the logged-in user
 router.get("/", locationsController.getLocations);

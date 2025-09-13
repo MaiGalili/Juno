@@ -1,12 +1,9 @@
 //authRoutes.js
-//Import required modules
+
 const express = require("express");
 const router = express.Router();
 
-// Import the authentication controller that handles logic for each auth-related route
 const authController = require("../controllers/authController");
-
-// === AUTH ROUTES ===
 
 // Sign up
 router.post("/signUp", authController.signUp);
