@@ -1,4 +1,4 @@
-//Header.jsx
+// landingPageComponents/header/Header.jsx
 import { Link } from "react-scroll";
 import styles from "./header.module.css";
 

@@ -1,4 +1,4 @@
-// Help.jsx
+// landingPageComponents/help/Help.jsx
 import React from "react";
 import styles from "./help.module.css";
 import HelpForm from "./helpForm/HelpForm";

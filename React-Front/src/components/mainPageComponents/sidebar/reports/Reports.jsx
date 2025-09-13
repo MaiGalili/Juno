@@ -1,11 +1,11 @@
-// Reports.jsx
+// components/mainPageComponents/sidebar/reports/Reports.jsx
 import React, { useMemo, useState, useEffect } from "react";
 import s from "./reports.module.css";
 import { format } from "date-fns";
 
 // Helpers
 
-// Rough distance (km) via haversine
+// Approximate distance (km) between two coords (used for fallback travel calc)
 function haversineKm(a, b) {
   if (!a || !b || a.lat == null || b.lat == null) return 0;
   const toRad = (x) => (x * Math.PI) / 180;
@@ -18,14 +18,15 @@ function haversineKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
+// Average speeds for fallback 
 const speedKmhByMode = {
-  driving: 35, // tune for your city
+  driving: 35, 
   walking: 5,
   bicycling: 15,
   transit: 25,
 };
 
-// Pull a friendly name + coords from a task
+// Pull a location name + coords from a task
 function getTaskLocation(task, locMap) {
   const raw = task?.raw || {};
 
@@ -44,7 +45,7 @@ function getTaskLocation(task, locMap) {
     };
   }
 
-  // 2) favorite from the JOIN (server put them under raw.*)
+  // 2) favorite from the JOIN 
   const rawLat =
     raw.location_latitude ?? raw.loc_latitude ?? raw.latitude ?? null;
   const rawLng =
@@ -59,7 +60,7 @@ function getTaskLocation(task, locMap) {
   }
 
   // 3) fallback by location_id via userLocations map
-  const locId = task?.location_id ?? raw?.location_id ?? null; // <— also check raw
+  const locId = task?.location_id ?? raw?.location_id ?? null; 
   if (locId != null && locMap) {
     const loc = locMap.get(String(locId));
     if (loc) {
@@ -99,7 +100,7 @@ const endOfRange = (start, kind) => {
 
 const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
 
-// CSV
+// Client-side CSV builder
 function downloadCSV(filename, rows) {
   const header = Object.keys(rows[0] || {}).join(",");
   const body = rows
@@ -124,8 +125,9 @@ function downloadCSV(filename, rows) {
   URL.revokeObjectURL(url);
 }
 
+// Build travel “legs” between consecutive tasks per day
 function buildTravelLegs(tasks, locMap) {
-  // רק משימות לא-all-day ובעלות זמנים
+  // Only tasks with concrete times (skip all-day)
   const clean = tasks.filter(
     (t) =>
       t?.start &&
@@ -133,7 +135,7 @@ function buildTravelLegs(tasks, locMap) {
       !(t.task_all_day === 1 || t.task_all_day === true || t?.raw?.task_all_day)
   );
 
-  // קיבוץ לפי יום
+  // Group by day to avoid cross-day legs
   const byDay = new Map();
   for (const t of clean) {
     const key = format(t.start, "yyyy-MM-dd");
@@ -155,7 +157,6 @@ function buildTravelLegs(tasks, locMap) {
       legs.push({
         from: { lat: A.lat, lng: A.lng },
         to: { lat: B.lat, lng: B.lng },
-        // departure: list[i].end?.toISOString() // לא באמת נדרש ל-DM, אפשר לשמור לעתיד
       });
     }
   }
@@ -166,12 +167,13 @@ export default function Reports({
   open,
   onClose,
   tasks = [],
-  userSettings, // { start_day_time, end_day_time }
+  userSettings, 
   userLocations = [],
 }) {
   const [kind, setKind] = useState("week"); // day | week | month | year
   const [start, setStart] = useState(() => format(new Date(), "yyyy-MM-dd"));
 
+  // Aggregated Google travel (updated via effect)
   const [gmTravel, setGmTravel] = useState({
     km: 0,
     min: 0,
@@ -194,19 +196,20 @@ export default function Reports({
     });
   }, [tasks, startDate, endDate]);
 
-  // Duration minutes per task (clip to working day)
+  // Working hours clip (per day)
   const dayStartMin = parseTimeToMin(userSettings?.start_day_time || "08:00");
   const dayEndMin = parseTimeToMin(userSettings?.end_day_time || "21:00");
 
+  // User locations by id
   const locMap = useMemo(() => {
     const m = new Map();
     for (const l of userLocations) m.set(String(l.location_id), l);
     return m;
   }, [userLocations]);
 
+  // Compute scheduled minutes for a task, clipped into working hours per day
   function durationWithinWorkday(t) {
     if (!t?.start || !t?.end) return 0;
-    // do not count all-day items as "scheduled hours"
     if (
       t.task_all_day === 1 ||
       t.task_all_day === true ||
@@ -214,13 +217,12 @@ export default function Reports({
     ) {
       return 0;
     }
-    // Per day clipping (handles tasks that span multiple days)
+
     let sum = 0;
     const cur = new Date(Math.max(t.start.getTime(), startDate.getTime()));
     const stop = new Date(Math.min(t.end.getTime(), endDate.getTime()));
 
-    // iterate day by day (fast enough; ranges are small)
-    while (cur < stop) {
+    while (cr < stop) {
       const dayStr = format(cur, "yyyy-MM-dd");
       const dayStart = new Date(`${dayStr}T00:00:00`);
       const nextDay = new Date(dayStart);
@@ -243,12 +245,13 @@ export default function Reports({
     return sum;
   }
 
+  // Totals & breakdowns
   const totals = useMemo(() => {
     let scheduledMin = 0;
     const byCategory = new Map();
     const byLocation = new Map();
 
-    // --- NEW: prepare for travel between consecutive tasks
+    // Travel fallback (used only if Google call fails)
     const mode = (userSettings?.travel_mode || "driving").toLowerCase();
     const kmh = speedKmhByMode[mode] ?? 30;
     let travelKm = 0;
@@ -270,7 +273,7 @@ export default function Reports({
       const mins = durationWithinWorkday(t);
       scheduledMin += mins;
 
-      // categories
+      // Categories aggregation
       const cats = Array.isArray(t.categories) ? t.categories : [];
       if (cats.length === 0) {
         byCategory.set(
@@ -284,19 +287,18 @@ export default function Reports({
         });
       }
 
-      // locations (time spent at a location)
+      // Location aggregation
       const loc = getTaskLocation(t, locMap);
       if (loc.name) {
         byLocation.set(loc.name, (byLocation.get(loc.name) || 0) + mins);
       }
     }
 
-    // --- NEW: travel legs between consecutive tasks with known coords
+    // Fallback travel legs between consecutive tasks (km + mins)
     for (let i = 0; i < sorted.length - 1; i++) {
       const A = getTaskLocation(sorted[i], locMap);
       const B = getTaskLocation(sorted[i + 1], locMap);
       if (A.lat == null || B.lat == null) continue;
-      // if same place, skip
       if (A.lat === B.lat && A.lng === B.lng) continue;
 
       const km = haversineKm(A, B);
@@ -304,7 +306,7 @@ export default function Reports({
       travelMin += Math.ceil((km / kmh) * 60);
     }
 
-    // working capacity minutes across days in range
+    // Working capacity minutes across days in range
     let capacityMin = 0;
     const d = new Date(startDate);
     while (d < endDate) {
@@ -338,6 +340,7 @@ export default function Reports({
     userSettings?.travel_mode,
   ]);
 
+  // Compute Google-based travel (meters/seconds) with fallback to haversine
   useEffect(() => {
     let cancelled = false;
 
@@ -358,15 +361,15 @@ export default function Reports({
         const data = await res.json();
 
         if (data?.success) {
+          // Expected backend response: meters + seconds
           const km = (data.meters || 0) / 1000;
           const min = Math.round((data.seconds || 0) / 60);
           if (!cancelled) setGmTravel({ km, min, usedFallback: false });
           return;
         }
-        // fallback במקרה של כשל
         throw new Error("distance matrix failed");
       } catch (e) {
-        // fallback ל-haversine המהיר (עדיף על כלום)
+        // Fallback (no Google or API error): estimate by haversine + average speed
         let travelKm = 0;
         let travelMin = 0;
         const kmh = speedKmhByMode[mode] ?? 30;
@@ -400,6 +403,7 @@ export default function Reports({
     };
   }, [inRange, locMap, mode]);
 
+  // CSV exports: per-task (detailed) and summary (totals + breakdowns)
   const exportCSV = () => {
     const rows = inRange.map((t) => {
       const loc = getTaskLocation(t, locMap);
@@ -473,6 +477,7 @@ export default function Reports({
           </button>
         </div>
 
+        {/* Range controls */}
         <div className={s.controls}>
           <div className={s.group}>
             <div className={s.label}>Duration</div>
@@ -508,6 +513,7 @@ export default function Reports({
           </div>
         </div>
 
+        {/* Breakdowns */}
         <div className={s.preview}>
           <div className={s.kpis}>
             <div className={s.kpi}>
@@ -575,6 +581,7 @@ export default function Reports({
           </div>
         </div>
 
+        {/* Actions */}
         <div className={s.actions}>
           <button className={s.btnGhost} onClick={onClose}>
             Close

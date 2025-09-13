@@ -1,4 +1,4 @@
-// CalendarMain.jsx
+// components/mainPageComponents/calendarMain/CalendarMain.jsx
 import React, { useState } from "react";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";

@@ -1,3 +1,4 @@
+// components/landingPageComponents/about/About.jsx
 import React from "react";
 import styles from "./about.module.css";
 const junoImage = process.env.PUBLIC_URL + "/aboutImage.jpg";

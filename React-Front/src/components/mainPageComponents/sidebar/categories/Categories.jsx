@@ -1,4 +1,4 @@
-//Categories.jsx
+//components/mainPageComponents/sidebar/categories/Categories.jsx
 import React, { useEffect, useState } from "react";
 import SingleCategory from "./singleCategory/SingleCategory";
 import styles from "./categories.module.css";
@@ -32,8 +32,6 @@ export default function Categories({
         body: JSON.stringify(newCategory),
       });
 
-      // אין setCategories כאן!
-      // רק:
       await fetchCategories();
 
       setNewCategoryName("");
@@ -50,7 +48,6 @@ export default function Categories({
         credentials: "include",
       });
 
-      // אין setCategories!
       await fetchCategories();
     } catch (err) {
       console.error("Error deleting category:", err);
@@ -75,7 +72,6 @@ export default function Categories({
         }),
       });
 
-      // אין setCategories!
       await fetchCategories();
     } catch (err) {
       console.error("Error editing category:", err);

@@ -1,4 +1,4 @@
-// AddressInput.jsx
+// components/mainPageComponents/sidebar/locations/AddressInput.jsx
 import React, { useState, useRef } from "react";
 import { StandaloneSearchBox } from "@react-google-maps/api";
 
@@ -12,6 +12,7 @@ export default function AddressInput({
   const [inputValue, setInputValue] = useState(value || "");
   const [isValid, setIsValid] = useState(true);
 
+  // Called when user selects a suggestion from Google
   const handlePlacesChanged = () => {
     const places = searchBoxRef.current.getPlaces();
     if (places.length > 0) {
@@ -33,6 +34,7 @@ export default function AddressInput({
     }
   };
 
+  // Called on free-typing; clears coords until a real place is chosen
   const handleChange = (e) => {
     setInputValue(e.target.value);
     onChange(e.target.value);

@@ -1,4 +1,4 @@
-// SingUpBox.jsx
+// landingPageComponents/hero/singUpBox/SingUpBox.jsx
 import React, { useState } from "react";
 import styles from "./singUpBox.module.css";
 

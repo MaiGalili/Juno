@@ -1,4 +1,4 @@
-// Locations.jsx
+// components/mainPageComponents/sidebar/locations/Locations.jsx
 import React, { useState, useEffect } from "react";
 import SingleLocation from "./singleLocation/SingleLocation";
 import AddressInput from "./AddressInput";
@@ -6,16 +6,22 @@ import EditLocationModal from "./EditLocationModal";
 import styles from "./locations.module.css";
 
 export default function Locations({ userLocations = [], fetchLocations }) {
+  // Controlled inputs for the "add location" form
   const [newLocationName, setNewLocationName] = useState("");
   const [newLocationIcon, setNewLocationIcon] = useState("📍");
   const [newLocationAddress, setNewLocationAddress] = useState("");
+
+  // Modal state for editing an existing location
   const [editingLocation, setEditingLocation] = useState(null);
   const [showModal, setShowModal] = useState(false);
+
+  // Optional coords from AddressInput
   const [newLocationCoords, setNewLocationCoords] = useState({
     lat: null,
     lng: null,
   });
 
+  // Create a new location
   const handleAdd = async () => {
     const trimmedName = newLocationName.trim();
     const trimmedAddress = newLocationAddress.trim();
@@ -40,7 +46,8 @@ export default function Locations({ userLocations = [], fetchLocations }) {
 
       const data = await res.json();
       if (data.success) {
-        await fetchLocations();
+        await fetchLocations(); // pull fresh data from server
+        // reset the form
         setNewLocationName("");
         setNewLocationAddress("");
         setNewLocationIcon("📍");
@@ -52,6 +59,7 @@ export default function Locations({ userLocations = [], fetchLocations }) {
     }
   };
 
+  // Delete a location by id. Then refresh the list.
   const handleDelete = async (locationId) => {
     try {
       const res = await fetch(
@@ -75,6 +83,7 @@ export default function Locations({ userLocations = [], fetchLocations }) {
     }
   };
 
+  // Open edit modal for the selected location
   const handleEdit = (locationId) => {
     const current = userLocations.find((loc) => loc.location_id === locationId);
     if (current) {
@@ -83,12 +92,14 @@ export default function Locations({ userLocations = [], fetchLocations }) {
     }
   };
 
+  // Close modal after a successful save from EditLocationModal and refresh
   const handleLocationUpdate = () => {
     setShowModal(false);
     setEditingLocation(null);
     fetchLocations();
   };
 
+  // Update icon only. Then refresh
   const handleIconChange = async (locationId, newIcon) => {
     try {
       const res = await fetch(
@@ -117,6 +128,7 @@ export default function Locations({ userLocations = [], fetchLocations }) {
     }
   };
 
+  // Update color only. Then refresh.
   const handleColorChange = async (locationId, newColor) => {
     try {
       const res = await fetch(
@@ -147,6 +159,7 @@ export default function Locations({ userLocations = [], fetchLocations }) {
 
   return (
     <div className={styles.wrapper}>
+      {/* List of saved locations*/}
       <ul className={styles.locationList}>
         {userLocations.map((loc) => (
           <SingleLocation
@@ -163,6 +176,7 @@ export default function Locations({ userLocations = [], fetchLocations }) {
         ))}
       </ul>
 
+      {/* Add-location form */}
       <div className={styles.addForm}>
         <label>
           Location name:
@@ -176,6 +190,7 @@ export default function Locations({ userLocations = [], fetchLocations }) {
 
         <label>
           Address:
+          {/* AddressInput should call onSelectCoords with {lat,lng} when the user picks a suggestion */}
           <AddressInput
             value={newLocationAddress}
             onChange={setNewLocationAddress}
@@ -186,6 +201,7 @@ export default function Locations({ userLocations = [], fetchLocations }) {
 
         <label>
           Icon:
+          {/* Simple emoji select */}
           <select
             value={newLocationIcon}
             onChange={(e) => setNewLocationIcon(e.target.value)}
@@ -201,6 +217,7 @@ export default function Locations({ userLocations = [], fetchLocations }) {
         <button onClick={handleAdd}>Add</button>
       </div>
 
+      {/* Edit modal: opened by handleEdit; closes on onClose or after onSave */}
       {showModal && editingLocation && (
         <EditLocationModal
           location={editingLocation}

@@ -1,4 +1,4 @@
-// Sidebar.jsx
+// components/mainPageComponents/sidebar/Sidebar.jsx
 import styles from "./sidebar.module.css";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";

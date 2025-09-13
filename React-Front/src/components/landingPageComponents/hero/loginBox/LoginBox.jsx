@@ -1,4 +1,4 @@
-//LoginBox.jsx
+// components/landingPageComponents/hero/loginBox/LoginBox.jsx
 import React, { useState } from "react";
 import styles from "./loginBox.module.css";
 import { useNavigate } from "react-router-dom";

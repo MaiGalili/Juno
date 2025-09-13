@@ -1,8 +1,9 @@
-// TaskPanel.jsx
+// components/mainPageComponents/taskPanel/TaskPanel.jsx
 import React from "react";
 import TaskCard from "./taskCard/TaskCard";
 import styles from "./taskPanel.module.css";
 
+// Returns true if a waiting task's due date/time has already passed.
 function isOverdue(task) {
   const dateRaw = task?.task_duedate;
   if (!dateRaw) return false;
@@ -10,31 +11,28 @@ function isOverdue(task) {
   const hhmm = (task.task_duetime || "23:59").slice(0, 5);
   const [h, m] = hhmm.split(":").map(Number);
 
-  // תומך גם ב-ISO וגם ב-"YYYY-MM-DD" וגם ב- Date
   const due = new Date(dateRaw);
   if (Number.isNaN(due.getTime())) return false;
 
-  // קובעים שעה/דקות מקומיים
   due.setHours(Number.isFinite(h) ? h : 23, Number.isFinite(m) ? m : 59, 0, 0);
 
   return due.getTime() < Date.now();
 }
 
-
-// A list of tasks that are scheduled for a specific time and location
+// Renders the “Upcoming” (scheduled) and “Unscheduled” (waiting) panels.
 export default function TaskPanel({
   upcomingTasks = [],
   waitingTasks = [],
   onSelectTask,
 }) {
-  // Get the first three upcoming tasks
+  // Next 3 future tasks by start time
   const now = new Date();
   const threeUpcoming = [...upcomingTasks]
     .filter((task) => task.start && new Date(task.start) > now)
     .sort((a, b) => new Date(a.start) - new Date(b.start))
     .slice(0, 3);
 
-  // sort waiting tasks
+  // Waiting tasks sorted by due date, then due time
   const sortedWaiting = [...waitingTasks].sort((a, b) => {
     if (a.task_duedate < b.task_duedate) return -1;
     if (a.task_duedate > b.task_duedate) return 1;
@@ -46,6 +44,7 @@ export default function TaskPanel({
 
   return (
     <div className={styles.panel}>
+      {/* Upcoming (scheduled) */}
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>Upcoming</h3>
         {threeUpcoming.length === 0 ? (
@@ -78,6 +77,7 @@ export default function TaskPanel({
         )}
       </div>
 
+      {/* Unscheduled (waiting) */}
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>Unscheduled</h3>
         {sortedWaiting.length === 0 ? (

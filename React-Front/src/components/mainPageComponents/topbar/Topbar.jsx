@@ -7,13 +7,14 @@ import { FiSettings } from "react-icons/fi";
 import Settings from "./settings/Settings";
 
 export default function TopBar({ onTaskSelect, setIsLoggin }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false); // settings modal visibility
+
   return (
     <div className={styles.topbar}>
       {/* Left: Logo */}
       <div className={styles.logo}>Juno</div>
 
-      {/* Center: Search */}
+      {/* Center: global task search; onPick open selected task */}
       <div className={styles.searchWrapper}>
         <SearchBar onPick={onTaskSelect} />
       </div>
@@ -30,6 +31,7 @@ export default function TopBar({ onTaskSelect, setIsLoggin }) {
         </button>
         <LogoutButton setIsLoggin={setIsLoggin} />
       </div>
+
       {/* render the modal */}
       <Settings open={open} onClose={() => setOpen(false)} />
     </div>

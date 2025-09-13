@@ -1,4 +1,4 @@
-// HelpForm.jsx
+// landingPageComponents/help/helpForm/HelpForm.jsx
 
 import React, { useState } from "react";
 import styles from "./helpForm.module.css"; 

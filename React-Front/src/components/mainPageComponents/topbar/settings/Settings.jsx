@@ -1,3 +1,4 @@
+// components/mainPageComponents/topbar/settings/Settings.jsx
 import React, { useEffect, useState } from "react";
 import styles from "./settings.module.css";
 
@@ -12,6 +13,7 @@ export default function Settings({ open, onClose }) {
   });
   const [locations, setLocations] = useState([]);
 
+  // Load settings + locations only when the modal opens.
   useEffect(() => {
     if (!open) return;
     (async () => {
@@ -31,10 +33,12 @@ export default function Settings({ open, onClose }) {
       const loc = await fetch("http://localhost:8801/api/locations", {
         credentials: "include",
       }).then((r) => r.json());
+      // Server may return plain array or {data: [...]}
       setLocations(Array.isArray(loc) ? loc : loc?.data || []);
     })();
   }, [open]);
 
+  // Persist changes
   const save = async () => {
     const res = await fetch("http://localhost:8801/api/users/settings", {
       method: "PUT",
@@ -52,13 +56,13 @@ export default function Settings({ open, onClose }) {
     <div className={styles.popupWrapper}>
       <div className={styles.popup}>
         <h2 className={styles.title}>Settings</h2>
-
         <div className={styles.popupBody}>
+          {/* Buffer between tasks*/}
           <label>
             Default buffer (HH:MM)
             <input
               type="time"
-              step="60" // minutes only, no seconds
+              step="60"
               value={form.defult_buffer}
               onChange={(e) =>
                 setForm((f) => ({ ...f, defult_buffer: e.target.value }))
@@ -66,6 +70,7 @@ export default function Settings({ open, onClose }) {
             />
           </label>
 
+          {/* Working day window (affects reports/suggestions) */}
           <label>
             Day starts at
             <input
@@ -90,6 +95,7 @@ export default function Settings({ open, onClose }) {
             />
           </label>
 
+          {/* Waiting-list capacity for unscheduled tasks */}
           <label className={styles.field}>
             Waiting list max
             <input
@@ -106,6 +112,7 @@ export default function Settings({ open, onClose }) {
             />
           </label>
 
+          {/* Default place */}
           <label className={styles.field}>
             Default location
             <select
@@ -114,6 +121,7 @@ export default function Settings({ open, onClose }) {
               onChange={(e) =>
                 setForm((f) => ({
                   ...f,
+                  // empty string means "no default" (server normalizes to NULL)
                   default_location_id: e.target.value || null,
                 }))
               }
@@ -127,6 +135,7 @@ export default function Settings({ open, onClose }) {
             </select>
           </label>
 
+          {/*Maches backend set: driving/walking/bicycling/transit */}
           <label className={styles.field}>
             Default travel mode
             <select

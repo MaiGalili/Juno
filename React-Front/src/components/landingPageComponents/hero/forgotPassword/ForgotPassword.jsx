@@ -1,4 +1,4 @@
-// forgotPassword.jsx
+// components/landingPageComponents/hero/forgotPassword/ForgotPassword.jsx
 import React, { useState } from "react";
 import styles from "./forgotPassword.module.css";
 

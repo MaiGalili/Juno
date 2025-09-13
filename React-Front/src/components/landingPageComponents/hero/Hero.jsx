@@ -1,4 +1,4 @@
-//Hero.jsx
+//components/landingPageComponents/hero/Hero.jsx
 import React, { useState } from "react";
 import styles from "./hero.module.css";
 import Login from "./loginBox/LoginBox";
