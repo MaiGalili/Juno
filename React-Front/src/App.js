@@ -25,9 +25,10 @@ function App() {
     })
       .then((res) => res.json())
       .then((data) => {
+        // If a session is active, store the user's email
         if (data.success) {
           setUserEmail(data.userEmail);
-        } // Set userEmail if session exists
+        } 
       })
       .catch((err) => console.error("Session check failed:", err))
       .finally(() => setLoading(false)); // Stop loading either way
