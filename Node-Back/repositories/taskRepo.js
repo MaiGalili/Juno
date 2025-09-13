@@ -1,7 +1,8 @@
 // repositories/taskRepo.js
 const db = require("../db");
 
-//async function assignFromWaiting(req, res) {}
+// Returns assigned tasks for a user that START within [startDate, endDate].
+// Sorted by start date/time. Includes location fields for travel calculations.
 async function getAssignedBetween(email, startDate, endDate) {
   const [rows] = await db.promise().query(
     `
@@ -27,6 +28,7 @@ async function getAssignedBetween(email, startDate, endDate) {
   return rows;
 }
 
+// Fetch a waiting-list task (base task + waiting fields) by task_id and owner. Also aggregates category IDs into a numeric array (category_ids).
 async function getWaitingById(waitingId, email) {
   const [rows] = await db.promise().query(
     `SELECT t.*,
@@ -41,13 +43,14 @@ async function getWaitingById(waitingId, email) {
   );
   const row = rows[0];
   if (!row) return null;
-  // parse CSV -> array<number>
+  // Parse comma-separated categories into number[]
   row.category_ids = row.category_ids_csv
     ? row.category_ids_csv.split(",").map((x) => Number(x))
     : [];
   return row;
 }
 
+// Insert a brand-new assigned task (base task + assigned row) inside an existing transaction. Does NOT commit.
 async function createAssignedTaskTx(conn, payload) {
   const [insTask] = await conn.query(
     `INSERT INTO task
@@ -82,6 +85,7 @@ async function createAssignedTaskTx(conn, payload) {
     ]
   );
 
+  // Insert categories if provided
   if (Array.isArray(payload.category_ids)) {
     for (const cid of payload.category_ids) {
       await conn.query(
@@ -94,6 +98,7 @@ async function createAssignedTaskTx(conn, payload) {
   return { task_id: newTaskId };
 }
 
+// Promote a waiting task to an assigned task within a single DB transaction.
 async function promoteWaitingToAssigned(waitingId, payload) {
   const conn = db.promise();
   try {
@@ -115,7 +120,7 @@ async function promoteWaitingToAssigned(waitingId, payload) {
   }
 }
 
-// Get an assigned task by id + email (used to verify ownership / preload values)
+// Get a single assigned task by its id+owner, including assigned timings and categories IDs.
 async function getAssignedById(assignedId, email) {
   const [rows] = await db.promise().query(
     `SELECT t.*,
@@ -130,13 +135,14 @@ async function getAssignedById(assignedId, email) {
   );
   const row = rows[0];
   if (!row) return null;
+  // Parse comma-separated categories into number[]
   row.category_ids = row.category_ids_csv
     ? row.category_ids_csv.split(",").map((x) => Number(x))
     : [];
   return row;
 }
 
-// Create a waiting task inside an existing transaction-like "conn"
+// Insert a brand-new waiting task (base task + waiting_list row) inside an existing transaction. Does not commit
 async function createWaitingTaskTx(conn, payload) {
   // Insert a new base task row (no assigned rows for waiting tasks)
   const [insTask] = await conn.query(
@@ -149,7 +155,7 @@ async function createWaitingTaskTx(conn, payload) {
       payload.title,
       payload.duration,
       payload.note,
-      payload.buffer_time, // should already be HH:MM:SS or null
+      payload.buffer_time,
       payload.location_id,
       payload.custom_location_address,
       payload.custom_location_latitude,
