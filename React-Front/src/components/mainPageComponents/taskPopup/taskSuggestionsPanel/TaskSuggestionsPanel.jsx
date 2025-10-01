@@ -19,6 +19,35 @@ export default function TaskSuggestionsPanel({
   const [error, setError] = useState("");
   const [suggestions, setSuggestions] = useState([]);
 
+  // Check past-due (date + time)
+  const todayYMD = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(now.getDate()).padStart(2, "0")}`;
+  };
+
+  const isPastDue = useMemo(() => {
+    if (!dueDate) return false;
+
+    const now = new Date();
+    const todayStr = todayYMD();
+
+    // If due date is before today → past due
+    if (dueDate < todayStr) return true;
+
+    // If due date is today and time exists → compare minutes
+    if (dueDate === todayStr && dueTime) {
+      const [hh, mm] = dueTime.split(":").map(Number);
+      const dueMinutes = (hh || 0) * 60 + (mm || 0);
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      return nowMinutes > dueMinutes;
+    }
+
+    return false;
+  }, [dueDate, dueTime]);
+
   // require duration + dueDate (waiting task)
   const canQuery = useMemo(
     () => Boolean(duration && dueDate),
@@ -27,10 +56,13 @@ export default function TaskSuggestionsPanel({
 
   // Fetch suggestions from backend
   useEffect(() => {
-    if (!canQuery) {
+    if (!canQuery || isPastDue) {
       setSuggestions([]);
+      setLoading(false);
+      setError("");
       return;
     }
+
     const abort = new AbortController();
     const fetchSuggestions = async () => {
       try {
@@ -91,12 +123,14 @@ export default function TaskSuggestionsPanel({
     return () => abort.abort();
   }, [
     canQuery,
+    isPastDue,
     duration,
     dueDate,
     dueTime,
     bufferTime,
     locationId,
     customAddress,
+    customCoords,
     offset,
   ]);
 
@@ -175,8 +209,21 @@ export default function TaskSuggestionsPanel({
         </div>
       )}
 
-      {/* Error state with quick retry */}
-      {canQuery && error && (
+      {/* Past-due message (date OR time) */}
+      {canQuery && isPastDue && (
+        <div className={styles.warning}>
+          The due date/time (
+          <b>
+            {dueDate}
+            {dueTime ? ` ${dueTime}` : ""}
+          </b>
+          ) has already passed. Update the due date to get fresh time
+          suggestions.
+        </div>
+      )}
+
+      {/* Error state */}
+      {canQuery && !isPastDue && error && (
         <div className={styles.error}>
           {error}{" "}
           <button type="button" onClick={resetPaging}>
@@ -186,12 +233,16 @@ export default function TaskSuggestionsPanel({
       )}
 
       {/* No results */}
-      {canQuery && !error && suggestions.length === 0 && !loading && (
-        <div className={styles.empty}>No free time suggestions found.</div>
-      )}
+      {canQuery &&
+        !isPastDue &&
+        !error &&
+        suggestions.length === 0 &&
+        !loading && (
+          <div className={styles.empty}>No free time suggestions found.</div>
+        )}
 
       {/* Results list */}
-      {suggestions.length > 0 && (
+      {!isPastDue && suggestions.length > 0 && (
         <ul className={styles.list}>
           {suggestions.map((s) => (
             <li
@@ -214,7 +265,7 @@ export default function TaskSuggestionsPanel({
       )}
 
       {/* Paging */}
-      {canQuery && !loading && (
+      {canQuery && !isPastDue && !loading && (
         <div className={styles.moreRow}>
           <button type="button" className={styles.moreBtn} onClick={showMore}>
             Show more
