@@ -66,7 +66,7 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/locations", locationsRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/suggestions", suggestionsRouter);
+app.use("/api/tasks", suggestionsRouter);
 app.use("/api/travel", travelRoutes);
 
 // Start the server
