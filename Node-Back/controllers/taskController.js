@@ -450,7 +450,7 @@ async function updateAssignedTask(req, res) {
   } = req.body;
 
   try {
-    // 1) Load the current state (we may keep some original fields)
+    // 1) Load the current state 
     const [rows] = await db.promise().query(
       `SELECT
   t.series_id, t.task_repeat, t.repeat_until, t.email,
@@ -481,6 +481,14 @@ WHERE t.task_id = ?
       task_start_time,
       email,
     } = row;
+
+// Load existing categories for fallback when category_ids not sent
+    const [catRows] = await db
+      .promise()
+      .query(`SELECT category_id FROM task_category WHERE task_id = ?`, [task_id]);
+    const existingCatIds = catRows.map(r => r.category_id);
+    const catsToApply = Array.isArray(category_ids) ? category_ids : existingCatIds;
+
 
     // 2) Defaults: preserve existing if client didn't send new values
     const newStartDate = start_date ?? row.task_start_date;
@@ -539,6 +547,13 @@ WHERE t.task_id = ?
       task_repeat = ?,
       repeat_until = ?`;
 
+      const updateTaskSqlWithRepeatAndSeries =
+        updateTaskSqlCore +
+        `,
+      task_repeat = ?,
+      repeat_until = ?,
+      series_id = ?`;
+
     const updateAssignedSql = `UPDATE assigned SET
       task_start_date = ?,
       task_end_date = ?,
@@ -570,6 +585,110 @@ WHERE t.task_id = ?
       return getNextNDates(baseDate, count, rt);
     }
 
+    // ---------- 3.5) CONVERT single -> series ----------
+    const wantsConvertToSeries =
+      (!series_id || task_repeat === "none") &&
+      reqTaskRepeat &&
+      reqTaskRepeat !== "none" &&
+      reqRepeatUntil;
+
+    if (wantsConvertToSeries) {
+      const newSeriesId = uuidv4();
+      const dates = getRepeatDates(newStartDateStr, toYMD(reqRepeatUntil), reqTaskRepeat);
+
+      try {
+        await db.promise().query("START TRANSACTION");
+
+        // Update current task to become first in the new series
+        await db.promise().query(updateTaskSqlWithRepeatAndSeries + ` WHERE task_id = ?`, [
+          title || "Untitled Task",
+          newAllDay,
+          newDuration,
+          newNote,
+          newBuffer,
+          newLocId,
+          newCustAddr,
+          newCustLat,
+          newCustLng,
+          reqTaskRepeat,
+          toYMD(reqRepeatUntil),
+          newSeriesId,
+          task_id,
+        ]);
+
+        await db.promise().query(updateAssignedSql + ` WHERE task_id = ?`, [
+          newStartDateStr,
+          newEndDateStr,
+          newStartTimeStr,
+          newEndTimeStr,
+          task_id,
+        ]);
+
+        // Reset & reassign categories on current task
+        await db.promise().query(`DELETE FROM task_category WHERE task_id = ?`, [task_id]);
+        for (const cid of catsToApply) {
+          await db.promise().query(
+            `INSERT INTO task_category (task_id, category_id) VALUES (?, ?)`,
+            [task_id, cid]
+          );
+        }
+
+        // Insert the remaining occurrences
+        for (let i = 1; i < dates.length; i++) {
+          const d = dates[i];
+          const [ins] = await db.promise().query(
+            `INSERT INTO task (
+              task_title, task_duration, task_note, task_buffertime, location_id,
+              custom_location_address, custom_location_latitude, custom_location_longitude,
+              task_all_day, task_repeat, repeat_until, email, series_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              title || "Untitled Task",
+              newDuration,
+              newNote,
+              newBuffer,
+              newLocId,
+              newCustAddr,
+              newCustLat,
+              newCustLng,
+              newAllDay ? 1 : 0,
+              reqTaskRepeat,
+              toYMD(reqRepeatUntil),
+              email,
+              newSeriesId,
+            ]
+          );
+          const newTid = ins.insertId;
+          await db.promise().query(
+            `INSERT INTO assigned (task_id, task_start_date, task_end_date, task_start_time, task_end_time)
+             VALUES (?, ?, ?, ?, ?)`,
+            [newTid, d, d, newStartTimeStr, newEndTimeStr]
+          );
+          // copy categories
+          for (const cid of catsToApply) {
+            await db.promise().query(
+              `INSERT INTO task_category (task_id, category_id) VALUES (?, ?)`,
+              [newTid, cid]
+            );
+          }
+        }
+
+        await db.promise().query("COMMIT");
+        return res.json({
+          success: true,
+          message: "Task converted to series and updated",
+          series_id: newSeriesId,
+          occurrences: dates.length,
+        });
+      } catch (e) {
+        try { await db.promise().query("ROLLBACK"); } catch (_) {}
+        console.error("Convert single -> series error:", e?.sqlMessage || e.message);
+        return res.status(500).json({ success: false, message: "Server error" });
+      }
+    }
+    // ---------- end conversion block ----------
+
+
     // 4) Scope: ONE - update only this occurrence
     if (!series_id || task_repeat === "none" || scope === "ONE") {
       await db
@@ -597,7 +716,14 @@ WHERE t.task_id = ?
           task_id,
         ]);
 
-      await updateCategories([task_id]);
+      // categories
+      await db.promise().query(`DELETE FROM task_category WHERE task_id = ?`, [task_id]);
+      for (const cid of catsToApply) {
+        await db.promise().query(
+          `INSERT INTO task_category (task_id, category_id) VALUES (?, ?)`,
+          [task_id, cid]
+       );
+    }
       return res.json({ success: true, message: "Assigned task updated" });
     }
 

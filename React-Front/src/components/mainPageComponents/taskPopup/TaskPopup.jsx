@@ -507,6 +507,8 @@ export default function TaskPopup({
           custom_location_longitude: !useFavorite ? customCoords.lng : null,
           due_date: dueDate || null,
           due_time: dueTime || null,
+          task_repeat: taskRepeat,
+          repeat_until: repeatUntil || null,
         };
 
         const res = await fetch(
@@ -569,9 +571,14 @@ export default function TaskPopup({
       }
 
       // Regular update
+      const scopeParam =
+        typeof scope === "string" ? scope : (scope && scope.value) || "ONE";
+
       const endpoint = isWaitingTask
         ? `http://localhost:8801/api/tasks/update/waiting/${task.task_id}`
-        : `http://localhost:8801/api/tasks/update/assigned/${task.task_id}?scope=${scope}`;
+        : `http://localhost:8801/api/tasks/update/assigned/${
+            task.task_id
+          }?scope=${encodeURIComponent(scopeParam)}`;
 
       const payload = isWaitingTask
         ? {
@@ -586,6 +593,8 @@ export default function TaskPopup({
             due_date: dueDate || null,
             due_time: dueTime || null,
             buffer_time: toHHMMSS(bufferTime),
+            task_repeat: taskRepeat,
+            repeat_until: repeatUntil || null,
           }
         : {
             title,
@@ -602,6 +611,8 @@ export default function TaskPopup({
             custom_location_latitude: !useFavorite ? customCoords.lat : null,
             custom_location_longitude: !useFavorite ? customCoords.lng : null,
             buffer_time: toHHMMSS(bufferTime),
+            task_repeat: taskRepeat,
+            repeat_until: repeatUntil || null,
           };
 
       const res = await fetch(endpoint, {
