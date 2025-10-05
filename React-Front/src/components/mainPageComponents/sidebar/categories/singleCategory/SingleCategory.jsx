@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import styles from "./singleCategory.module.css";
+import ConfirmModal from "../../../../ConfirmModal";
 
 export default function SingleCategory({
   id,
@@ -10,34 +11,78 @@ export default function SingleCategory({
   onColorChange,
 }) {
   const [showMenu, setShowMenu] = useState(false);
+
+  // inline rename state
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(name);
   const [error, setError] = useState("");
 
+  // confirmation modal state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMsg, setConfirmMsg] = useState("");
+  const [confirmAction, setConfirmAction] = useState(() => () => {});
+
+  const openConfirm = (message, actionFn) => {
+    setConfirmMsg(message);
+    setConfirmAction(() => actionFn);
+    setConfirmOpen(true);
+  };
+  const closeConfirm = () => setConfirmOpen(false);
+
+  // ---- rename flow ----
   const startEdit = () => {
     setShowMenu(false);
     setDraft(name);
     setError("");
     setIsEditing(true);
   };
-
   const cancelEdit = () => {
     setIsEditing(false);
     setDraft(name);
     setError("");
   };
-
-  const saveEdit = async () => {
-    const trimmed = draft.trim();
+  const saveEdit = () => {
+    const trimmed = (draft || "").trim();
     if (!trimmed || trimmed === name) return cancelEdit();
-    try {
-      await onEdit(id, trimmed);
-      setIsEditing(false);
-    } catch (e) {
-      setError(e?.message || "Could not rename");
-    }
+
+    openConfirm(`Rename "${name}" to "${trimmed}"?`, async () => {
+      try {
+        await onEdit(id, trimmed);
+        setIsEditing(false);
+      } catch (e) {
+        // keep the editor open and show the error
+        setError(e?.message || "Could not rename");
+      } finally {
+        closeConfirm();
+      }
+    });
   };
 
+  // ---- delete flow ----
+  const handleDelete = () => {
+    setShowMenu(false);
+    openConfirm(`Remove category "${name}"?`, async () => {
+      try {
+        await onDelete(id);
+      } finally {
+        closeConfirm();
+      }
+    });
+  };
+
+  // ---- color change flow ----
+  const handlePickColor = (newColor) => {
+    setShowMenu(false);
+    if (!newColor || newColor === color) return;
+    openConfirm(`Change color of "${name}"?`, async () => {
+      try {
+        await onColorChange(id, newColor);
+      } finally {
+        closeConfirm();
+      }
+    });
+  };
+  
   return (
     <li className={styles.categoryItem} style={{ backgroundColor: color }}>
       {!isEditing ? (

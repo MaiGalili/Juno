@@ -57,8 +57,10 @@ export default function Categories({
   const handleEdit = async (categoryId, newName) => {
     const current = userCategories.find((c) => c.category_id === categoryId);
     if (!current) return;
+
     const trimmed = (newName || "").trim();
     if (!trimmed) return;
+    
     // prevent duplicates (case-insensitive)
     const dup = userCategories.some(
       (c) =>
