@@ -82,8 +82,9 @@ export default function SingleCategory({
       }
     });
   };
-  
+
   return (
+    <>
     <li className={styles.categoryItem} style={{ backgroundColor: color }}>
       {!isEditing ? (
         <>
@@ -94,9 +95,11 @@ export default function SingleCategory({
           >
             {name}
           </span>
+
           <button
             className={styles.menuButton}
             onClick={() => setShowMenu((p) => !p)}
+            aria-label="Category options"
           >
             ⋮
           </button>
@@ -113,15 +116,10 @@ export default function SingleCategory({
                   }}
                 />
               </label>
-              <button onClick={startEdit}>Edit</button>
-              <button
-                onClick={() => {
-                  setShowMenu(false);
-                  onDelete(id);
-                }}
-              >
-                Remove Category
-              </button>
+
+              <button onClick={startEdit}>Edit Name</button>
+
+              <button onClick={handleDelete}>Remove Category</button>
             </div>
           )}
         </>
@@ -146,5 +144,13 @@ export default function SingleCategory({
         </div>
       )}
     </li>
+    {confirmOpen && (
+        <ConfirmModal
+          message={confirmMsg}
+          onConfirm={confirmAction}
+          onCancel={closeConfirm}
+        />
+      )}
+    </>
   );
 }
