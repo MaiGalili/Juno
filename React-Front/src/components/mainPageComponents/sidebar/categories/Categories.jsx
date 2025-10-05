@@ -54,10 +54,19 @@ export default function Categories({
     }
   };
 
-  const handleEdit = async (categoryId) => {
+  const handleEdit = async (categoryId, newName) => {
     const current = userCategories.find((c) => c.category_id === categoryId);
-    const newName = prompt("Enter new name:", current.name);
-    if (!newName) return;
+    if (!current) return;
+    const trimmed = (newName || "").trim();
+    if (!trimmed) return;
+    // prevent duplicates (case-insensitive)
+    const dup = userCategories.some(
+      (c) =>
+        c.category_id !== categoryId &&
+        c.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (dup) throw new Error("Category name already exists");
+
 
     try {
       await fetch("http://localhost:8801/api/categories", {
@@ -66,7 +75,7 @@ export default function Categories({
         credentials: "include",
         body: JSON.stringify({
           category_id: categoryId,
-          new_name: newName,
+          new_name: trimmed,
           new_color: current.color,
           user_email: userEmail,
         }),
@@ -75,6 +84,7 @@ export default function Categories({
       await fetchCategories();
     } catch (err) {
       console.error("Error editing category:", err);
+      throw err; // bubble up so the row can show an inline error
     }
   };
 
