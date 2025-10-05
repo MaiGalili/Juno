@@ -222,7 +222,7 @@ export default function Reports({
     const cur = new Date(Math.max(t.start.getTime(), startDate.getTime()));
     const stop = new Date(Math.min(t.end.getTime(), endDate.getTime()));
 
-    while (cr < stop) {
+    while (cur < stop) {
       const dayStr = format(cur, "yyyy-MM-dd");
       const dayStart = new Date(`${dayStr}T00:00:00`);
       const nextDay = new Date(dayStart);
